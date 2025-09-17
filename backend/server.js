@@ -44,7 +44,10 @@ const corsOptions = {
 	optionsSuccessStatus: 200
 };
 
-app.use(cors(corsOptions));
+// 本地
+app.use(cors());
+// 线上
+// app.use(cors(corsOptions));
 
 app.use(express.json({ limit: '10mb' })); // 增加JSON解析限制
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { precisionCalculate } = require('../utils/precision');
 
 const commissionAccountingSchema = new mongoose.Schema({
     // 名字
@@ -72,12 +73,18 @@ const commissionAccountingSchema = new mongoose.Schema({
 
 // 在保存前自动计算佣金利润和净利润
 commissionAccountingSchema.pre('save', function(next) {
-    // 佣金利润 = 净成交数据 * 佣金
-    this.commissionProfit = (this.netTransactionData || 0) * (this.commission || 0) / 100;
-    
+    // 佣金利润 = 净成交数据 × 佣金%
+    this.commissionProfit = precisionCalculate.multiply(
+        this.netTransactionData || 0,
+        precisionCalculate.divide(this.commission || 0, 100)
+    );
+
     // 净利润 = 佣金利润 - 今日消耗
-    this.netProfit = this.commissionProfit - (this.dailyConsumption || 0);
-    
+    this.netProfit = precisionCalculate.subtract(
+        this.commissionProfit,
+        this.dailyConsumption || 0
+    );
+
     next();
 });
 

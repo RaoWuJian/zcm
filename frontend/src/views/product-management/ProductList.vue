@@ -63,10 +63,10 @@
               class="business-input"
             />
           </el-form-item>
-          <el-form-item label="店铺ID" class="search-item">
+          <el-form-item label="商品ID" class="search-item">
             <el-input
               v-model="searchForm.storeId"
-              placeholder="请输入店铺ID"
+              placeholder="请输入商品ID"
               clearable
               class="business-input"
             />
@@ -125,7 +125,7 @@
         <el-table-column prop="team" label="团队" width="120" show-overflow-tooltip />
         <el-table-column prop="supplier" label="供应商" min-width="120" show-overflow-tooltip />
         <el-table-column prop="storeName" label="店铺名称" min-width="120" show-overflow-tooltip />
-        <el-table-column prop="storeId" label="店铺Id" min-width="120" show-overflow-tooltip />
+        <el-table-column prop="storeId" label="商品ID" min-width="120" show-overflow-tooltip />
         <el-table-column prop="platform" label="平台" width="100" />
         <el-table-column prop="dailyOrderCount" label="订单数" width="80" />
         <el-table-column prop="dailySalesVolume" label="销量" width="80" />
@@ -254,11 +254,11 @@
             </el-form-item>
           </el-col>
            <el-col :span="12">
-             <el-form-item label="店铺ID" prop="storeId">
+             <el-form-item label="商品ID" prop="storeId">
               <el-autocomplete
                 v-model="productForm.storeId"
                 :fetch-suggestions="queryStoreNameSuggestions"
-                placeholder="请输入店铺ID"
+                placeholder="请输入商品ID"
                 style="width: 100%"
                 clearable
               />
@@ -404,7 +404,7 @@
             <el-tooltip
               class="box-item"
               effect="dark"
-              content="当天总盈亏 = 当天付款金额 - (当天销售盒数 * 产品单价) - 产品运费 - 当天消耗金额 - 手续费"
+              content="当天总盈亏 = 当天付款金额 - (当天销售盒数 * 产品单价) - 产品运费 - 当天消耗金额 - 手续费 - 售后成本 - 售后金额"
               placement="top-start"
             >
               <el-form-item label="当天总盈亏" prop="handlingFee111">
@@ -439,6 +439,7 @@ import {
   List 
 } from '@element-plus/icons-vue'
 import { useProductStore } from '../../stores/product'
+import { precisionCalculate } from '@/utils/precision'
 
 // 使用 Pinia store
 const productStore = useProductStore()
@@ -508,11 +509,22 @@ const productRules = {
 
 // 计算总盈亏
 const calculatedProfit = () => {
-  // 产品成本 = 当天销售盒数 * 产品单价
-  // 当天总盈亏 = 当天付款金额 - (当天销售盒数 * 产品单价) - 产品运费 - 当天消耗金额 - 手续费
-  productForm.productCost = (productForm.dailySalesVolume || 0) * (productForm.unitPrice || 0)
-  dailyTotalProfit.value = (productForm.dailyPaymentAmount || 0) - (productForm.productCost || 0) - (productForm.shippingCost || 0) - (productForm.dailyConsumedAmount || 0) - (productForm.handlingFee || 0)
-
+  // 产品成本计算
+  productForm.productCost = precisionCalculate.multiply(
+    productForm.dailySalesVolume || 0, 
+    productForm.unitPrice || 0
+  )
+  
+  // 当天总盈亏计算
+  dailyTotalProfit.value = precisionCalculate.subtract(
+    productForm.dailyPaymentAmount || 0,
+    productForm.productCost || 0,
+    productForm.shippingCost || 0,
+    productForm.dailyConsumedAmount || 0,
+    productForm.handlingFee || 0,
+    productForm.afterSalesCost || 0,
+    productForm.afterSalesAmount || 0
+  )
 }
 
 // 计算属性

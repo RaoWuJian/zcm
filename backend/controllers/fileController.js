@@ -125,7 +125,7 @@ const uploadFile = asyncHandler(async (req, res) => {
     const uploadStream = gfsBucket.openUploadStream(uniqueFilename, {
       metadata: {
         originalName: file.originalname,
-        uploadedBy: req.user.id,
+        uploadedBy: req.user ? req.user.id : null,
         uploadedAt: new Date()
       }
     });
@@ -157,7 +157,7 @@ const uploadFile = asyncHandler(async (req, res) => {
       status: 'completed',
       tags: tags ? tags.split(',').map(tag => tag.trim()) : [],
       isPublic: isPublic === 'true',
-      createdBy: req.user.id
+      createdBy: req.user ? req.user.id : null
     });
 
     // 重新查询以获取完整的populate信息
@@ -309,16 +309,16 @@ const getFileInfo = asyncHandler(async (req, res) => {
 // @route   GET /api/files/:id
 // @access  Private
 const downloadFile = asyncHandler(async (req, res) => {
-  const { hasAccess, file, error } = await checkFileAccess(req.params.id, req.user);
-
-  if (!hasAccess) {
-    return res.status(file === null ? 404 : 403).json({
-      success: false,
-      message: error
-    });
-  }
-
   try {
+    const file = await FileInfo.findById(req.params.id);
+
+    if (!file) {
+      return res.status(404).json({
+        success: false,
+        message: '文件不存在'
+      });
+    }
+
     // 更新访问统计
     await file.updateAccessStats();
 
@@ -358,59 +358,70 @@ const downloadFile = asyncHandler(async (req, res) => {
 // @route   PUT /api/files/info/:id
 // @access  Private
 const updateFileInfo = asyncHandler(async (req, res) => {
-  const { hasAccess, file, error } = await checkFileAccess(req.params.id, req.user);
+  try {
+    const file = await FileInfo.findById(req.params.id);
 
-  if (!hasAccess) {
-    return res.status(file === null ? 404 : 403).json({
+    if (!file) {
+      return res.status(404).json({
+        success: false,
+        message: '文件不存在'
+      });
+    }
+
+    const { description, tags, isPublic } = req.body;
+
+    const updateData = {
+      updatedBy: req.user ? req.user.id : null,
+      updatedAt: Date.now()
+    };
+
+    if (description !== undefined) updateData.description = description;
+    if (tags !== undefined) updateData.tags = tags.split(',').map(tag => tag.trim());
+    if (isPublic !== undefined) updateData.isPublic = isPublic;
+
+    const updatedFile = await FileInfo.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateData },
+      {
+        new: true,
+        runValidators: true
+      }
+    ).populate('createdBy', 'username loginAccount')
+     .populate('updatedBy', 'username loginAccount');
+
+    res.status(200).json({
+      success: true,
+      data: updatedFile,
+      message: '文件信息更新成功'
+    });
+
+  } catch (error) {
+    console.error('更新文件信息错误:', error);
+    res.status(500).json({
       success: false,
-      message: error
+      message: '更新文件信息失败'
     });
   }
-
-  const { description, tags, isPublic } = req.body;
-
-  const updateData = {
-    updatedBy: req.user.id,
-    updatedAt: Date.now()
-  };
-
-  if (description !== undefined) updateData.description = description;
-  if (tags !== undefined) updateData.tags = tags.split(',').map(tag => tag.trim());
-  if (isPublic !== undefined) updateData.isPublic = isPublic;
-
-  const updatedFile = await FileInfo.findByIdAndUpdate(
-    req.params.id,
-    { $set: updateData },
-    {
-      new: true,
-      runValidators: true
-    }
-  ).populate('createdBy', 'username loginAccount')
-   .populate('updatedBy', 'username loginAccount');
-
-  res.status(200).json({
-    success: true,
-    data: updatedFile,
-    message: '文件信息更新成功'
-  });
 });
 
 // @desc    删除文件
 // @route   DELETE /api/files/:id
 // @access  Private
 const deleteFile = asyncHandler(async (req, res) => {
-  const { hasAccess, file, error } = await checkFileAccess(req.params.id, req.user);
-
-  if (!hasAccess) {
-    return res.status(file === null ? 404 : 403).json({
-      success: false,
-      message: error
-    });
-  }
-
   try {
+    const file = await FileInfo.findById(req.params.id);
+
+    if (!file) {
+      return res.status(404).json({
+        success: false,
+        message: '文件不存在'
+      });
+    }
+
     // 从GridFS删除文件
-    await gfsBucket.delete(file.gridfsId);
+    if (file.gridfsId) {
+      await gfsBucket.delete(file.gridfsId);
+    }
 
     // 删除文件信息记录
     await FileInfo.findByIdAndDelete(req.params.id);
@@ -442,48 +453,37 @@ const batchDeleteFiles = asyncHandler(async (req, res) => {
     });
   }
 
-  // 检查用户对每个文件的权限
-  const accessChecks = await Promise.all(
-    ids.map(id => checkFileAccess(id, req.user))
-  );
-
-  // 过滤出有权限删除的文件
-  const allowedFiles = [];
-  const deniedCount = accessChecks.filter(check => !check.hasAccess).length;
-
-  accessChecks.forEach((check, index) => {
-    if (check.hasAccess) {
-      allowedFiles.push(check.file);
-    }
-  });
-
-  if (allowedFiles.length === 0) {
-    return res.status(403).json({
-      success: false,
-      message: '没有权限删除任何选中的文件'
-    });
-  }
-
   try {
+    // 查找所有要删除的文件
+    const files = await FileInfo.find({
+      _id: { $in: ids }
+    });
+
+    if (files.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: '未找到要删除的文件'
+      });
+    }
+
     // 从GridFS删除文件
     await Promise.all(
-      allowedFiles.map(file => gfsBucket.delete(file.gridfsId))
+      files.map(file => {
+        if (file.gridfsId) {
+          return gfsBucket.delete(file.gridfsId);
+        }
+        return Promise.resolve();
+      })
     );
 
     // 删除文件信息记录
-    const allowedIds = allowedFiles.map(file => file._id);
     const result = await FileInfo.deleteMany({
-      _id: { $in: allowedIds }
+      _id: { $in: ids }
     });
-
-    let message = `成功删除 ${result.deletedCount} 个文件`;
-    if (deniedCount > 0) {
-      message += `，${deniedCount} 个文件因权限不足被跳过`;
-    }
 
     res.status(200).json({
       success: true,
-      message
+      message: `成功删除 ${result.deletedCount} 个文件`
     });
 
   } catch (error) {

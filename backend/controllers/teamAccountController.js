@@ -3,6 +3,7 @@ const Department = require('../models/Department');
 const Finance = require('../models/Finance');
 const AccountRecord = require('../models/AccountRecord');
 const { asyncHandler } = require('../middleware/error');
+const { precisionCalculate } = require('../utils/precision');
 
 // @desc    创建团队账户
 // @route   POST /api/team-accounts
@@ -259,9 +260,9 @@ const getTeamAccounts = asyncHandler(async (req, res) => {
         // 处理统计结果
         monthlyStats.forEach(stat => {
           if (stat._id === 'income' || stat._id === 'recharge') {
-            monthlyIncome += Math.abs(stat.totalAmount); // 确保为正数
+            monthlyIncome = precisionCalculate.add(monthlyIncome, Math.abs(stat.totalAmount));
           } else if (stat._id === 'expense') {
-            monthlyExpense += Math.abs(stat.totalAmount); // 确保为正数
+            monthlyExpense = precisionCalculate.add(monthlyExpense, Math.abs(stat.totalAmount));
           }
         });
 
@@ -365,9 +366,9 @@ const getTeamAccount = asyncHandler(async (req, res) => {
     // 处理统计结果
     monthlyStats.forEach(stat => {
       if (stat._id === 'income' || stat._id === 'recharge') {
-        monthlyIncome += Math.abs(stat.totalAmount); // 确保为正数
+        monthlyIncome = precisionCalculate.add(monthlyIncome, Math.abs(stat.totalAmount));
       } else if (stat._id === 'expense') {
-        monthlyExpense += Math.abs(stat.totalAmount); // 确保为正数
+        monthlyExpense = precisionCalculate.add(monthlyExpense, Math.abs(stat.totalAmount));
       }
     });
 

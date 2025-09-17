@@ -1,5 +1,6 @@
 const Product = require('../models/Product');
 const { asyncHandler } = require('../middleware/error');
+const { precisionCalculate } = require('../utils/precision');
 
 // 辅助函数：检查用户是否有权限访问产品记录
 const checkProductAccess = async (productId, user) => {
@@ -55,12 +56,22 @@ const createProduct = asyncHandler(async (req, res) => {
     afterSalesCost
   } = req.body;
 
-  // 计算当天总盈亏
-  const dailyTotalProfit = (dailyPaymentAmount || 0) - 
-    (dailyConsumedAmount || 0) - 
-    (handlingFee || 0) - 
-    (afterSalesAmount || 0) - 
-    (afterSalesCost || 0);
+  // 计算产品成本
+  // const productCost = precisionCalculate.multiply(
+  //   dailySalesVolume || 0,
+  //   unitPrice || 0
+  // );
+
+  // // 计算当天总盈亏
+  // const dailyTotalProfit = precisionCalculate.subtract(
+  //   dailyPaymentAmount || 0,
+  //   productCost,
+  //   shippingCost || 0,
+  //   dailyConsumedAmount || 0,
+  //   handlingFee || 0,
+  //   afterSalesAmount || 0,
+  //   afterSalesCost || 0
+  // );
 
   const product = await Product.create({
     team,

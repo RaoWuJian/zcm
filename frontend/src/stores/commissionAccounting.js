@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { commissionAccountingApi } from '../api/index'
+import { precisionCalculate } from '@/utils/precision'
 
 export const useCommissionAccountingStore = defineStore('commissionAccounting', () => {
   // 状态
@@ -156,16 +157,19 @@ export const useCommissionAccountingStore = defineStore('commissionAccounting', 
     const netTransactionData = parseFloat(data.netTransactionData) || 0
     const commission = parseFloat(data.commission) || 0
     const dailyConsumption = parseFloat(data.dailyConsumption) || 0
-    
+
     // 佣金利润 = 净成交数据 × 佣金%
-    const commissionProfit = netTransactionData * commission / 100
-    
+    const commissionProfit = precisionCalculate.multiply(
+      netTransactionData,
+      precisionCalculate.divide(commission, 100)
+    )
+
     // 净利润 = 佣金利润 - 今日消耗
-    const netProfit = commissionProfit - dailyConsumption
-    
+    const netProfit = precisionCalculate.subtract(commissionProfit, dailyConsumption)
+
     return {
-      commissionProfit: parseFloat(commissionProfit.toFixed(2)),
-      netProfit: parseFloat(netProfit.toFixed(2))
+      commissionProfit,
+      netProfit
     }
   }
   

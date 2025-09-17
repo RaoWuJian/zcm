@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { budgetApi } from '../api/index'
+import { precisionCalculate } from '@/utils/precision'
 
 export const useBudgetStore = defineStore('budget', () => {
   // 状态
@@ -153,20 +154,23 @@ export const useBudgetStore = defineStore('budget', () => {
     const unitCost = parseFloat(data.unitCost) || 0
     const shippingCost = parseFloat(data.shippingCost) || 0
     const platformFee = parseFloat(data.platformFee) || 0
-    // 注意：手续费不参与毛利计算
-    
-    // 毛利 = 售价 - 成本单价 - 产品运费 - 平台费用
-    const grossMargin = sellingPrice - unitCost - shippingCost - platformFee
-    
+    const handlingFee = parseFloat(data.handlingFee) || 0
+
+    // 毛利 = 售价 - 成本单价 - 产品运费 - 平台费用 - 手续费
+    const grossMargin = precisionCalculate.subtract(
+      sellingPrice,
+      unitCost,
+      shippingCost,
+      platformFee,
+      handlingFee
+    )
+
     // 实际佣金 = (毛利 ÷ 售价) × 100%
-    let actualCommission = 0
-    if (sellingPrice > 0) {
-      actualCommission = (grossMargin / sellingPrice) * 100
-    }
-    
+    const actualCommission = precisionCalculate.percentage(grossMargin, sellingPrice)
+
     return {
-      grossMargin: parseFloat(grossMargin.toFixed(2)),
-      actualCommission: parseFloat(actualCommission.toFixed(2))
+      grossMargin,
+      actualCommission
     }
   }
   

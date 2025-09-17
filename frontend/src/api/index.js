@@ -195,6 +195,55 @@ export const financeApi = {
   }
 }
 
+// 文件管理API
+export const fileApi = {
+  // 上传文件
+  uploadFile: (formData) => {
+    return api.post('/files/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+  },
+
+  // 获取文件列表
+  getFiles: (params) => {
+    return api.get('/files', { params })
+  },
+
+  // 获取文件信息
+  getFileInfo: (id) => {
+    return api.get(`/files/info/${id}`)
+  },
+
+  // 下载/查看文件
+  downloadFile: (id) => {
+    return api.get(`/files/${id}`, {
+      responseType: 'blob'
+    })
+  },
+
+  // 获取文件URL（用于预览）
+  getFileUrl: (id) => {
+    return `${api.defaults.baseURL}/files/${id}`
+  },
+
+  // 更新文件信息
+  updateFileInfo: (id, data) => {
+    return api.put(`/files/info/${id}`, data)
+  },
+
+  // 删除文件
+  deleteFile: (id) => {
+    return api.delete(`/files/${id}`)
+  },
+
+  // 批量删除文件
+  batchDeleteFiles: (ids) => {
+    return api.delete('/files/batch', { data: { ids } })
+  }
+}
+
 // 团队账户管理API
 export const teamAccountApi = {
   // 获取团队账户列表

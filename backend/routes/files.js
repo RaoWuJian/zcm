@@ -13,7 +13,7 @@ const { protect } = require('../middleware/auth');
 const router = express.Router();
 
 // 所有路由都需要身份验证
-router.use(protect);
+// router.use(protect);
 
 // 文件上传
 router.post('/upload', uploadFile);

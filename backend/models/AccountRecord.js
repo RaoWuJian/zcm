@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { precisionCalculate } = require('../utils/precision');
 
 const accountRecordSchema = new mongoose.Schema({
   // 关联团队账户
@@ -217,8 +218,8 @@ accountRecordSchema.statics.verifyBalance = async function(teamAccountId) {
     teamAccountId,
     recordedBalance,
     actualBalance,
-    isConsistent: Math.abs(recordedBalance - actualBalance) < 0.01, // 允许小数点误差
-    difference: actualBalance - recordedBalance
+    isConsistent: Math.abs(precisionCalculate.subtract(recordedBalance, actualBalance)) < 0.01, // 允许小数点误差
+    difference: precisionCalculate.subtract(actualBalance, recordedBalance)
   };
 };
 

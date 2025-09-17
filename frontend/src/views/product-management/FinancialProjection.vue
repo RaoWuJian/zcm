@@ -309,6 +309,7 @@
             :precision="2"
             placeholder="0.00"
             style="width: 100%"
+            @change="updateCalculation"
           />
         </el-form-item>
 
@@ -322,7 +323,7 @@
                <el-tooltip
                 class="box-item"
                 effect="dark"
-                content="毛利 = 售价 - 成本单价 - 运费 - 平台费用（手续费不参与计算）"
+                content="毛利 = 售价 - 成本单价 - 运费 - 平台费用 - 手续费"
                 placement="top-start"
               >
                 <div class="calc-item">

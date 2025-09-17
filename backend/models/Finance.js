@@ -62,6 +62,12 @@ const financeSchema = new mongoose.Schema({
     maxlength: [200, '说明最多200个字符']
   },
 
+  // 关联的图片文件
+  images: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'FileInfo'
+  }],
+
   // 审批状态
   approvalStatus: {
     type: String,

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { precisionCalculate } = require('../utils/precision');
 
 const productSchema = new mongoose.Schema({
     // 团队
@@ -142,12 +143,22 @@ const productSchema = new mongoose.Schema({
 
 // 在保存前自动计算当天总盈亏
 productSchema.pre('save', function(next) {
-    // 当天总盈亏 = 当天付款金额 - (当天销售盒数 * 产品单价) - 产品运费 - 当天消耗金额 - 手续费
-    this.dailyTotalProfit = (this.dailyPaymentAmount || 0) -
-        ((this.dailySalesVolume || 0) * (this.unitPrice || 0)) -
-        (this.shippingCost || 0) - 
-        (this.dailyConsumedAmount || 0) -
-        (this.handlingFee || 0);
+    // 产品成本 = 当天销售盒数 * 产品单价
+    const productCost = precisionCalculate.multiply(
+        this.dailySalesVolume || 0,
+        this.unitPrice || 0
+    );
+
+    // 当天总盈亏 = 当天付款金额 - 产品成本 - 产品运费 - 当天消耗金额 - 手续费 - 售后金额 - 售后成本
+    this.dailyTotalProfit = precisionCalculate.subtract(
+        this.dailyPaymentAmount || 0,
+        productCost,
+        this.shippingCost || 0,
+        this.dailyConsumedAmount || 0,
+        this.handlingFee || 0,
+        this.afterSalesAmount || 0,
+        this.afterSalesCost || 0
+    );
     next();
 });
 

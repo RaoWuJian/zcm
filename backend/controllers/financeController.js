@@ -3,6 +3,7 @@ const TeamAccount = require('../models/TeamAccount');
 const User = require('../models/User');
 const AccountRecord = require('../models/AccountRecord');
 const { asyncHandler } = require('../middleware/error');
+const { precisionCalculate } = require('../utils/precision');
 
 // @desc    创建财务记录
 // @route   POST /api/finance
@@ -17,7 +18,8 @@ const createFinance = asyncHandler(async (req, res) => {
     paymentMethod,
     paymentName,
     account,
-    description
+    description,
+    images
   } = req.body;
 
   // 验证团队账户是否存在且激活
@@ -56,6 +58,7 @@ const createFinance = asyncHandler(async (req, res) => {
       paymentName,
       account,
       description,
+      images: images || [],
       createdBy: req.user.id
     });
 
@@ -64,7 +67,8 @@ const createFinance = asyncHandler(async (req, res) => {
       .populate('teamId', 'name amount')
       .populate('createdBy', 'username loginAccount')
       .populate('updatedBy', 'username loginAccount')
-      .populate('approvedBy', 'username loginAccount');
+      .populate('approvedBy', 'username loginAccount')
+      .populate('images', 'filename originalName url mimeType size');
 
     res.status(201).json({
       success: true,
@@ -166,6 +170,7 @@ const getFinances = asyncHandler(async (req, res) => {
     .populate('createdBy', 'username loginAccount')
     .populate('updatedBy', 'username loginAccount')
     .populate('approvedBy', 'username loginAccount')
+    .populate('images', 'filename originalName url mimeType size')
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(Number(limit));
@@ -192,7 +197,8 @@ const getFinance = asyncHandler(async (req, res) => {
     .populate('teamId', 'name')
     .populate('createdBy', 'username loginAccount')
     .populate('updatedBy', 'username loginAccount')
-    .populate('approvedBy', 'username loginAccount');
+    .populate('approvedBy', 'username loginAccount')
+    .populate('images', 'filename originalName url mimeType size');
 
   if (!finance) {
     return res.status(404).json({
@@ -263,7 +269,8 @@ const updateFinance = asyncHandler(async (req, res) => {
     ).populate('teamId', 'name amount')
      .populate('createdBy', 'username loginAccount')
      .populate('updatedBy', 'username loginAccount')
-     .populate('approvedBy', 'username loginAccount');
+     .populate('approvedBy', 'username loginAccount')
+     .populate('images', 'filename originalName url mimeType size');
 
     // 更新对应的账户记录
     const accountRecord = await AccountRecord.findOne({ 
@@ -553,7 +560,7 @@ const getFinanceStats = asyncHandler(async (req, res) => {
     }
   });
 
-  const netProfit = totalIncome - totalExpense;
+  const netProfit = precisionCalculate.subtract(totalIncome, totalExpense);
 
   // 获取待审批记录数量
   const pendingQuery = { ...query, approvalStatus: 'pending' };

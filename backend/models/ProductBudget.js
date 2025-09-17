@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { precisionCalculate } = require('../utils/precision');
 
 const budgetSchema = new mongoose.Schema({
     // 名称
@@ -86,18 +87,20 @@ const budgetSchema = new mongoose.Schema({
 
 // 在保存前自动计算毛利和实际佣金
 budgetSchema.pre('save', function(next) {
-    // 毛利 = 售价 - 成本单价 - 产品运费 - 平台费用
-    this.grossMargin = (this.sellingPrice || 0) -
-        (this.unitCost || 0) -
-        (this.shippingCost || 0) -
-        (this.platformFee || 0);
+    // 毛利 = 售价 - 成本单价 - 产品运费 - 平台费用 - 手续费
+    this.grossMargin = precisionCalculate.subtract(
+        this.sellingPrice || 0,
+        this.unitCost || 0,
+        this.shippingCost || 0,
+        this.platformFee || 0,
+        this.handlingFee || 0
+    );
 
-    // 实际佣金 = 毛利/售价 (以百分比形式存储)
-    if ((this.sellingPrice || 0) > 0) {
-        this.actualCommission = (this.grossMargin / (this.sellingPrice || 0)) * 100;
-    } else {
-        this.actualCommission = 0;
-    }
+    // 实际佣金 = (毛利 ÷ 售价) × 100%
+    this.actualCommission = precisionCalculate.percentage(
+        this.grossMargin,
+        this.sellingPrice || 0
+    );
 
     next();
 });

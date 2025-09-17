@@ -182,6 +182,22 @@
             </div>
           </template>
         </el-table-column>
+        <el-table-column label="凭证" width="120" align="center">
+          <template #default="{ row }">
+            <div v-if="row.images && row.images.length > 0" class="image-numbers-container">
+              <span
+                v-for="(image, index) in row.images"
+                :key="image._id || image.id || index"
+                class="image-number-item"
+                @click="previewSingleImage(row.images, index)"
+                :title="`点击查看第${index + 1}张凭证`"
+              >
+                {{ index + 1 }}
+              </span>
+            </div>
+            <span v-else class="no-image">-</span>
+          </template>
+        </el-table-column>
         <el-table-column label="审批状态" width="100">
           <template #default="{ row }">
             <el-tag 
@@ -234,6 +250,7 @@
       v-model="dialogVisible"
       :title="dialogTitle"
       width="800px"
+      style="max-height: 80vh; overflow: auto;"
       append-to-body
       @close="handleDialogClose"
       class="record-dialog"
@@ -354,6 +371,66 @@
             </el-form-item>
           </el-col>
         </el-row>
+
+        <!-- 图片上传区域 -->
+        <el-row>
+          <el-col :span="24">
+            <el-form-item label="上传凭证">
+              <div class="image-upload-container">
+                <!-- 图片预览和上传区域 - 统一在一行显示 -->
+                <div class="image-items-container">
+                  <!-- 已选择的图片预览 -->
+                  <div
+                    v-for="(image, index) in form.images"
+                    :key="image._id || image.id || index"
+                    class="image-preview-item"
+                  >
+                    <el-image
+                      :src="getImageUrlSync(image)"
+                      :preview-src-list="getFormImageUrls()"
+                      :initial-index="index"
+                      fit="cover"
+                      class="preview-image"
+                    />
+                    <div class="image-overlay">
+                      <el-button
+                        type="danger"
+                        size="small"
+                        :icon="Delete"
+                        circle
+                        @click="removeImage(index)"
+                        class="delete-btn"
+                      />
+                    </div>
+                  </div>
+
+                  <!-- 上传按钮 - 与图片在同一行 -->
+                  <el-upload
+                    v-if="!form.images || form.images.length < 9"
+                    ref="uploadRef"
+                    :auto-upload="false"
+                    :before-upload="beforeUpload"
+                    :on-change="handleFileChange"
+                    :show-file-list="false"
+                    accept="image/*"
+                    multiple
+                    class="image-uploader"
+                  >
+                    <div class="upload-trigger">
+                      <el-icon class="upload-icon"><Plus /></el-icon>
+                      <div class="upload-text">选择图片</div>
+                    </div>
+                  </el-upload>
+                </div>
+              </div>
+              <div class="upload-tips">
+                <el-text size="small" type="info">
+                  支持 JPG、PNG、GIF 格式，单个文件不超过 10MB，最多上传 8 张图片
+                </el-text>
+              </div>
+            </el-form-item>
+          </el-col>
+        </el-row>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
@@ -362,34 +439,49 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 图片预览器 -->
+    <el-image-viewer
+      v-if="imagePreviewVisible"
+      teleported
+      :url-list="getPreviewImageUrls()"
+      :initial-index="currentImageIndex"
+      @close="closeImagePreview"
+    />
   </div>
 </template>
 
 <script setup >
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { 
-  Plus, 
-  Refresh, 
+import {
+  Plus,
+  Refresh,
   Delete,
-  Setting, 
+  Setting,
   List,
   User,
   TrendCharts,
-  Minus,
+  Minus
 } from '@element-plus/icons-vue'
-import { financeApi, teamAccountApi} from '@/api/index';
+import { financeApi, teamAccountApi, fileApi } from '@/api/index';
 import hasAnyPermission from '@/utils/checkPermissions'
 import { formatUtcToLocalDate } from '@/utils/dateUtils'
 
 // 响应式数据
 const loading = ref(false)
 const dialogVisible = ref(false)
+
+// 图片预览相关
+const imagePreviewVisible = ref(false)
+const previewImages = ref([])
+const currentImageIndex = ref(0)
 const dialogTitle = ref('新增收支记录')
 const tableData = ref([])
 const formRef = ref()
 const selectedRows = ref([])
 const submitLoading = ref(false)
+const uploadRef = ref()
 
 // 团队账户数据
 const teamAccounts = ref([])// 搜索表单
@@ -424,7 +516,11 @@ const form = reactive({
   paymentName: '', // 收款/付款方名称
   account: '', // 收款/付款账号
   description: '', // 说明/备注
+  images: [], // 关联的图片
 })
+
+// 记录要删除的已保存图片ID
+const deletedImageIds = ref([])
 
 // 表单验证规则
 const rules = {
@@ -647,6 +743,26 @@ const handleAdd = () => {
 const handleEdit = (row) => {
   dialogTitle.value = '编辑收支记录'
   Object.assign(form, row)
+
+  // 确保图片数据正确处理 - 编辑时图片都是已保存的
+  if (row.images && Array.isArray(row.images)) {
+    form.images = row.images.map(img => {
+      // 如果是populate的完整对象，直接使用
+      if (typeof img === 'object' && img !== null && img._id) {
+        return img
+      }
+
+      // 如果只是ID字符串，需要转换为对象格式
+      if (typeof img === 'string') {
+        return { _id: img }
+      }
+
+      return img
+    })
+  } else {
+    form.images = []
+  }
+
   dialogVisible.value = true
 }
 
@@ -730,20 +846,216 @@ const handleApprove = async (row, status) => {
   }
 }
 
+// 图片相关方法
+// 获取图片URL
+const getImageUrlSync = (image) => {
+  // 如果是临时文件（File对象），创建本地URL
+  if (image instanceof File) {
+    return URL.createObjectURL(image)
+  }
+
+  // 如果是已保存的文件
+  const imageId = typeof image === 'string' ? image : (image._id || image.id)
+
+  if (!imageId) {
+    return ''
+  }
+
+  // 生成文件访问URL（不需要token）
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
+  const url = `${baseUrl}/files/${imageId}`
+
+  return url
+}
+
+// 图片加载错误处理
+const handleImageError = (event) => {
+  console.error('图片加载失败:', event.target.src)
+  event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHg9IjUwIiB5PSI1MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+5Zu+54mH5Yqg6L295aSx6LSlPC90ZXh0Pjwvc3ZnPg=='
+}
+
+// 预览行中的图片
+const previewRowImages = (row) => {
+  if (row.images && row.images.length > 0) {
+    previewImages.value = [...row.images]
+    currentImageIndex.value = 0
+    imagePreviewVisible.value = true
+  }
+}
+
+// 预览单张图片
+const previewSingleImage = (images, index) => {
+  if (images && images.length > 0 && index >= 0 && index < images.length) {
+    previewImages.value = [...images]
+    currentImageIndex.value = index
+    imagePreviewVisible.value = true
+  }
+}
+
+// 关闭图片预览
+const closeImagePreview = () => {
+  imagePreviewVisible.value = false
+  previewImages.value = []
+  currentImageIndex.value = 0
+}
+
+// 获取预览图片URL列表
+const getPreviewImageUrls = () => {
+  if (!previewImages.value || !Array.isArray(previewImages.value)) {
+    return []
+  }
+  return previewImages.value.map(image => getImageUrlSync(image)).filter(url => url)
+}
+
+// 获取表单图片URL列表（用于el-image预览）
+const getFormImageUrls = () => {
+  if (!form.images || !Array.isArray(form.images)) {
+    return []
+  }
+  return form.images.map(image => getImageUrlSync(image)).filter(url => url)
+}
+
+// 上传前检查
+const beforeUpload = (file) => {
+  // 检查文件类型
+  const isImage = file.type.startsWith('image/')
+  if (!isImage) {
+    ElMessage.error('只能上传图片文件!')
+    return false
+  }
+
+  // 检查文件大小
+  const isLt10M = file.size / 1024 / 1024 < 10
+  if (!isLt10M) {
+    ElMessage.error('图片大小不能超过 10MB!')
+    return false
+  }
+
+  // 检查图片数量
+  if (form.images.length >= 8) {
+    ElMessage.error('最多只能上传 8 张图片!')
+    return false
+  }
+
+  return false // 阻止自动上传
+}
+
+// 文件选择变化回调
+const handleFileChange = (file, fileList) => {
+  const rawFile = file.raw
+
+  // 检查文件类型
+  const isImage = rawFile.type.startsWith('image/')
+  if (!isImage) {
+    ElMessage.error('只能上传图片文件!')
+    return
+  }
+
+  // 检查文件大小
+  const isLt10M = rawFile.size / 1024 / 1024 < 10
+  if (!isLt10M) {
+    ElMessage.error('图片大小不能超过 10MB!')
+    return
+  }
+
+  // 检查图片数量
+  if (form.images.length >= 8) {
+    ElMessage.error('最多只能上传 8 张图片!')
+    return
+  }
+
+  // 添加到临时图片列表
+  form.images.push(rawFile)
+  ElMessage.success('图片添加成功')
+}
+
+// 删除图片
+const removeImage = async (index) => {
+  try {
+    const image = form.images[index]
+
+    await ElMessageBox.confirm(
+      '确定要删除这张图片吗？',
+      '提示',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    // 如果是临时文件（File对象），释放URL
+    if (image instanceof File) {
+      const url = getImageUrlSync(image)
+      URL.revokeObjectURL(url)
+    } else if (image._id || image.id) {
+      // 如果是已保存的图片，记录到删除列表中，提交时再删除
+      deletedImageIds.value.push(image._id || image.id)
+    }
+
+    form.images.splice(index, 1)
+    ElMessage.success('图片删除成功')
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除图片失败:', error)
+      ElMessage.error('删除图片失败')
+    }
+  }
+}
+
+// 上传单个图片文件
+const uploadSingleImage = async (file) => {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  try {
+    const response = await fileApi.uploadFile(formData)
+    console.log('文件上传响应:', response) // 调试日志
+
+    if (response.success && response.data) {
+      return response.data._id || response.data.id
+    } else {
+      throw new Error(response.message || '图片上传失败')
+    }
+  } catch (error) {
+    console.error('上传图片失败:', error)
+    throw error
+  }
+}
+
 // 提交表单
 const handleSubmit = async () => {
   if (!formRef.value) return
-  
+
   await formRef.value.validate(async (valid) => {
     if (valid) {
       try {
         submitLoading.value = true
-        
+
         if (!form.teamId) {
           ElMessage.error('请选择团队账户')
           return
         }
-        
+
+        // 处理图片上传
+        const imageIds = []
+
+        for (const image of form.images) {
+          if (image instanceof File) {
+            // 新上传的图片，需要先上传到服务器
+            try {
+              const imageId = await uploadSingleImage(image)
+              imageIds.push(imageId)
+            } catch (error) {
+              ElMessage.error(`图片上传失败: ${error.message}`)
+              return
+            }
+          } else {
+            // 已存在的图片，直接使用ID
+            imageIds.push(image._id || image.id || image)
+          }
+        }
+
         const submitData = {
           teamId: form.teamId,
           name: form.name,
@@ -753,9 +1065,10 @@ const handleSubmit = async () => {
           paymentMethod: form.paymentMethod,
           paymentName: form.paymentName,
           account: form.account,
-          description: form.description
+          description: form.description,
+          images: imageIds
         }
-        
+
         let response
         if (form._id) {
           // 编辑
@@ -764,8 +1077,18 @@ const handleSubmit = async () => {
           // 新增
           response = await financeApi.createRecord(submitData)
         }
-        
+
         if (response) {
+          // 删除标记为删除的图片文件
+          if (deletedImageIds.value.length > 0) {
+            try {
+              await fileApi.batchDeleteFiles(deletedImageIds.value)
+            } catch (error) {
+              console.error('删除图片文件失败:', error)
+              // 即使删除文件失败，也不影响主流程
+            }
+          }
+
           ElMessage.success(form._id ? '更新成功' : '添加成功')
           dialogVisible.value = false
           resetForm()
@@ -785,6 +1108,14 @@ const handleSubmit = async () => {
 
 // 重置表单
 const resetForm = () => {
+  // 释放临时图片的URL
+  form.images.forEach(image => {
+    if (image instanceof File) {
+      const url = getImageUrlSync(image)
+      URL.revokeObjectURL(url)
+    }
+  })
+
   form._id = null
   form.teamId = null
   form.name = ''
@@ -795,7 +1126,11 @@ const resetForm = () => {
   form.paymentName = ''
   form.account = ''
   form.description = ''
-  
+  form.images = []
+
+  // 清空删除列表
+  deletedImageIds.value = []
+
   if (formRef.value) {
     formRef.value.clearValidate()
   }
@@ -1116,6 +1451,11 @@ onMounted(() => {
   padding: 20px 24px;
 }
 
+.record-dialog {
+  height: 600px;
+  overflow: auto;
+}
+
 .record-dialog .el-form-item {
   margin-bottom: 22px;
 }
@@ -1301,4 +1641,176 @@ onMounted(() => {
 .search-date-picker .el-date-editor {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* 图片上传相关样式 */
+.image-upload-container {
+  width: 100%;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #e4e7ed;
+}
+
+/* 图片项目容器 - 支持图片和上传按钮在同一行 */
+.image-items-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.image-preview-item {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid #e4e7ed;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.image-preview-item:hover {
+  border-color: #409eff;
+  box-shadow: 0 8px 24px rgba(64, 158, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+}
+
+.image-preview-item:hover .preview-image {
+  transform: scale(1.05);
+}
+
+.image-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(2px);
+}
+
+.image-preview-item:hover .image-overlay {
+  opacity: 1;
+}
+
+.delete-btn {
+  background: rgba(245, 63, 63, 0.9) !important;
+  border: none !important;
+  color: white !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  box-shadow: 0 2px 8px rgba(245, 63, 63, 0.3) !important;
+  transition: all 0.3s ease !important;
+}
+
+.delete-btn:hover {
+  background: rgba(245, 63, 63, 1) !important;
+  transform: scale(1.1) !important;
+  box-shadow: 0 4px 12px rgba(245, 63, 63, 0.4) !important;
+}
+
+.image-uploader {
+  display: inline-block;
+}
+
+.upload-trigger {
+  width: 120px;
+  height: 120px;
+  border: 2px dashed #dcdfe6;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: #fafafa;
+}
+
+.upload-trigger:hover {
+  border-color: #409eff;
+  background: #f0f9ff;
+}
+
+.upload-icon {
+  font-size: 24px;
+  color: #8c939d;
+  margin-bottom: 4px;
+}
+
+.upload-trigger:hover .upload-icon {
+  color: #409eff;
+}
+
+.upload-text {
+  font-size: 12px;
+  color: #8c939d;
+}
+
+.upload-trigger:hover .upload-text {
+  color: #409eff;
+}
+
+.upload-tips {
+  margin-top: 8px;
+}
+
+/* 表格中的图片数字序号 */
+.image-numbers-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.image-number-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  background: #409eff;
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  user-select: none;
+  line-height: 1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.image-number-item:hover {
+  background: #1890ff;
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
+}
+
+.image-number-item:active {
+  transform: scale(0.95);
+}
+
+.no-image {
+  color: #c0c4cc;
+  font-size: 12px;
+}
+
 </style>
