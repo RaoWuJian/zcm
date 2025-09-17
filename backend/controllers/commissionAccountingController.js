@@ -1,0 +1,300 @@
+const CommissionAccounting = require('../models/CommissionAccounting');
+const { asyncHandler } = require('../middleware/error');
+
+// 辅助函数：检查用户是否有权限访问核算佣金记录
+const checkCommissionAccountingAccess = async (recordId, user) => {
+  const record = await CommissionAccounting.findById(recordId).populate('createdBy');
+  
+  if (!record) {
+    return { hasAccess: false, record: null, error: '核算佣金记录不存在' };
+  }
+
+  // 管理员可以访问所有记录
+  if (user.isAdmin) {
+    return { hasAccess: true, record, error: null };
+  }
+
+  // 检查创建者是否在用户的部门权限范围内
+  const createdByUser = record.createdBy;
+  if (!createdByUser) {
+    return { hasAccess: false, record: null, error: '无法确定记录创建者' };
+  }
+
+  const userDepartmentPath = user.departmentPath || '';
+  const createdByDepartmentPath = createdByUser.departmentPath || '';
+
+  // 检查是否是同一部门或子部门
+  if (createdByDepartmentPath === userDepartmentPath || 
+      createdByDepartmentPath.startsWith(userDepartmentPath + '->')) {
+    return { hasAccess: true, record, error: null };
+  }
+
+  return { hasAccess: false, record: null, error: '无权限访问此核算佣金记录' };
+};
+
+// @desc    创建核算佣金记录
+// @route   POST /api/commission-accounting
+// @access  Private
+const createCommissionAccounting = asyncHandler(async (req, res) => {
+  const {
+    name,
+    netTransactionData,
+    commission,
+    dailyConsumption,
+    description
+  } = req.body;
+
+  const record = await CommissionAccounting.create({
+    name,
+    netTransactionData,
+    commission,
+    dailyConsumption,
+    description,
+    createdBy: req.user.id
+  });
+
+  // 重新查询以获取完整的populate信息
+  const fullRecord = await CommissionAccounting.findById(record._id)
+    .populate('createdBy', 'username loginAccount')
+    .populate('updatedBy', 'username loginAccount');
+
+  res.status(201).json({
+    success: true,
+    data: fullRecord,
+    message: '核算佣金记录创建成功'
+  });
+});
+
+// @desc    获取核算佣金记录列表
+// @route   GET /api/commission-accounting
+// @access  Private
+const getCommissionAccountings = asyncHandler(async (req, res) => {
+  const {
+    page = 1,
+    limit = 10,
+    name,
+    startDate,
+    endDate,
+    minProfit,
+    maxProfit,
+    search
+  } = req.query;
+  const user = req.user;
+
+  // 构建查询条件
+  const query = {};
+
+  if (name) query.name = { $regex: name, $options: 'i' };
+
+  // 获取用户有权限访问的用户ID列表（基于部门权限）
+  let allowedUserIds = [];
+  if (!user.isAdmin) {
+    const userDepartmentPath = user.departmentPath || '';
+    
+    if (userDepartmentPath) {
+      // 转义正则表达式特殊字符
+      const escapedPath = userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      
+      // 获取当前部门及其子部门的用户
+      const User = require('../models/User');
+      const allowedUsers = await User.find({
+        $or: [
+          { departmentPath: userDepartmentPath }, // 当前部门用户
+          { departmentPath: { $regex: `^${escapedPath}->` } }, // 子部门用户
+        ]
+      }).select('_id');
+      
+      allowedUserIds = allowedUsers.map(user => user._id);
+    }
+    
+    // 限制只查看有权限的用户创建的记录
+    if (allowedUserIds.length > 0) {
+      query.createdBy = { $in: allowedUserIds };
+    } else {
+      // 如果没有权限访问任何用户，返回空结果
+      query.createdBy = { $in: [] };
+    }
+  }
+
+  // 净利润范围查询
+  if (minProfit || maxProfit) {
+    query.netProfit = {};
+    if (minProfit) query.netProfit.$gte = Number(minProfit);
+    if (maxProfit) query.netProfit.$lte = Number(maxProfit);
+  }
+
+  // 日期范围查询
+  if (startDate || endDate) {
+    query.createdAt = {};
+    if (startDate) query.createdAt.$gte = new Date(startDate);
+    if (endDate) query.createdAt.$lte = new Date(endDate);
+  }
+
+  // 搜索功能（按名称搜索）
+  if (search) {
+    query.$or = [
+      { name: { $regex: search, $options: 'i' } },
+      { description: { $regex: search, $options: 'i' } }
+    ];
+  }
+
+  const pageNum = parseInt(page, 10);
+  const limitNum = parseInt(limit, 10);
+  const skip = (pageNum - 1) * limitNum;
+
+  const records = await CommissionAccounting.find(query)
+    .populate('createdBy', 'username loginAccount')
+    .populate('updatedBy', 'username loginAccount')
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limitNum);
+
+  const total = await CommissionAccounting.countDocuments(query);
+
+  res.status(200).json({
+    success: true,
+    data: records,
+    pagination: {
+      page: pageNum,
+      limit: limitNum,
+      total,
+      pages: Math.ceil(total / limitNum)
+    }
+  });
+});
+
+// @desc    获取单个核算佣金记录
+// @route   GET /api/commission-accounting/:id
+// @access  Private
+const getCommissionAccounting = asyncHandler(async (req, res) => {
+  const { hasAccess, record, error } = await checkCommissionAccountingAccess(req.params.id, req.user);
+
+  if (!hasAccess) {
+    return res.status(record === null ? 404 : 403).json({
+      success: false,
+      message: error
+    });
+  }
+
+  // 重新查询以获取完整的populate信息
+  const fullRecord = await CommissionAccounting.findById(req.params.id)
+    .populate('createdBy', 'username loginAccount')
+    .populate('updatedBy', 'username loginAccount');
+
+  res.status(200).json({
+    success: true,
+    data: fullRecord
+  });
+});
+
+// @desc    更新核算佣金记录
+// @route   PUT /api/commission-accounting/:id
+// @access  Private
+const updateCommissionAccounting = asyncHandler(async (req, res) => {
+  const { hasAccess, record, error } = await checkCommissionAccountingAccess(req.params.id, req.user);
+
+  if (!hasAccess) {
+    return res.status(record === null ? 404 : 403).json({
+      success: false,
+      message: error
+    });
+  }
+
+  // 手动更新字段并保存，以触发 pre('save') 钩子进行自动计算
+  Object.assign(record, req.body);
+  record.updatedBy = req.user.id;
+  record.updatedAt = Date.now();
+
+  await record.save();
+
+  // 重新查询以获取完整的populate信息
+  const updatedRecord = await CommissionAccounting.findById(req.params.id)
+    .populate('createdBy', 'username loginAccount')
+    .populate('updatedBy', 'username loginAccount');
+
+  res.status(200).json({
+    success: true,
+    data: updatedRecord,
+    message: '核算佣金记录更新成功'
+  });
+});
+
+// @desc    删除核算佣金记录
+// @route   DELETE /api/commission-accounting/:id
+// @access  Private
+const deleteCommissionAccounting = asyncHandler(async (req, res) => {
+  const { hasAccess, record, error } = await checkCommissionAccountingAccess(req.params.id, req.user);
+
+  if (!hasAccess) {
+    return res.status(record === null ? 404 : 403).json({
+      success: false,
+      message: error
+    });
+  }
+
+  await CommissionAccounting.findByIdAndDelete(req.params.id);
+
+  res.status(200).json({
+    success: true,
+    message: '核算佣金记录删除成功'
+  });
+});
+
+// @desc    批量删除核算佣金记录
+// @route   DELETE /api/commission-accounting/batch
+// @access  Private
+const batchDeleteCommissionAccounting = asyncHandler(async (req, res) => {
+  const { ids } = req.body;
+
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: '请提供要删除的记录ID数组'
+    });
+  }
+
+  // 检查用户对每个记录的权限
+  const accessChecks = await Promise.all(
+    ids.map(id => checkCommissionAccountingAccess(id, req.user))
+  );
+
+  // 过滤出有权限删除的记录ID
+  const allowedIds = [];
+  const deniedCount = accessChecks.filter(check => !check.hasAccess).length;
+
+  accessChecks.forEach((check, index) => {
+    if (check.hasAccess) {
+      allowedIds.push(ids[index]);
+    }
+  });
+
+  if (allowedIds.length === 0) {
+    return res.status(403).json({
+      success: false,
+      message: '没有权限删除任何选中的记录'
+    });
+  }
+
+  const result = await CommissionAccounting.deleteMany({
+    _id: { $in: allowedIds }
+  });
+
+  let message = `成功删除 ${result.deletedCount} 条核算佣金记录`;
+  if (deniedCount > 0) {
+    message += `，${deniedCount} 条记录因权限不足被跳过`;
+  }
+
+  res.status(200).json({
+    success: true,
+    message
+  });
+});
+
+module.exports = {
+  createCommissionAccounting,
+  getCommissionAccountings,
+  getCommissionAccounting,
+  updateCommissionAccounting,
+  deleteCommissionAccounting,
+  batchDeleteCommissionAccounting
+};

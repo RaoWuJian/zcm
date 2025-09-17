@@ -1,0 +1,358 @@
+import api from './request'
+
+// 认证API
+export const authApi = {
+  // 用户登录
+  login: (data) => {
+    return api.post('/users/login', data)
+  },
+  
+  // 获取当前用户信息（后端为 /api/users/me）
+  getUserInfo: () => {
+    return api.get('/users/me')
+  },
+  
+  // 用户登出
+  logout: () => {
+    return api.post('/users/logout')
+  }
+}
+
+// 员工管理API
+export const employeeApi = {
+  // 创建员工
+  createEmployee: (data) => {
+    return api.post('/users', data)
+  },
+  
+  // 获取员工列表
+  getEmployees: (params) => {
+    return api.get('/users', { params })
+  },
+  
+  // 获取员工详情
+  getEmployee: (id) => {
+    return api.get(`/users/${id}`)
+  },
+  
+  // 更新员工信息
+  updateEmployee: (id, data) => {
+    return api.put(`/users/${id}`, data)
+  },
+  
+  // 删除员工
+  deleteEmployee: (id) => {
+    return api.delete(`/users/${id}`)
+  },
+  
+  // 批量删除员工
+  batchDeleteEmployees: (ids) => {
+    return api.delete('/users/batch', { data: { ids } })
+  },
+  
+  // 重置员工密码
+  resetPassword: (id, newPassword) => {
+    return api.put(`/users/${id}/password`, { newPassword })
+  },
+
+  // 获取没有部门的员工
+  getNoDepartmentUser: () => {
+    return api.get('/users/getNoDepartmentUser')
+  },
+
+  // 批量添加用户到部门
+  addUserToDepartment: (data) => {
+    return api.put('/users/add-to-department', data)
+  }
+}
+
+// 角色管理API
+export const roleApi = {
+  // 获取角色列表
+  getRoles: (params) => {
+    return api.get('/roles', { params })
+  },
+
+  // 创建角色
+  createRole: (data) => {
+    return api.post('/roles', data)
+  },
+
+  // 获取角色详情
+  getRole: (id) => {
+    return api.get(`/roles/${id}`)
+  },
+
+  // 更新角色
+  updateRole: (id, data) => {
+    return api.put(`/roles/${id}`, data)
+  },
+
+  // 删除角色
+  deleteRole: (id) => {
+    return api.delete(`/roles/${id}`)
+  },
+
+  // 批量删除角色
+  batchDeleteRoles: (ids) => {
+    return api.delete('/roles/batch', { data: { ids } })
+  },
+
+  // 获取所有权限列表
+  getPermissions: () => {
+    return api.get('/roles/permissions')
+  },
+
+  // 获取可用权限（别名，兼容旧代码）
+  getAvailablePermissions: () => {
+    return api.get('/roles/permissions')
+  },
+
+  // 获取角色统计
+  getRoleStats: (params) => {
+    return api.get('/roles/stats', { params })
+  }
+}
+
+// 部门管理API
+export const departmentApi = {
+  // 获取部门列表
+  getDepartments: (params) => {
+    return api.get('/departments', { params })
+  },
+  
+  // 创建部门
+  createDepartment: (data) => {
+    return api.post('/departments', data)
+  },
+  
+  // 获取部门详情
+  getDepartment: (id) => {
+    return api.get(`/departments/${id}`)
+  },
+  
+  // 更新部门
+  updateDepartment: (id, data) => {
+    return api.put(`/departments/${id}`, data)
+  },
+  
+  // 删除部门
+  deleteDepartment: (id) => {
+    return api.delete(`/departments/${id}`)
+  },
+  
+  // 获取部门树形结构
+  getDepartmentTree: () => {
+    return api.get('/departments/tree')
+  },
+  
+  // 获取部门员工
+  getDepartmentEmployees: (id, params) => {
+    return api.get(`/departments/${id}/employees`, { params })
+  }
+}
+
+// 财务管理API
+export const financeApi = {
+  // 新增收支记录
+  createRecord: (data) => {
+    return api.post('/finance', data)
+  },
+  
+  // 获取收支记录列表
+  getRecords: (params) => {
+    return api.get('/finance', { params })
+  },
+  
+  // 获取收支记录详情
+  getRecord: (id) => {
+    return api.get(`/finance/${id}`)
+  },
+  
+  // 更新收支记录
+  updateRecord: (id, data) => {
+    return api.put(`/finance/${id}`, data)
+  },
+  
+  // 删除收支记录
+  deleteRecord: (id) => {
+    return api.delete(`/finance/${id}`)
+  },
+  
+  // 批量删除收支记录
+  batchDeleteRecords: (ids) => {
+    return api.delete('/finance/batch', { data: { ids } })
+  },
+  
+  // 审批收支记录
+  approveRecord: (id, data) => {
+    return api.put(`/finance/${id}/approve`, data)
+  },
+  
+  // 获取财务统计
+  getFinanceStats: (params) => {
+    return api.get('/finance/stats', { params })
+  }
+}
+
+// 团队账户管理API
+export const teamAccountApi = {
+  // 获取团队账户列表
+  getTeamAccounts: (params) => {
+    return api.get('/team-accounts', { params })
+  },
+  
+  // 创建团队账户
+  createTeamAccount: (data) => {
+    return api.post('/team-accounts', data)
+  },
+  
+  // 获取团队账户详情
+  getTeamAccount: (id) => {
+    return api.get(`/team-accounts/${id}`)
+  },
+  
+  // 更新团队账户
+  updateTeamAccount: (id, data) => {
+    return api.put(`/team-accounts/${id}`, data)
+  },
+  
+  // 删除团队账户
+  deleteTeamAccount: (id) => {
+    return api.delete(`/team-accounts/${id}`)
+  },
+  
+  // 获取账户记录
+  getAccountRecords: (id, params) => {
+    return api.get(`/team-accounts/${id}/records`, { params })
+  },
+
+  // 获取团队账户记录（别名方法，保持向后兼容）
+  getTeamAccountRecords: (id, params) => {
+    return api.get(`/team-accounts/${id}/records`, { params })
+  },
+  
+  // 账户充值
+  rechargeAccount: (id, data) => {
+    return api.post(`/team-accounts/${id}/recharge`, data)
+  },
+  
+  // 账户扣费
+  deductAccount: (id, data) => {
+    return api.post(`/team-accounts/${id}/deduct`, data)
+  }
+}
+
+// 商品管理API
+export const productApi = {
+  // 获取商品列表
+  getProducts: (params) => {
+    return api.get('/products', { params })
+  },
+
+  // 创建商品
+  createProduct: (data) => {
+    return api.post('/products', data)
+  },
+
+  // 获取商品详情
+  getProduct: (id) => {
+    return api.get(`/products/${id}`)
+  },
+
+  // 更新商品
+  updateProduct: (id, data) => {
+    return api.put(`/products/${id}`, data)
+  },
+
+  // 删除商品
+  deleteProduct: (id) => {
+    return api.delete(`/products/${id}`)
+  },
+
+  // 批量删除商品
+  batchDeleteProducts: (ids) => {
+    return api.delete('/products/batch', { data: { ids } })
+  },
+
+  // 获取商品统计
+  getProductStats: (params) => {
+    return api.get('/products/stats', { params })
+  },
+
+  // 获取商品建议数据
+  getProductSuggestions: () => {
+    return api.get('/products/suggestions')
+  },
+
+  // 导出商品数据
+  exportProducts: (params) => {
+    return api.get('/products/export', { params, responseType: 'blob' })
+  }
+}
+
+// 产品预算管理API
+export const budgetApi = {
+  // 获取产品预算列表
+  getBudgets: (params) => {
+    return api.get('/budget', { params })
+  },
+
+  // 创建产品预算
+  createBudget: (data) => {
+    return api.post('/budget', data)
+  },
+
+  // 获取产品预算详情
+  getBudget: (id) => {
+    return api.get(`/budget/${id}`)
+  },
+
+  // 更新产品预算
+  updateBudget: (id, data) => {
+    return api.put(`/budget/${id}`, data)
+  },
+
+  // 删除产品预算
+  deleteBudget: (id) => {
+    return api.delete(`/budget/${id}`)
+  },
+
+  // 批量删除产品预算
+  batchDeleteBudgets: (ids) => {
+    return api.delete('/budget/batch', { data: { ids } })
+  }
+}
+
+// 核算佣金管理API
+export const commissionAccountingApi = {
+  // 获取核算佣金列表
+  getCommissionAccountings: (params) => {
+    return api.get('/commission-accounting', { params })
+  },
+
+  // 创建核算佣金记录
+  createCommissionAccounting: (data) => {
+    return api.post('/commission-accounting', data)
+  },
+
+  // 获取核算佣金详情
+  getCommissionAccounting: (id) => {
+    return api.get(`/commission-accounting/${id}`)
+  },
+
+  // 更新核算佣金记录
+  updateCommissionAccounting: (id, data) => {
+    return api.put(`/commission-accounting/${id}`, data)
+  },
+
+  // 删除核算佣金记录
+  deleteCommissionAccounting: (id) => {
+    return api.delete(`/commission-accounting/${id}`)
+  },
+
+  // 批量删除核算佣金记录
+  batchDeleteCommissionAccountings: (ids) => {
+    return api.delete('/commission-accounting/batch', { data: { ids } })
+  }
+}
