@@ -16,17 +16,28 @@
       <el-form :model="searchForm" inline>
         <div class="search-left">
           <el-form-item label="产品名称">
-            <el-input
+            <el-autocomplete
               v-model="searchForm.productName"
+              :fetch-suggestions="queryProductNameSuggestions"
               placeholder="请输入产品名称"
               clearable
               style="width: 200px;"
             />
           </el-form-item>
           <el-form-item label="店铺名称">
-            <el-input
+            <el-autocomplete
               v-model="searchForm.shopName"
+              :fetch-suggestions="queryShopNameSuggestions"
               placeholder="请输入店铺名称"
+              clearable
+              style="width: 200px;"
+            />
+          </el-form-item>
+          <el-form-item label="平台">
+            <el-autocomplete
+              v-model="searchForm.platform"
+              :fetch-suggestions="queryPlatformSuggestions"
+              placeholder="请输入平台名称"
               clearable
               style="width: 200px;"
             />
@@ -74,6 +85,12 @@
         <el-button @click="handleExport" :icon="Download" class="action-btn">
           导出数据
           <span v-if="selectedBudgets.length">({{ selectedBudgets.length }}条)</span>
+        </el-button>
+        <el-button type="info" @click="showImportDialog = true" :icon="Upload" class="action-btn info">
+          Excel导入
+        </el-button>
+        <el-button type="warning" @click="showSummaryDialog = true" :icon="TrendCharts" class="action-btn warning">
+          产品汇总
         </el-button>
       </div>
       <div class="action-right">
@@ -165,6 +182,12 @@
           </template>
         </el-table-column>
 
+        <el-table-column prop="platform" label="平台" width="100" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span>{{ row.platform || '-' }}</span>
+          </template>
+        </el-table-column>
+
         <el-table-column prop="sellingPrice" label="售价" width="100" align="right">
           <template #default="{ row }">
             <span class="price">¥{{ row.sellingPrice?.toFixed(2) || '0.00' }}</span>
@@ -249,7 +272,7 @@
     <el-dialog
       v-model="showAddDialog"
       :title="editingBudget ? '编辑产品预算' : '新增产品预算'"
-      width="600px"
+      width="900px"
       append-to-body
       @close="resetForm"
     >
@@ -260,45 +283,61 @@
         label-width="100px"
       >
         <el-form-item label="产品名称" prop="productName">
-          <el-input
+          <el-autocomplete
             v-model="budgetForm.productName"
+            :fetch-suggestions="queryProductNameSuggestions"
             placeholder="请输入产品名称"
+            style="width: 100%"
             maxlength="100"
             show-word-limit
+            clearable
           />
         </el-form-item>
 
         <el-form-item label="店铺名称" prop="shopName">
-          <el-input
+          <el-autocomplete
             v-model="budgetForm.shopName"
+            :fetch-suggestions="queryShopNameSuggestions"
             placeholder="请输入店铺名称（可选）"
+            style="width: 100%"
             maxlength="100"
             show-word-limit
+            clearable
+          />
+        </el-form-item>
+
+        <el-form-item label="平台" prop="platform">
+          <el-autocomplete
+            v-model="budgetForm.platform"
+            :fetch-suggestions="queryPlatformSuggestions"
+            placeholder="请输入平台名称（可选）"
+            style="width: 100%"
+            maxlength="50"
+            show-word-limit
+            clearable
           />
         </el-form-item>
 
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="售价" prop="sellingPrice">
-              <el-input-number
+              <el-input
                 v-model="budgetForm.sellingPrice"
-                :min="0"
-                :precision="2"
-                placeholder="0.00"
+                placeholder="请输入数字"
                 style="width: 100%"
-                @change="updateCalculation"
+                @input="(value) => handleNumberInput('sellingPrice', value)"
+                @blur="updateCalculation"
               />
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="成本单价" prop="unitCost">
-              <el-input-number
+              <el-input
                 v-model="budgetForm.unitCost"
-                :min="0"
-                :precision="2"
-                placeholder="0.00"
+                placeholder="请输入数字"
                 style="width: 100%"
-                @change="updateCalculation"
+                @input="(value) => handleNumberInput('unitCost', value)"
+                @blur="updateCalculation"
               />
             </el-form-item>
           </el-col>
@@ -307,38 +346,35 @@
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="运费" prop="shippingCost">
-              <el-input-number
+              <el-input
                 v-model="budgetForm.shippingCost"
-                :min="0"
-                :precision="2"
-                placeholder="0.00"
+                placeholder="请输入数字"
                 style="width: 100%"
-                @change="updateCalculation"
+                @input="(value) => handleNumberInput('shippingCost', value)"
+                @blur="updateCalculation"
               />
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="平台费用" prop="platformFee">
-              <el-input-number
+              <el-input
                 v-model="budgetForm.platformFee"
-                :min="0"
-                :precision="2"
-                placeholder="0.00"
+                placeholder="请输入数字"
                 style="width: 100%"
-                @change="updateCalculation"
+                @input="(value) => handleNumberInput('platformFee', value)"
+                @blur="updateCalculation"
               />
             </el-form-item>
           </el-col>
         </el-row>
 
         <el-form-item label="手续费" prop="handlingFee">
-          <el-input-number
+          <el-input
             v-model="budgetForm.handlingFee"
-            :min="0"
-            :precision="2"
-            placeholder="0.00"
+            placeholder="请输入数字"
             style="width: 100%"
-            @change="updateCalculation"
+            @input="(value) => handleNumberInput('handlingFee', value)"
+            @blur="updateCalculation"
           />
         </el-form-item>
 
@@ -403,6 +439,331 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- Excel导入对话框 -->
+    <el-dialog
+      v-model="showImportDialog"
+      title="Excel批量导入"
+      width="900px"
+      append-to-body
+      @close="resetImportData"
+    >
+      <div class="import-container">
+        <!-- 步骤1: 文件上传 -->
+        <div v-if="!importData.length" class="upload-section">
+          <div class="upload-tips">
+            <h4>导入说明：</h4>
+            <ul>
+              <li>支持 Excel (.xlsx, .xls) 和 CSV 文件格式</li>
+              <li>必填字段：产品名称、售价</li>
+              <li>可选字段：店铺名称、成本单价、运费、平台费用、手续费、备注</li>
+              <li>数字字段支持负数和小数</li>
+              <li>建议先下载模板，按格式填写数据</li>
+            </ul>
+
+            <div class="template-download">
+              <el-button type="primary" @click="downloadTemplate" :icon="Download">
+                下载导入模板
+              </el-button>
+            </div>
+          </div>
+
+          <el-upload
+            class="upload-demo"
+            drag
+            :auto-upload="false"
+            :on-change="handleFileUpload"
+            :show-file-list="false"
+            accept=".xlsx,.xls,.csv"
+          >
+            <el-icon class="el-icon--upload"><Upload /></el-icon>
+            <div class="el-upload__text">
+              将文件拖到此处，或<em>点击上传</em>
+            </div>
+            <template #tip>
+              <div class="el-upload__tip">
+                支持 .xlsx, .xls, .csv 格式文件
+              </div>
+            </template>
+          </el-upload>
+        </div>
+
+        <!-- 步骤2: 数据预览 -->
+        <div v-else class="preview-section">
+          <div class="preview-header">
+            <h4>数据预览 (共 {{ importData.length }} 条记录)</h4>
+            <div class="preview-actions">
+              <el-button @click="resetImportData" :icon="Refresh">重新上传</el-button>
+            </div>
+          </div>
+
+          <el-table
+            :data="importData.slice(0, 10)"
+            border
+            stripe
+            max-height="400"
+            class="preview-table"
+          >
+            <el-table-column type="index" label="序号" width="60" />
+            <el-table-column prop="productName" label="产品名称" min-width="120" />
+            <el-table-column prop="shopName" label="店铺名称" min-width="120" />
+            <el-table-column prop="platform" label="平台" width="100" />
+            <el-table-column prop="sellingPrice" label="售价" width="100" align="right">
+              <template #default="{ row }">
+                <span :class="{ 'negative-value': row.sellingPrice < 0 }">
+                  ¥{{ row.sellingPrice?.toFixed(2) || '0.00' }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="unitCost" label="成本单价" width="100" align="right">
+              <template #default="{ row }">
+                <span :class="{ 'negative-value': row.unitCost < 0 }">
+                  ¥{{ row.unitCost?.toFixed(2) || '0.00' }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="shippingCost" label="运费" width="80" align="right">
+              <template #default="{ row }">
+                <span :class="{ 'negative-value': row.shippingCost < 0 }">
+                  ¥{{ row.shippingCost?.toFixed(2) || '0.00' }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="platformFee" label="平台费用" width="100" align="right">
+              <template #default="{ row }">
+                <span :class="{ 'negative-value': row.platformFee < 0 }">
+                  ¥{{ row.platformFee?.toFixed(2) || '0.00' }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="handlingFee" label="手续费" width="80" align="right">
+              <template #default="{ row }">
+                <span :class="{ 'negative-value': row.handlingFee < 0 }">
+                  ¥{{ row.handlingFee?.toFixed(2) || '0.00' }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="description" label="备注" min-width="100" />
+          </el-table>
+
+          <div v-if="importData.length > 10" class="preview-more">
+            <el-alert
+              :title="`仅显示前10条记录，实际将导入 ${importData.length} 条记录`"
+              type="info"
+              :closable="false"
+            />
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showImportDialog = false">取消</el-button>
+          <el-button
+            v-if="importData.length > 0"
+            type="primary"
+            @click="handleImportConfirm"
+            :loading="importSubmitting"
+          >
+            确认导入 ({{ importData.length }} 条)
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
+
+    <!-- 产品汇总对话框 -->
+    <el-dialog
+      v-model="showSummaryDialog"
+      title="产品汇总分析"
+      width="1000px"
+      append-to-body
+      @close="resetSummaryData"
+    >
+      <div class="summary-container">
+        <!-- 搜索区域 -->
+        <div class="summary-search">
+          <el-form :model="summaryForm" inline>
+            <el-form-item label="产品名称">
+              <el-autocomplete
+                v-model="summaryForm.productName"
+                :fetch-suggestions="handleSummaryProductNameInput"
+                placeholder="请输入产品名称"
+                style="width: 300px"
+                clearable
+                @select="fetchProductSummary"
+                @keyup.enter="fetchProductSummary"
+              />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="fetchProductSummary" :loading="summaryLoading" :icon="Search">
+                查询汇总
+              </el-button>
+              <el-button @click="resetSummaryData" :icon="Refresh">
+                重置
+              </el-button>
+            </el-form-item>
+          </el-form>
+        </div>
+
+        <!-- 汇总统计卡片 -->
+        <div v-if="summaryAllData.length > 0" class="summary-stats">
+          <el-row :gutter="20">
+            <el-col :span="6">
+              <el-card class="stats-card">
+                <div class="stats-content">
+                  <div class="stats-icon success">
+                    <el-icon><List /></el-icon>
+                  </div>
+                  <div class="stats-info">
+                    <div class="stats-value">{{ summaryStats.recordCount }}</div>
+                    <div class="stats-label">记录数量</div>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+
+            <el-col :span="6">
+              <el-card class="stats-card">
+                <div class="stats-content">
+                  <div class="stats-icon commission">
+                    <el-icon><Coin /></el-icon>
+                  </div>
+                  <div class="stats-info">
+                    <div class="stats-value">{{ summaryStats.totalSellingPrice.toFixed(2) }}</div>
+                    <div class="stats-label">总售价</div>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+
+            <el-col :span="6">
+              <el-card class="stats-card">
+                <div class="stats-content">
+                  <div class="stats-icon profit">
+                    <el-icon><TrendCharts /></el-icon>
+                  </div>
+                  <div class="stats-info">
+                    <div class="stats-value">{{ summaryStats.totalGrossMargin.toFixed(2) }}</div>
+                    <div class="stats-label">总毛利</div>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+
+            <el-col :span="6">
+              <el-card class="stats-card">
+                <div class="stats-content">
+                  <div class="stats-icon" :class="summaryStats.totalActualCommission >= 0 ? 'profit' : 'danger'">
+                    <el-icon><SuccessFilled v-if="summaryStats.totalActualCommission >= 0" /><WarningFilled v-else /></el-icon>
+                  </div>
+                  <div class="stats-info">
+                    <div class="stats-value" :class="summaryStats.totalActualCommission >= 0 ? 'profit' : 'loss'">
+                      {{ summaryStats.totalActualCommission.toFixed(2) }}%
+                    </div>
+                    <div class="stats-label">平均实际佣金</div>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+          </el-row>
+        </div>
+
+        <!-- 详细数据表格 -->
+        <div v-if="summaryAllData.length > 0" class="summary-table">
+          <div class="table-header">
+            <h4>{{ summaryForm.productName }} - 各店铺平台明细</h4>
+          </div>
+
+          <el-table
+            :data="summaryData"
+            border
+            stripe
+            max-height="400"
+            :loading="summaryLoading"
+          >
+            <el-table-column type="index" label="序号" width="60" :index="(index) => (summaryCurrentPage - 1) * summaryPageSize + index + 1" />
+
+            <el-table-column prop="productName" label="产品名称" min-width="120">
+              <template #default="{ row }">
+                <span>{{ row.productName || '-' }}</span>
+              </template>
+            </el-table-column>
+
+            <el-table-column prop="shopName" label="店铺名称" min-width="120">
+              <template #default="{ row }">
+                <span>{{ row.shopName || '-' }}</span>
+              </template>
+            </el-table-column>
+
+            <el-table-column prop="platform" label="平台" width="100">
+              <template #default="{ row }">
+                <span>{{ row.platform || '-' }}</span>
+              </template>
+            </el-table-column>
+
+            <el-table-column prop="sellingPrice" label="售价" width="100" align="right">
+              <template #default="{ row }">
+                <span class="price">¥{{ row.sellingPrice?.toFixed(2) || '0.00' }}</span>
+              </template>
+            </el-table-column>
+
+            <el-table-column prop="grossMargin" label="毛利" width="100" align="right">
+              <template #default="{ row }">
+                <span :class="['price', row.grossMargin >= 0 ? 'profit' : 'loss']">
+                  ¥{{ row.grossMargin?.toFixed(2) || '0.00' }}
+                </span>
+              </template>
+            </el-table-column>
+
+            <el-table-column prop="actualCommission" label="实际佣金" width="100" align="right">
+              <template #default="{ row }">
+                <span :class="['commission', row.actualCommission >= 0 ? 'profit' : 'loss']">
+                  {{ row.actualCommission?.toFixed(2) || '0.00' }}%
+                </span>
+              </template>
+            </el-table-column>
+
+            <el-table-column prop="createdAt" label="创建时间" width="160">
+              <template #default="{ row }">
+                {{ formatUtcToLocalDateTime(row.createdAt) }}
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <!-- 汇总分页 -->
+          <div class="summary-pagination">
+            <el-pagination
+              v-model:current-page="summaryCurrentPage"
+              v-model:page-size="summaryPageSize"
+              :page-sizes="[10, 20, 50, 100]"
+              :total="summaryAllData.length"
+              layout="total, sizes, prev, pager, next, jumper"
+              @size-change="handleSummarySizeChange"
+              @current-change="handleSummaryPageChange"
+            />
+          </div>
+        </div>
+
+        <!-- 空状态 -->
+        <div v-else-if="!summaryLoading" class="empty-state">
+          <el-empty description="请输入产品名称查询汇总数据" />
+        </div>
+      </div>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showSummaryDialog = false">关闭</el-button>
+          <el-button
+            v-if="summaryAllData.length > 0"
+            type="primary"
+            @click="exportSummaryData"
+            :icon="Download"
+          >
+            导出汇总数据
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -416,6 +777,7 @@ import {
   Search,
   Refresh,
   Download,
+  Upload,
   TrendCharts,
   Coin,
   SuccessFilled,
@@ -423,15 +785,27 @@ import {
 } from '@element-plus/icons-vue'
 import { useBudgetStore } from '../../stores/budget'
 import { formatUtcToLocalDateTime } from '../../utils/dateUtils'
+import { numberValidators } from '../../utils/inputValidation'
+import {
+  readFinancialExcelFile,
+  validateFinancialImportHeaders,
+  transformFinancialImportData,
+  validateFinancialImportData,
+  generateFinancialImportTemplate,
+  exportFinancialToCSV
+} from '../../utils/financialExcelUtils'
 
 // Store
 const budgetStore = useBudgetStore()
 
 // 响应式数据
 const showAddDialog = ref(false)
+const showImportDialog = ref(false)
+const showSummaryDialog = ref(false)
 const editingBudget = ref(null)
 const selectedBudgets = ref([])
 const submitting = ref(false)
+const importSubmitting = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
 
@@ -439,6 +813,7 @@ const pageSize = ref(10)
 const searchForm = reactive({
   productName: '',
   shopName: '',
+  platform: '',
   minGrossMargin: null,
   maxGrossMargin: null
 })
@@ -447,11 +822,12 @@ const searchForm = reactive({
 const budgetForm = reactive({
   productName: '',
   shopName: '',
-  sellingPrice: 0,
-  unitCost: 0,
-  shippingCost: 0,
-  platformFee: 0,
-  handlingFee: 0,
+  platform: '',
+  sellingPrice: '',
+  unitCost: '',
+  shippingCost: '',
+  platformFee: '',
+  handlingFee: '',
   description: ''
 })
 
@@ -462,8 +838,7 @@ const budgetRules = {
     { min: 1, max: 100, message: '产品名称长度在 1 到 100 个字符', trigger: 'blur' }
   ],
   sellingPrice: [
-    { required: true, message: '请输入售价', trigger: 'blur' },
-    { type: 'number', min: 0, message: '售价不能小于0', trigger: 'blur' }
+    { required: true, message: '请输入售价', trigger: 'blur' }
   ]
 }
 
@@ -473,9 +848,420 @@ const budgetFormRef = ref()
 // 计算结果
 const calculationResult = ref(null)
 
+// Excel导入相关数据
+const importData = ref([])
+const importColumns = ref([])
+const importFile = ref(null)
+
+// 自动完成数据
+const shopNameSuggestions = ref([])
+const platformSuggestions = ref([])
+const productNameSuggestions = ref([])
+
+// 产品汇总相关数据
+const summaryForm = reactive({
+  productName: ''
+})
+const summaryData = ref([])
+const summaryAllData = ref([]) // 存储所有汇总数据
+const summaryLoading = ref(false)
+const summaryCurrentPage = ref(1)
+const summaryPageSize = ref(10)
+const summaryStats = ref({
+  totalSellingPrice: 0,
+  totalGrossMargin: 0,
+  totalActualCommission: 0,
+  recordCount: 0
+})
+
+// 数字输入验证处理器
+const handleNumberInput = (field, value) => {
+  // 所有数字字段都支持小数和负数（支持各种调整和退款场景）
+  const validatedValue = numberValidators.signedNumber(value)
+  budgetForm[field] = validatedValue
+
+  // 触发实时计算
+  updateCalculation()
+
+  return validatedValue
+}
+
+// Excel导入相关方法
+// 处理文件上传
+const handleFileUpload = async (file) => {
+  try {
+    importSubmitting.value = true
+
+    // 读取Excel文件
+    const result = await readFinancialExcelFile(file.raw)
+
+    // 验证表头
+    const headerValidation = validateFinancialImportHeaders(result.headers)
+
+    if (!headerValidation.isValid) {
+      ElMessage.error(`缺少必填字段: ${headerValidation.missingRequired.join(', ')}`)
+      return false
+    }
+
+    // 转换数据格式
+    const transformedData = transformFinancialImportData(result.data, headerValidation.mappedFields)
+
+    // 验证数据
+    const dataValidation = validateFinancialImportData(transformedData)
+
+    // 保存导入数据
+    importData.value = dataValidation.validRows
+    importColumns.value = result.headers
+    importFile.value = file.raw
+
+    // 显示验证结果
+    if (dataValidation.errors.length > 0) {
+      ElMessage.warning(`发现 ${dataValidation.errors.length} 行数据有错误，已自动过滤`)
+    }
+
+    if (dataValidation.warnings.length > 0) {
+      ElMessage.warning(`发现 ${dataValidation.warnings.length} 行数据有警告`)
+    }
+
+    ElMessage.success(`成功解析 ${dataValidation.validRowCount} 行有效数据`)
+
+    return false // 阻止自动上传
+  } catch (error) {
+    ElMessage.error('文件解析失败: ' + error.message)
+    return false
+  } finally {
+    importSubmitting.value = false
+  }
+}
+
+// 确认导入数据
+const handleImportConfirm = async () => {
+  if (!importData.value || importData.value.length === 0) {
+    ElMessage.error('没有可导入的数据')
+    return
+  }
+
+  try {
+    importSubmitting.value = true
+
+    // 使用批量创建接口
+    const result = await budgetStore.batchAddBudget(importData.value)
+
+    if (result.success) {
+      ElMessage.success(result.message)
+      showImportDialog.value = false
+      resetImportData()
+      // 重新加载数据
+      handleRefresh()
+    } else {
+      ElMessage.error(result.message)
+    }
+  } catch (error) {
+    ElMessage.error('导入失败: ' + error.message)
+  } finally {
+    importSubmitting.value = false
+  }
+}
+
+// 重置导入数据
+const resetImportData = () => {
+  importData.value = []
+  importColumns.value = []
+  importFile.value = null
+}
+
+// 下载导入模板
+const downloadTemplate = () => {
+  const template = generateFinancialImportTemplate()
+  const csvContent = exportFinancialToCSV(template.data, template.headers)
+
+  const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+
+  link.setAttribute('href', url)
+  link.setAttribute('download', '财务测算导入模板.csv')
+  link.style.visibility = 'hidden'
+
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+// 自动完成查询方法
+// 产品名称自动完成查询
+const queryProductNameSuggestions = (queryString, callback) => {
+  const results = queryString
+    ? productNameSuggestions.value.filter(item =>
+        item.value.toLowerCase().includes(queryString.toLowerCase())
+      )
+    : productNameSuggestions.value
+  callback(results.slice(0, 10)) // 限制显示10个建议
+}
+
+// 店铺名称自动完成查询
+const queryShopNameSuggestions = (queryString, callback) => {
+  const results = queryString
+    ? shopNameSuggestions.value.filter(item =>
+        item.value.toLowerCase().includes(queryString.toLowerCase())
+      )
+    : shopNameSuggestions.value
+  callback(results.slice(0, 10))
+}
+
+// 平台自动完成查询
+const queryPlatformSuggestions = (queryString, callback) => {
+  const results = queryString
+    ? platformSuggestions.value.filter(item =>
+        item.value.toLowerCase().includes(queryString.toLowerCase())
+      )
+    : platformSuggestions.value
+  callback(results.slice(0, 10))
+}
+
+// 获取自动完成建议数据
+const fetchSuggestions = async () => {
+  try {
+    // 获取产品名称建议
+    const productNameResult = await budgetStore.fetchProductNameSuggestions()
+    if (productNameResult.success) {
+      productNameSuggestions.value = productNameResult.data.map(name => ({ value: name }))
+    }
+
+    // 获取店铺名称建议
+    const shopNameResult = await budgetStore.fetchShopNameSuggestions()
+    if (shopNameResult.success) {
+      shopNameSuggestions.value = shopNameResult.data.map(name => ({ value: name }))
+    }
+
+    // 获取平台建议
+    const platformResult = await budgetStore.fetchPlatformSuggestions()
+    if (platformResult.success) {
+      platformSuggestions.value = platformResult.data.map(name => ({ value: name }))
+    }
+  } catch (error) {
+    console.error('获取建议数据失败:', error)
+  }
+}
+
+// 产品汇总相关方法
+// 获取产品汇总数据
+const fetchProductSummary = async () => {
+  if (!summaryForm.productName.trim()) {
+    ElMessage.warning('请输入产品名称')
+    return
+  }
+
+  try {
+    summaryLoading.value = true
+
+    // 简化版本：直接从当前已加载的数据中筛选
+    // 如果主列表没有数据，先加载一次
+    if (budgetStore.budgets.length === 0) {
+      await fetchBudgets()
+    }
+
+    // 从当前数据中筛选匹配的产品
+    const searchTerm = summaryForm.productName.trim().toLowerCase()
+    const allData = budgetStore.budgets.filter(item =>
+      item.productName && item.productName.toLowerCase().includes(searchTerm)
+    )
+
+    // 存储所有数据用于统计和分页
+    summaryAllData.value = allData
+
+    // 重置分页
+    summaryCurrentPage.value = 1
+
+    // 更新当前页数据
+    updateSummaryPageData()
+
+    // 计算汇总统计（基于所有数据）
+    calculateSummaryStats()
+
+    if (summaryAllData.value.length === 0) {
+      ElMessage.info('未找到相关产品数据')
+    } else {
+      ElMessage.success(`找到 ${summaryAllData.value.length} 条相关记录`)
+    }
+
+  } catch (error) {
+    ElMessage.error('获取汇总数据失败')
+  } finally {
+    summaryLoading.value = false
+  }
+}
+
+// 更新汇总分页数据
+const updateSummaryPageData = () => {
+  const start = (summaryCurrentPage.value - 1) * summaryPageSize.value
+  const end = start + summaryPageSize.value
+  summaryData.value = summaryAllData.value.slice(start, end)
+}
+
+// 汇总分页处理
+const handleSummaryPageChange = (page) => {
+  summaryCurrentPage.value = page
+  updateSummaryPageData()
+}
+
+const handleSummarySizeChange = (size) => {
+  summaryPageSize.value = size
+  summaryCurrentPage.value = 1
+  updateSummaryPageData()
+}
+
+// 计算汇总统计（基于所有数据，不是当前页数据）
+const calculateSummaryStats = () => {
+  if (summaryAllData.value.length === 0) {
+    summaryStats.value = {
+      totalSellingPrice: 0,
+      totalGrossMargin: 0,
+      totalActualCommission: 0,
+      recordCount: 0
+    }
+    return
+  }
+
+  const stats = summaryAllData.value.reduce((acc, item) => {
+    acc.totalSellingPrice += item.sellingPrice || 0
+    acc.totalGrossMargin += item.grossMargin || 0
+    return acc
+  }, {
+    totalSellingPrice: 0,
+    totalGrossMargin: 0
+  })
+
+  // 计算平均实际佣金
+  const totalActualCommission = summaryAllData.value.reduce((sum, item) => {
+    return sum + (item.actualCommission || 0)
+  }, 0)
+  const averageActualCommission = summaryAllData.value.length > 0
+    ? totalActualCommission / summaryAllData.value.length
+    : 0
+
+  summaryStats.value = {
+    ...stats,
+    totalActualCommission: averageActualCommission,
+    recordCount: summaryAllData.value.length
+  }
+}
+
+// 重置汇总数据
+const resetSummaryData = () => {
+  summaryForm.productName = ''
+  summaryData.value = []
+  summaryAllData.value = []
+  summaryCurrentPage.value = 1
+  summaryStats.value = {
+    totalSellingPrice: 0,
+    totalGrossMargin: 0,
+    totalActualCommission: 0,
+    recordCount: 0
+  }
+}
+
+// 产品名称输入建议
+const handleSummaryProductNameInput = (queryString, callback) => {
+  const results = queryString
+    ? productNameSuggestions.value.filter(item =>
+        item.value.toLowerCase().includes(queryString.toLowerCase())
+      )
+    : productNameSuggestions.value
+  callback(results)
+}
+
+// 导出汇总数据
+const exportSummaryData = () => {
+  if (summaryAllData.value.length === 0) {
+    ElMessage.warning('暂无数据可导出')
+    return
+  }
+
+  try {
+    // 构建导出数据
+    const exportData = [
+      // 汇总统计行
+      {
+        '产品名称': `${summaryForm.productName} - 汇总统计`,
+        '店铺名称': '汇总',
+        '平台': '全部',
+        '售价': summaryStats.value.totalSellingPrice,
+        '毛利': summaryStats.value.totalGrossMargin,
+        '实际佣金(%)': summaryStats.value.totalActualCommission.toFixed(2),
+        '记录数量': summaryStats.value.recordCount,
+        '创建时间': new Date().toLocaleString()
+      },
+      // 空行分隔
+      {
+        '产品名称': '',
+        '店铺名称': '',
+        '平台': '',
+        '售价': '',
+        '毛利': '',
+        '实际佣金(%)': '',
+        '记录数量': '',
+        '创建时间': ''
+      },
+      // 详细数据
+      ...summaryAllData.value.map((item, index) => ({
+        '产品名称': item.productName || '',
+        '店铺名称': item.shopName || '',
+        '平台': item.platform || '',
+        '售价': item.sellingPrice || 0,
+        '成本单价': item.unitCost || 0,
+        '运费': item.shippingCost || 0,
+        '平台费用': item.platformFee || 0,
+        '手续费': item.handlingFee || 0,
+        '毛利': item.grossMargin || 0,
+        '实际佣金(%)': (item.actualCommission || 0).toFixed(2),
+        '创建时间': formatUtcToLocalDateTime(item.createdAt)
+      }))
+    ]
+
+    // 转换为CSV格式
+    const headers = Object.keys(exportData[0])
+    const csvContent = [
+      headers.join(','),
+      ...exportData.map(row =>
+        headers.map(header => {
+          const value = row[header]
+          return typeof value === 'string' && value.includes(',')
+            ? `"${value}"`
+            : value
+        }).join(',')
+      )
+    ].join('\n')
+
+    // 下载文件
+    const bom = '\uFEFF'
+    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${summaryForm.productName}_财务测算汇总_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    ElMessage.success('汇总数据导出成功')
+  } catch (error) {
+    ElMessage.error('导出失败')
+  }
+}
+
 // 方法
 const updateCalculation = () => {
-  calculationResult.value = budgetStore.calculateBudget(budgetForm)
+  // 将字符串转换为数字进行计算
+  const calculationData = {
+    sellingPrice: parseFloat(budgetForm.sellingPrice) || 0,
+    unitCost: parseFloat(budgetForm.unitCost) || 0,
+    shippingCost: parseFloat(budgetForm.shippingCost) || 0,
+    platformFee: parseFloat(budgetForm.platformFee) || 0,
+    handlingFee: parseFloat(budgetForm.handlingFee) || 0
+  }
+  calculationResult.value = budgetStore.calculateBudget(calculationData)
 }
 
 // 监听表单变化，实时计算
@@ -501,6 +1287,7 @@ const handleReset = () => {
   Object.assign(searchForm, {
     productName: '',
     shopName: '',
+    platform: '',
     minGrossMargin: null,
     maxGrossMargin: null
   })
@@ -536,11 +1323,12 @@ const handleEdit = (budget) => {
   Object.assign(budgetForm, {
     productName: budget.productName,
     shopName: budget.shopName || '',
-    sellingPrice: budget.sellingPrice || 0,
-    unitCost: budget.unitCost || 0,
-    shippingCost: budget.shippingCost || 0,
-    platformFee: budget.platformFee || 0,
-    handlingFee: budget.handlingFee || 0,
+    platform: budget.platform || '',
+    sellingPrice: String(budget.sellingPrice || 0),
+    unitCost: String(budget.unitCost || 0),
+    shippingCost: String(budget.shippingCost || 0),
+    platformFee: String(budget.platformFee || 0),
+    handlingFee: String(budget.handlingFee || 0),
     description: budget.description || ''
   })
   showAddDialog.value = true
@@ -606,11 +1394,21 @@ const handleSubmit = async () => {
     await budgetFormRef.value.validate()
     submitting.value = true
 
+    // 转换字符串为数字类型再提交
+    const submitData = {
+      ...budgetForm,
+      sellingPrice: parseFloat(budgetForm.sellingPrice) || 0,
+      unitCost: parseFloat(budgetForm.unitCost) || 0,
+      shippingCost: parseFloat(budgetForm.shippingCost) || 0,
+      platformFee: parseFloat(budgetForm.platformFee) || 0,
+      handlingFee: parseFloat(budgetForm.handlingFee) || 0
+    }
+
     let result
     if (editingBudget.value) {
-      result = await budgetStore.updateBudget(editingBudget.value._id, budgetForm)
+      result = await budgetStore.updateBudget(editingBudget.value._id, submitData)
     } else {
-      result = await budgetStore.addBudget(budgetForm)
+      result = await budgetStore.addBudget(submitData)
     }
 
     if (result.success) {
@@ -631,11 +1429,12 @@ const resetForm = () => {
   Object.assign(budgetForm, {
     productName: '',
     shopName: '',
-    sellingPrice: 0,
-    unitCost: 0,
-    shippingCost: 0,
-    platformFee: 0,
-    handlingFee: 0,
+    platform: '',
+    sellingPrice: '',
+    unitCost: '',
+    shippingCost: '',
+    platformFee: '',
+    handlingFee: '',
     description: ''
   })
   calculationResult.value = null
@@ -721,6 +1520,7 @@ const handleExport = async () => {
 // 生命周期
 onMounted(() => {
   fetchBudgets()
+  fetchSuggestions()
 })
 </script>
 
@@ -957,6 +1757,146 @@ onMounted(() => {
 
   .stats-cards .el-col {
     margin-bottom: 10px;
+  }
+}
+
+/* Excel导入样式 */
+.import-container {
+  .upload-section {
+    .upload-tips {
+      margin-bottom: 20px;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 6px;
+
+      h4 {
+        margin: 0 0 10px 0;
+        color: #303133;
+      }
+
+      ul {
+        margin: 0;
+        padding-left: 20px;
+
+        li {
+          margin-bottom: 5px;
+          color: #606266;
+        }
+      }
+
+      .template-download {
+        margin-top: 15px;
+        text-align: center;
+      }
+    }
+
+    .upload-demo {
+      margin-top: 20px;
+    }
+  }
+
+  .preview-section {
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+
+      h4 {
+        margin: 0;
+        color: #303133;
+      }
+    }
+
+    .preview-table {
+      .negative-value {
+        color: #f56c6c;
+        font-weight: 500;
+      }
+    }
+
+    .preview-more {
+      margin-top: 15px;
+    }
+  }
+}
+
+.action-btn.info {
+  background: linear-gradient(135deg, #909399 0%, #b1b3b8 100%);
+  border: none;
+  color: white;
+}
+
+.action-btn.warning {
+  background: linear-gradient(135deg, #e6a23c 0%, #f0c78a 100%);
+  border: none;
+  color: white;
+}
+
+/* 产品汇总样式 */
+.summary-container {
+  .summary-search {
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 6px;
+  }
+
+  .summary-stats {
+    margin-bottom: 20px;
+
+    .stats-value.profit {
+      color: #67c23a;
+    }
+
+    .stats-value.loss {
+      color: #f56c6c;
+    }
+  }
+
+  .summary-table {
+    .table-header {
+      margin-bottom: 15px;
+
+      h4 {
+        margin: 0;
+        color: #303133;
+        font-size: 16px;
+      }
+    }
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 0;
+  }
+
+  .summary-pagination {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .summary-container {
+    .summary-stats {
+      .el-col {
+        margin-bottom: 15px;
+      }
+    }
+
+    .summary-search {
+      .el-form {
+        flex-direction: column;
+
+        .el-form-item {
+          margin-bottom: 15px;
+          margin-right: 0;
+        }
+      }
+    }
   }
 }
 </style>

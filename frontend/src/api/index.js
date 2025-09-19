@@ -304,6 +304,11 @@ export const productApi = {
     return api.post('/products', data)
   },
 
+  // 批量创建商品
+  batchCreateProducts: (data) => {
+    return api.post('/products/batch', data)
+  },
+
   // 获取商品详情
   getProduct: (id) => {
     return api.get(`/products/${id}`)
@@ -352,6 +357,11 @@ export const budgetApi = {
     return api.post('/budget', data)
   },
 
+  // 批量创建产品预算
+  batchCreateBudgets: (data) => {
+    return api.post('/budget/batch', data)
+  },
+
   // 获取产品预算详情
   getBudget: (id) => {
     return api.get(`/budget/${id}`)
@@ -370,6 +380,21 @@ export const budgetApi = {
   // 批量删除产品预算
   batchDeleteBudgets: (ids) => {
     return api.delete('/budget/batch', { data: { ids } })
+  },
+
+  // 获取产品名称建议
+  getProductNameSuggestions: () => {
+    return api.get('/budget/suggestions/product-names')
+  },
+
+  // 获取店铺名称建议
+  getShopNameSuggestions: () => {
+    return api.get('/budget/suggestions/shop-names')
+  },
+
+  // 获取平台建议
+  getPlatformSuggestions: () => {
+    return api.get('/budget/suggestions/platforms')
   }
 }
 
@@ -383,6 +408,11 @@ export const commissionAccountingApi = {
   // 创建核算佣金记录
   createCommissionAccounting: (data) => {
     return api.post('/commission-accounting', data)
+  },
+
+  // 批量创建核算佣金记录
+  batchCreateCommissionAccounting: (records) => {
+    return api.post('/commission-accounting/batch', { records })
   },
 
   // 获取核算佣金详情
@@ -413,5 +443,10 @@ export const commissionAccountingApi = {
   // 获取平台建议
   getPlatformSuggestions: () => {
     return api.get('/commission-accounting/suggestions/platforms')
+  },
+
+  // 获取产品名称建议
+  getProductNameSuggestions: () => {
+    return api.get('/commission-accounting/suggestions/product-names')
   }
 }

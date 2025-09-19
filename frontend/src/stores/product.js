@@ -136,7 +136,7 @@ export const useProductStore = defineStore('product', () => {
   const addProduct = async (productData) => {
     try {
       const response = await productApi.createProduct(productData)
-      
+
       if (response.success) {
         // 重新获取商品列表
         await fetchProducts()
@@ -146,6 +146,22 @@ export const useProductStore = defineStore('product', () => {
       }
     } catch (error) {
       return { success: false, message: '添加商品时发生错误' }
+    }
+  }
+
+  const batchAddProducts = async (productsData) => {
+    try {
+      const response = await productApi.batchCreateProducts(productsData)
+
+      if (response.success) {
+        // 重新获取商品列表
+        await fetchProducts()
+        return { success: true, message: response.message || '批量添加商品成功' }
+      } else {
+        return { success: false, message: response.message || '批量添加商品失败' }
+      }
+    } catch (error) {
+      return { success: false, message: '批量添加商品时发生错误' }
     }
   }
   
@@ -235,6 +251,7 @@ export const useProductStore = defineStore('product', () => {
     fetchProductStats,
     fetchProductSuggestions,
     addProduct,
+    batchAddProducts,
     updateProduct,
     deleteProduct,
     batchDeleteProducts,

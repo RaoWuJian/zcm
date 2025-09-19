@@ -75,7 +75,7 @@ export const useCommissionAccountingStore = defineStore('commissionAccounting', 
   const addCommissionAccounting = async (accountingData) => {
     try {
       const response = await commissionAccountingApi.createCommissionAccounting(accountingData)
-      
+
       if (response.success) {
         // 重新获取列表
         await fetchCommissionAccountings()
@@ -85,6 +85,22 @@ export const useCommissionAccountingStore = defineStore('commissionAccounting', 
       }
     } catch (error) {
       return { success: false, message: '添加核算佣金时发生错误' }
+    }
+  }
+
+  const batchAddCommissionAccounting = async (records) => {
+    try {
+      const response = await commissionAccountingApi.batchCreateCommissionAccounting(records)
+
+      if (response.success) {
+        // 重新获取列表
+        await fetchCommissionAccountings()
+        return { success: true, message: response.message || '批量添加核算佣金成功', data: response.data }
+      } else {
+        return { success: false, message: response.message || '批量添加核算佣金失败', errors: response.errors }
+      }
+    } catch (error) {
+      return { success: false, message: '批量添加核算佣金时发生错误' }
     }
   }
   
@@ -194,6 +210,20 @@ export const useCommissionAccountingStore = defineStore('commissionAccounting', 
       return { success: false, message: '获取平台建议时发生错误' }
     }
   }
+
+  // 获取产品名称建议
+  const fetchProductNameSuggestions = async () => {
+    try {
+      const response = await commissionAccountingApi.getProductNameSuggestions()
+      if (response.success) {
+        return { success: true, data: response.data || [] }
+      } else {
+        return { success: false, message: response.message || '获取产品名称建议失败' }
+      }
+    } catch (error) {
+      return { success: false, message: '获取产品名称建议时发生错误' }
+    }
+  }
   
   return {
     // 状态
@@ -213,12 +243,14 @@ export const useCommissionAccountingStore = defineStore('commissionAccounting', 
     // 方法
     fetchCommissionAccountings,
     addCommissionAccounting,
+    batchAddCommissionAccounting,
     updateCommissionAccounting,
     deleteCommissionAccounting,
     batchDeleteCommissionAccountings,
     clearCommissionAccountings,
     calculateCommissionAccounting,
     fetchShopNameSuggestions,
-    fetchPlatformSuggestions
+    fetchPlatformSuggestions,
+    fetchProductNameSuggestions
   }
 })

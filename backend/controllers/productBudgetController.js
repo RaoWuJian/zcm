@@ -1,5 +1,7 @@
 const ProductBudget = require('../models/ProductBudget');
 const { asyncHandler } = require('../middleware/error');
+// 引入精确计算工具
+const { precisionCalculate } = require('../utils/precision');
 
 // 辅助函数：检查用户是否有权限访问预算记录
 const checkBudgetAccess = async (budgetId, user) => {
@@ -39,6 +41,7 @@ const createProductBudget = asyncHandler(async (req, res) => {
   const {
     productName,
     shopName,
+    platform,
     sellingPrice,
     unitCost,
     shippingCost,
@@ -50,6 +53,7 @@ const createProductBudget = asyncHandler(async (req, res) => {
   const budget = await ProductBudget.create({
     productName,
     shopName,
+    platform,
     sellingPrice,
     unitCost,
     shippingCost,
@@ -69,6 +73,74 @@ const createProductBudget = asyncHandler(async (req, res) => {
     data: populatedBudget,
     message: '产品预算创建成功'
   });
+});
+
+// @desc    批量创建商品预算
+// @route   POST /api/budget/batch
+// @access  Private
+const batchCreateProductBudget = asyncHandler(async (req, res) => {
+  const budgets = req.body;
+
+  // 验证输入数据
+  if (!Array.isArray(budgets) || budgets.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: '请提供有效的预算数据数组'
+    });
+  }
+
+  // 为每条记录添加创建者信息并计算毛利和实际佣金
+  const budgetsToCreate = budgets.map((budget, index) => {
+    const sellingPrice = Number(budget.sellingPrice) || 0;
+    const unitCost = Number(budget.unitCost) || 0;
+    const shippingCost = Number(budget.shippingCost) || 0;
+    const platformFee = Number(budget.platformFee) || 0;
+    const handlingFee = Number(budget.handlingFee) || 0;
+
+    // 毛利 = 售价 - 成本单价 - 运费 - 平台费用 - 手续费
+    const grossMargin = precisionCalculate.subtract(
+      sellingPrice,
+      unitCost,
+      shippingCost,
+      platformFee,
+      handlingFee
+    );
+
+    // 实际佣金 = (毛利 ÷ 售价) × 100%
+    const actualCommission = precisionCalculate.percentage(
+      grossMargin,
+      sellingPrice || 0
+    );
+
+    return {
+      ...budget,
+      createdBy: req.user.id,
+      grossMargin,
+      actualCommission
+    };
+  });
+
+  try {
+    // 批量创建记录
+    const createdBudgets = await ProductBudget.insertMany(budgetsToCreate);
+
+    // 验证创建结果
+    createdBudgets.forEach((budget, index) => {
+      console.log(`记录 ${index + 1} (${budget.productName}): 毛利=${budget.grossMargin}, 实际佣金=${budget.actualCommission}%`);
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `成功创建 ${createdBudgets.length} 条产品预算记录`,
+      data: createdBudgets
+    });
+  } catch (error) {
+    console.error('批量创建产品预算失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '批量创建产品预算失败'
+    });
+  }
 });
 
 // @desc    获取所有产品预算记录
@@ -298,11 +370,84 @@ const batchDeleteProductBudget = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    获取产品名称建议
+// @route   GET /api/budget/suggestions/product-names
+// @access  Private
+const getProductNameSuggestions = asyncHandler(async (req, res) => {
+  try {
+    const productNames = await ProductBudget.distinct('productName', {
+      createdBy: req.user.id,
+      productName: { $ne: null, $ne: '' }
+    });
+
+    res.json({
+      success: true,
+      data: productNames.slice(0, 20) // 限制返回20个建议
+    });
+  } catch (error) {
+    console.error('获取产品名称建议失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取产品名称建议失败'
+    });
+  }
+});
+
+// @desc    获取店铺名称建议
+// @route   GET /api/budget/suggestions/shop-names
+// @access  Private
+const getShopNameSuggestions = asyncHandler(async (req, res) => {
+  try {
+    const shopNames = await ProductBudget.distinct('shopName', {
+      createdBy: req.user.id,
+      shopName: { $ne: null, $ne: '' }
+    });
+
+    res.json({
+      success: true,
+      data: shopNames.slice(0, 20)
+    });
+  } catch (error) {
+    console.error('获取店铺名称建议失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取店铺名称建议失败'
+    });
+  }
+});
+
+// @desc    获取平台建议
+// @route   GET /api/budget/suggestions/platforms
+// @access  Private
+const getPlatformSuggestions = asyncHandler(async (req, res) => {
+  try {
+    const platforms = await ProductBudget.distinct('platform', {
+      createdBy: req.user.id,
+      platform: { $ne: null, $ne: '' }
+    });
+
+    res.json({
+      success: true,
+      data: platforms.slice(0, 20)
+    });
+  } catch (error) {
+    console.error('获取平台建议失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取平台建议失败'
+    });
+  }
+});
+
 module.exports = {
   createProductBudget,
+  batchCreateProductBudget,
   getProductBudgets,
   getProductBudget,
   updateProductBudget,
   deleteProductBudget,
-  batchDeleteProductBudget
+  batchDeleteProductBudget,
+  getProductNameSuggestions,
+  getShopNameSuggestions,
+  getPlatformSuggestions
 };

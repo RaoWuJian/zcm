@@ -1,6 +1,7 @@
 const express = require('express');
 const {
   createProduct,
+  batchCreateProducts,
   getProducts,
   getProduct,
   updateProduct,
@@ -22,7 +23,8 @@ router.get('/stats', getProductStats);
 // 获取建议数据路由（需要放在 /:id 路由之前）
 router.get('/suggestions', getProductSuggestions);
 
-// 批量删除路由
+// 批量操作路由
+router.post('/batch', batchCreateProducts);
 router.delete('/batch', batchDeleteProduct);
 
 // 产品基本CRUD

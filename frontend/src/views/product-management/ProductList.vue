@@ -119,6 +119,9 @@
           导出数据
           <span v-if="selectedProducts.length">({{ selectedProducts.length }}条)</span>
         </el-button>
+        <el-button type="info" @click="showImportDialog = true" :icon="Upload" class="action-btn info" v-if="hasAnyPermission(['product:create','product:manage'])">
+          Excel导入
+        </el-button>
       </div>
       <div class="action-right">
         <span class="total-count">共 {{ productStore.pagination?.totalRecords || 0 }} 条数据</span>
@@ -144,14 +147,14 @@
         <el-table-column prop="storeName" label="店铺名称" min-width="120" show-overflow-tooltip />
         <el-table-column prop="storeId" label="商品ID" min-width="120" show-overflow-tooltip />
         <el-table-column prop="platform" label="平台" width="100" />
-        <el-table-column prop="dailyOrderCount" label="订单数" width="80" />
-        <el-table-column prop="dailySalesVolume" label="销量" width="80" />
-        <el-table-column prop="unitPrice" label="单价" width="100">
+        <el-table-column prop="dailyOrderCount" label="当天销售订单数" width="120" />
+        <el-table-column prop="dailySalesVolume" label="当天销售盒数" width="120" />
+        <el-table-column prop="unitPrice" label="产品单价" width="100">
           <template #default="scope">
             ¥{{ (scope.row.unitPrice || 0).toFixed(2) }}
           </template>
         </el-table-column>
-        <el-table-column prop="dailyTotalProfit" label="日利润" width="100">
+        <el-table-column prop="dailyTotalProfit" label="当天总盈亏" width="120">
           <template #default="scope">
             <span :class="(scope.row.dailyTotalProfit || 0) >= 0 ? 'profit-positive' : 'profit-negative'">
               ¥{{ (scope.row.dailyTotalProfit || 0).toFixed(2) }}
@@ -167,7 +170,6 @@
           <template #default="scope">
             <div class="user-info">
               <div class="user-name">{{ scope.row.createdBy?.username || '-' }}</div>
-              <div class="user-account">{{ scope.row.createdBy?.loginAccount || '-' }}</div>
             </div>
           </template>
         </el-table-column>
@@ -444,6 +446,145 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- Excel导入对话框 -->
+    <el-dialog
+      v-model="showImportDialog"
+      title="Excel批量导入"
+      width="900px"
+      append-to-body
+      @close="resetImportData"
+    >
+      <div class="import-container">
+        <!-- 步骤1: 文件上传 -->
+        <div v-if="!importData.length" class="upload-section">
+          <div class="upload-tips">
+            <h4>导入说明：</h4>
+            <ul>
+              <li>支持 Excel (.xlsx, .xls) 和 CSV 文件格式</li>
+              <li><strong>必填字段：</strong>商品名称</li>
+              <li><strong>基本信息：</strong>团队、供应商、店铺名称、商品ID、平台</li>
+              <li><strong>销售数据：</strong>当天销售订单数、当天销售盒数</li>
+              <li><strong>财务数据：</strong>产品单价、当天付款金额、产品运费、当天消耗金额、手续费、售后金额、售后成本</li>
+              <li><strong>自动计算：</strong>产品成本（销售盒数×单价）、当天总盈亏（付款金额-各项成本费用）</li>
+              <li>数字字段仅支持非负数</li>
+              <li>建议先下载模板，按格式填写数据</li>
+            </ul>
+
+            <div class="template-download">
+              <el-button type="primary" @click="downloadTemplate" :icon="Download">
+                下载导入模板
+              </el-button>
+            </div>
+          </div>
+
+          <el-upload
+            class="upload-demo"
+            drag
+            :auto-upload="false"
+            :on-change="handleFileUpload"
+            :show-file-list="false"
+            accept=".xlsx,.xls,.csv"
+          >
+            <el-icon class="el-icon--upload"><Upload /></el-icon>
+            <div class="el-upload__text">
+              将文件拖到此处，或<em>点击上传</em>
+            </div>
+            <template #tip>
+              <div class="el-upload__tip">
+                支持 .xlsx, .xls, .csv 格式文件
+              </div>
+            </template>
+          </el-upload>
+        </div>
+
+        <!-- 步骤2: 数据预览 -->
+        <div v-else class="preview-section">
+          <div class="preview-header">
+            <h4>数据预览 (共 {{ importData.length }} 条记录)</h4>
+            <div class="preview-actions">
+              <el-button @click="resetImportData" :icon="Refresh">重新上传</el-button>
+            </div>
+          </div>
+
+          <el-table
+            :data="importData.slice(0, 10)"
+            border
+            stripe
+            max-height="400"
+            class="preview-table"
+          >
+            <el-table-column type="index" label="序号" width="60" />
+            <el-table-column prop="name" label="商品名称" min-width="120" />
+            <el-table-column prop="team" label="团队" width="80" />
+            <el-table-column prop="supplier" label="供应商" min-width="100" />
+            <el-table-column prop="storeName" label="店铺名称" min-width="120" />
+            <el-table-column prop="storeId" label="商品ID" min-width="100" />
+            <el-table-column prop="platform" label="平台" width="80" />
+            <el-table-column prop="dailyOrderCount" label="当天销售订单数" width="120" align="right" />
+            <el-table-column prop="dailySalesVolume" label="当天销售盒数" width="120" align="right" />
+            <el-table-column prop="unitPrice" label="产品单价" width="100" align="right">
+              <template #default="{ row }">
+                ¥{{ row.unitPrice?.toFixed(2) || '0.00' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="dailyPaymentAmount" label="当天付款金额" width="120" align="right">
+              <template #default="{ row }">
+                ¥{{ row.dailyPaymentAmount?.toFixed(2) || '0.00' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="shippingCost" label="产品运费" width="100" align="right">
+              <template #default="{ row }">
+                ¥{{ row.shippingCost?.toFixed(2) || '0.00' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="dailyConsumedAmount" label="当天消耗金额" width="120" align="right">
+              <template #default="{ row }">
+                ¥{{ row.dailyConsumedAmount?.toFixed(2) || '0.00' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="handlingFee" label="手续费" width="80" align="right">
+              <template #default="{ row }">
+                ¥{{ row.handlingFee?.toFixed(2) || '0.00' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="afterSalesAmount" label="售后金额" width="100" align="right">
+              <template #default="{ row }">
+                ¥{{ row.afterSalesAmount?.toFixed(2) || '0.00' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="afterSalesCost" label="售后成本" width="100" align="right">
+              <template #default="{ row }">
+                ¥{{ row.afterSalesCost?.toFixed(2) || '0.00' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="description" label="备注" min-width="100" />
+          </el-table>
+
+          <div v-if="importData.length > 10" class="preview-more">
+            <el-alert
+              :title="`仅显示前10条记录，实际将导入 ${importData.length} 条记录`"
+              type="info"
+              :closable="false"
+            />
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showImportDialog = false">取消</el-button>
+          <el-button
+            v-if="importData.length > 0"
+            type="primary"
+            @click="handleImportConfirm"
+            :loading="importSubmitting"
+          >
+            确认导入 ({{ importData.length }} 条)
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -456,11 +597,20 @@ import {
   List,
   Delete,
   Download,
+  Upload,
   Search
 } from '@element-plus/icons-vue'
 import { useProductStore } from '../../stores/product'
 import { precisionCalculate } from '@/utils/precision'
 import hasAnyPermission from '@/utils/checkPermissions'
+import {
+  readProductExcelFile,
+  validateProductImportHeaders,
+  transformProductImportData,
+  validateProductImportData,
+  generateProductImportTemplate,
+  exportProductToCSV
+} from '../../utils/productExcelUtils'
 
 // 使用 Pinia store
 const productStore = useProductStore()
@@ -468,12 +618,19 @@ const productStore = useProductStore()
 // 响应式数据
 const submitting = ref(false)
 const showAddDialog = ref(false)
+const showImportDialog = ref(false)
 const editingProduct = ref(null)
 const productFormRef = ref()
 const currentPage = ref(1)
 const pageSize = ref(20)
 const dailyTotalProfit = ref(0)
 const selectedProducts = ref([])
+const importSubmitting = ref(false)
+
+// Excel导入相关数据
+const importData = ref([])
+const importColumns = ref([])
+const importFile = ref(null)
 
 // 搜索表单
 const searchForm = reactive({
@@ -684,14 +841,14 @@ const handleExport = async () => {
       '店铺名称': item.storeName || '',
       '商品ID': item.storeId || '',
       '平台': item.platform || '',
-      '订单数': item.dailyOrderCount || 0,
-      '销量': item.dailySalesVolume || 0,
-      '单价': `¥${(item.unitPrice || 0).toFixed(2)}`,
-      '日利润': `¥${(item.dailyTotalProfit || 0).toFixed(2)}`,
-      '付款金额': `¥${(item.dailyPaymentAmount || 0).toFixed(2)}`,
+      '当天销售订单数': item.dailyOrderCount || 0,
+      '当天销售盒数': item.dailySalesVolume || 0,
+      '产品单价': `¥${(item.unitPrice || 0).toFixed(2)}`,
+      '当天总盈亏': `¥${(item.dailyTotalProfit || 0).toFixed(2)}`,
+      '当天付款金额': `¥${(item.dailyPaymentAmount || 0).toFixed(2)}`,
       '产品成本': `¥${(item.productCost || 0).toFixed(2)}`,
-      '运费': `¥${(item.shippingCost || 0).toFixed(2)}`,
-      '消耗金额': `¥${(item.dailyConsumedAmount || 0).toFixed(2)}`,
+      '产品运费': `¥${(item.shippingCost || 0).toFixed(2)}`,
+      '当天消耗金额': `¥${(item.dailyConsumedAmount || 0).toFixed(2)}`,
       '手续费': `¥${(item.handlingFee || 0).toFixed(2)}`,
       '售后金额': `¥${(item.afterSalesAmount || 0).toFixed(2)}`,
       '售后成本': `¥${(item.afterSalesCost || 0).toFixed(2)}`,
@@ -783,6 +940,7 @@ const handleEdit = async (product) => {
   productForm.afterSalesAmount = product.afterSalesAmount || 0
   productForm.afterSalesCost = product.afterSalesCost || 0
   showAddDialog.value = true
+  calculatedProfit()
 }
 
 // const handleViewDetail = async (product: Product) => {
@@ -892,6 +1050,108 @@ const queryPlatformSuggestions = (queryString, cb) => {
     .filter(platform => platform.toLowerCase().includes(queryString.toLowerCase()))
     .map(platform => ({ value: platform }))
   cb(suggestions)
+}
+
+// Excel导入相关方法
+// 处理文件上传
+const handleFileUpload = async (file) => {
+  try {
+    importSubmitting.value = true
+
+    // 读取Excel文件
+    const result = await readProductExcelFile(file.raw)
+
+    // 验证表头
+    const headerValidation = validateProductImportHeaders(result.headers)
+
+    if (!headerValidation.isValid) {
+      ElMessage.error(`缺少必填字段: ${headerValidation.missingRequired.join(', ')}`)
+      return false
+    }
+
+    // 转换数据格式
+    const transformedData = transformProductImportData(result.data, headerValidation.mappedFields)
+
+    // 验证数据
+    const dataValidation = validateProductImportData(transformedData)
+
+    // 保存导入数据
+    importData.value = dataValidation.validRows
+    importColumns.value = result.headers
+    importFile.value = file.raw
+
+    // 显示验证结果
+    if (dataValidation.errors.length > 0) {
+      ElMessage.warning(`发现 ${dataValidation.errors.length} 行数据有错误，已自动过滤`)
+    }
+
+    if (dataValidation.warnings.length > 0) {
+      ElMessage.warning(`发现 ${dataValidation.warnings.length} 行数据有警告`)
+    }
+
+    ElMessage.success(`成功解析 ${dataValidation.validRowCount} 行有效数据`)
+
+    return false // 阻止自动上传
+  } catch (error) {
+    ElMessage.error('文件解析失败: ' + error.message)
+    return false
+  } finally {
+    importSubmitting.value = false
+  }
+}
+
+// 确认导入数据
+const handleImportConfirm = async () => {
+  if (!importData.value || importData.value.length === 0) {
+    ElMessage.error('没有可导入的数据')
+    return
+  }
+
+  try {
+    importSubmitting.value = true
+
+    // 使用批量创建接口
+    const result = await productStore.batchAddProducts(importData.value)
+
+    if (result.success) {
+      ElMessage.success(result.message)
+      showImportDialog.value = false
+      resetImportData()
+      // 重新加载数据
+      fetchData()
+    } else {
+      ElMessage.error(result.message)
+    }
+  } catch (error) {
+    ElMessage.error('导入失败: ' + error.message)
+  } finally {
+    importSubmitting.value = false
+  }
+}
+
+// 重置导入数据
+const resetImportData = () => {
+  importData.value = []
+  importColumns.value = []
+  importFile.value = null
+}
+
+// 下载导入模板
+const downloadTemplate = () => {
+  const template = generateProductImportTemplate()
+  const csvContent = exportProductToCSV(template.data, template.headers)
+
+  const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+
+  link.setAttribute('href', url)
+  link.setAttribute('download', '商品导入模板.csv')
+  link.style.visibility = 'hidden'
+
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
 }
 
 // 生命周期
@@ -1073,5 +1333,65 @@ onMounted(async () => {
   padding: 16px;
   display: flex;
   justify-content: flex-end;
+}
+
+.action-btn.info {
+  background: linear-gradient(135deg, #909399 0%, #b1b3b8 100%);
+  border: none;
+  color: white;
+}
+
+/* Excel导入样式 */
+.import-container {
+  .upload-section {
+    .upload-tips {
+      margin-bottom: 20px;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 6px;
+
+      h4 {
+        margin: 0 0 10px 0;
+        color: #303133;
+      }
+
+      ul {
+        margin: 0;
+        padding-left: 20px;
+
+        li {
+          margin-bottom: 5px;
+          color: #606266;
+        }
+      }
+
+      .template-download {
+        margin-top: 15px;
+        text-align: center;
+      }
+    }
+
+    .upload-demo {
+      margin-top: 20px;
+    }
+  }
+
+  .preview-section {
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+
+      h4 {
+        margin: 0;
+        color: #303133;
+      }
+    }
+
+    .preview-more {
+      margin-top: 15px;
+    }
+  }
 }
 </style>

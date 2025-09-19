@@ -2,11 +2,15 @@
 const express = require('express');
 const {
   createProductBudget,
+  batchCreateProductBudget,
   getProductBudgets,
   getProductBudget,
   updateProductBudget,
   deleteProductBudget,
-  batchDeleteProductBudget
+  batchDeleteProductBudget,
+  getProductNameSuggestions,
+  getShopNameSuggestions,
+  getPlatformSuggestions
 } = require('../controllers/productBudgetController');
 const { protect } = require('../middleware/auth');
 
@@ -21,10 +25,16 @@ router
   .get(getProductBudgets)
   .post(createProductBudget);
 
-// 批量删除
+// 批量操作
 router
   .route('/batch')
+  .post(batchCreateProductBudget)
   .delete(batchDeleteProductBudget);
+
+// 建议数据
+router.get('/suggestions/product-names', getProductNameSuggestions);
+router.get('/suggestions/shop-names', getShopNameSuggestions);
+router.get('/suggestions/platforms', getPlatformSuggestions);
 
 // 单个产品预算操作
 router

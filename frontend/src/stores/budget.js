@@ -71,7 +71,7 @@ export const useBudgetStore = defineStore('budget', () => {
   const addBudget = async (budgetData) => {
     try {
       const response = await budgetApi.createBudget(budgetData)
-      
+
       if (response.success) {
         // 重新获取列表
         await fetchBudgets()
@@ -81,6 +81,22 @@ export const useBudgetStore = defineStore('budget', () => {
       }
     } catch (error) {
       return { success: false, message: '添加预算时发生错误' }
+    }
+  }
+
+  const batchAddBudget = async (budgetDataList) => {
+    try {
+      const response = await budgetApi.batchCreateBudgets(budgetDataList)
+
+      if (response.success) {
+        // 重新获取列表
+        await fetchBudgets()
+        return { success: true, message: response.message || '批量添加预算成功' }
+      } else {
+        return { success: false, message: response.message || '批量添加预算失败' }
+      }
+    } catch (error) {
+      return { success: false, message: '批量添加预算时发生错误' }
     }
   }
   
@@ -167,7 +183,40 @@ export const useBudgetStore = defineStore('budget', () => {
       actualCommission
     }
   }
-  
+
+  // 获取产品名称建议
+  const fetchProductNameSuggestions = async () => {
+    try {
+      const response = await budgetApi.getProductNameSuggestions()
+      return response
+    } catch (error) {
+      console.error('获取产品名称建议失败:', error)
+      return { success: false, data: [] }
+    }
+  }
+
+  // 获取店铺名称建议
+  const fetchShopNameSuggestions = async () => {
+    try {
+      const response = await budgetApi.getShopNameSuggestions()
+      return response
+    } catch (error) {
+      console.error('获取店铺名称建议失败:', error)
+      return { success: false, data: [] }
+    }
+  }
+
+  // 获取平台建议
+  const fetchPlatformSuggestions = async () => {
+    try {
+      const response = await budgetApi.getPlatformSuggestions()
+      return response
+    } catch (error) {
+      console.error('获取平台建议失败:', error)
+      return { success: false, data: [] }
+    }
+  }
+
   return {
     // 状态
     budgets,
@@ -185,10 +234,14 @@ export const useBudgetStore = defineStore('budget', () => {
     // 方法
     fetchBudgets,
     addBudget,
+    batchAddBudget,
     updateBudget,
     deleteBudget,
     batchDeleteBudgets,
     clearBudgets,
-    calculateBudget
+    calculateBudget,
+    fetchProductNameSuggestions,
+    fetchShopNameSuggestions,
+    fetchPlatformSuggestions
   }
 })

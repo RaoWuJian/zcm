@@ -48,7 +48,6 @@ const createProduct = asyncHandler(async (req, res) => {
     dailySalesVolume,
     dailyPaymentAmount,
     unitPrice,
-    productCost,
     shippingCost,
     dailyConsumedAmount,
     handlingFee,
@@ -57,21 +56,21 @@ const createProduct = asyncHandler(async (req, res) => {
   } = req.body;
 
   // 计算产品成本
-  // const productCost = precisionCalculate.multiply(
-  //   dailySalesVolume || 0,
-  //   unitPrice || 0
-  // );
+  const calculatedProductCost = precisionCalculate.multiply(
+    dailySalesVolume || 0,
+    unitPrice || 0
+  );
 
-  // // 计算当天总盈亏
-  // const dailyTotalProfit = precisionCalculate.subtract(
-  //   dailyPaymentAmount || 0,
-  //   productCost,
-  //   shippingCost || 0,
-  //   dailyConsumedAmount || 0,
-  //   handlingFee || 0,
-  //   afterSalesAmount || 0,
-  //   afterSalesCost || 0
-  // );
+  // 计算当天总盈亏
+  const calculatedDailyTotalProfit = precisionCalculate.subtract(
+    dailyPaymentAmount || 0,
+    calculatedProductCost,
+    shippingCost || 0,
+    dailyConsumedAmount || 0,
+    handlingFee || 0,
+    afterSalesAmount || 0,
+    afterSalesCost || 0
+  );
 
   const product = await Product.create({
     team,
@@ -84,13 +83,13 @@ const createProduct = asyncHandler(async (req, res) => {
     dailySalesVolume: dailySalesVolume || 0,
     dailyPaymentAmount: dailyPaymentAmount || 0,
     unitPrice: unitPrice || 0,
-    productCost: productCost || 0,
+    productCost: calculatedProductCost,
     shippingCost: shippingCost || 0,
     dailyConsumedAmount: dailyConsumedAmount || 0,
     handlingFee: handlingFee || 0,
     afterSalesAmount: afterSalesAmount || 0,
     afterSalesCost: afterSalesCost || 0,
-    dailyTotalProfit,
+    dailyTotalProfit: calculatedDailyTotalProfit,
     createdBy: req.user.id
   });
 
@@ -104,6 +103,125 @@ const createProduct = asyncHandler(async (req, res) => {
     data: populatedProduct,
     message: '产品记录创建成功'
   });
+});
+
+// @desc    批量创建产品记录
+// @route   POST /api/products/batch
+// @access  Private
+const batchCreateProducts = asyncHandler(async (req, res) => {
+  const productsData = req.body;
+
+  if (!Array.isArray(productsData) || productsData.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: '请提供有效的产品数据数组'
+    });
+  }
+
+  // 验证每条记录的必填字段
+  const validationErrors = [];
+  productsData.forEach((product, index) => {
+    if (!product.name || product.name.trim() === '') {
+      validationErrors.push(`第${index + 1}条记录：商品名称不能为空`);
+    }
+    if (!product.team || product.team.trim() === '') {
+      validationErrors.push(`第${index + 1}条记录：团队名称不能为空`);
+    }
+    if (!product.supplier || product.supplier.trim() === '') {
+      validationErrors.push(`第${index + 1}条记录：供应商不能为空`);
+    }
+    if (!product.storeName || product.storeName.trim() === '') {
+      validationErrors.push(`第${index + 1}条记录：店铺名称不能为空`);
+    }
+    if (!product.platform || product.platform.trim() === '') {
+      validationErrors.push(`第${index + 1}条记录：平台不能为空`);
+    }
+  });
+
+  if (validationErrors.length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: '数据验证失败',
+      errors: validationErrors
+    });
+  }
+
+  try {
+    // 为每条记录添加创建者信息并计算产品成本和总盈亏
+    const productsToCreate = productsData.map((productData) => {
+      const dailySalesVolume = Number(productData.dailySalesVolume) || 0;
+      const unitPrice = Number(productData.unitPrice) || 0;
+      const dailyPaymentAmount = Number(productData.dailyPaymentAmount) || 0;
+      const shippingCost = Number(productData.shippingCost) || 0;
+      const dailyConsumedAmount = Number(productData.dailyConsumedAmount) || 0;
+      const handlingFee = Number(productData.handlingFee) || 0;
+      const afterSalesAmount = Number(productData.afterSalesAmount) || 0;
+      const afterSalesCost = Number(productData.afterSalesCost) || 0;
+
+      // 计算产品成本 = 当天销售盒数 * 产品单价
+      const productCost = precisionCalculate.multiply(dailySalesVolume, unitPrice);
+
+      // 计算当天总盈亏 = 当天付款金额 - 产品成本 - 各项费用
+      const dailyTotalProfit = precisionCalculate.subtract(
+        dailyPaymentAmount,
+        productCost,
+        shippingCost,
+        dailyConsumedAmount,
+        handlingFee,
+        afterSalesAmount,
+        afterSalesCost
+      );
+
+      return {
+        team: productData.team || '',
+        name: productData.name.trim(),
+        supplier: productData.supplier || '',
+        storeName: productData.storeName || '',
+        storeId: productData.storeId || '',
+        platform: productData.platform || '',
+        dailyOrderCount: Number(productData.dailyOrderCount) || 0,
+        dailySalesVolume,
+        dailyPaymentAmount,
+        unitPrice,
+        productCost,
+        shippingCost,
+        dailyConsumedAmount,
+        handlingFee,
+        afterSalesAmount,
+        afterSalesCost,
+        dailyTotalProfit,
+        createdBy: req.user.id
+      };
+    });
+
+    // 批量创建记录
+    const createdProducts = await Product.insertMany(productsToCreate);
+
+    // 重新查询以获取完整的populate信息
+    const fullProducts = await Product.find({
+      _id: { $in: createdProducts.map(product => product._id) }
+    })
+      .populate('createdBy', 'username loginAccount')
+      .populate('updatedBy', 'username loginAccount')
+      .sort({ createdAt: -1 });
+
+    res.status(201).json({
+      success: true,
+      data: fullProducts,
+      message: `成功创建 ${createdProducts.length} 条产品记录`
+    });
+
+  } catch (error) {
+    // 处理重复数据或其他数据库错误
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: '存在重复的记录，请检查数据'
+      });
+    }
+
+    throw error;
+  }
 });
 
 // @desc    获取所有产品记录
@@ -549,6 +667,7 @@ const getProductSuggestions = asyncHandler(async (req, res) => {
 
 module.exports = {
   createProduct,
+  batchCreateProducts,
   getProducts,
   getProduct,
   updateProduct,

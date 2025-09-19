@@ -1,13 +1,15 @@
 const express = require('express');
 const {
   createCommissionAccounting,
+  batchCreateCommissionAccounting,
   getCommissionAccountings,
   getCommissionAccounting,
   updateCommissionAccounting,
   deleteCommissionAccounting,
   batchDeleteCommissionAccounting,
   getShopNameSuggestions,
-  getPlatformSuggestions
+  getPlatformSuggestions,
+  getProductNameSuggestions
 } = require('../controllers/commissionAccountingController');
 const { protect } = require('../middleware/auth');
 
@@ -22,6 +24,7 @@ router.route('/')
   .post(createCommissionAccounting); // 创建核算佣金记录
 
 router.route('/batch')
+  .post(batchCreateCommissionAccounting)   // 批量创建核算佣金记录
   .delete(batchDeleteCommissionAccounting); // 批量删除核算佣金记录
 
 // 建议数据路由
@@ -30,6 +33,9 @@ router.route('/suggestions/shop-names')
 
 router.route('/suggestions/platforms')
   .get(getPlatformSuggestions); // 获取平台建议
+
+router.route('/suggestions/product-names')
+  .get(getProductNameSuggestions); // 获取产品名称建议
 
 router.route('/:id')
   .get(getCommissionAccounting)     // 获取单个核算佣金记录
