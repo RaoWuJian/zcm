@@ -152,15 +152,11 @@ router.beforeEach((to, _from, next) => {
   // 检查用户登录状态和鉴权状态
   const isAuthenticated = userStore.isLoggedIn && userStore.checkAuthStatus()
 
-  console.log(`路由守卫: 访问 ${to.path}, 鉴权状态: ${isAuthenticated}`)
-
   if (to.meta.requiresAuth && !isAuthenticated) {
     // 需要认证但未登录，跳转到登录页
-    console.log('需要登录，重定向到登录页')
     next('/login')
   } else if (to.path === '/login' && isAuthenticated) {
     // 已登录用户访问登录页，跳转到仪表盘
-    console.log('用户已登录，重定向到仪表盘')
     next('/dashboard')
   } else {
     next()

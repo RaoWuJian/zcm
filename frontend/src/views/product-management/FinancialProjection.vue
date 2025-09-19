@@ -2,8 +2,13 @@
   <div class="financial-projection">
     <!-- 页面标题 -->
     <div class="page-header">
-      <h2>财务测算</h2>
-      <p class="page-description">产品预算管理，实时计算毛利和佣金</p>
+      <div class="page-title">
+        <el-icon class="title-icon"><List /></el-icon>
+        <h2>财务测算</h2>
+      </div>
+      <div class="page-description">
+        产品预算管理，实时计算毛利和佣金
+      </div>
     </div>
 
     <!-- 搜索栏 -->
@@ -14,6 +19,14 @@
             <el-input
               v-model="searchForm.productName"
               placeholder="请输入产品名称"
+              clearable
+              style="width: 200px;"
+            />
+          </el-form-item>
+          <el-form-item label="店铺名称">
+            <el-input
+              v-model="searchForm.shopName"
+              placeholder="请输入店铺名称"
               clearable
               style="width: 200px;"
             />
@@ -37,8 +50,8 @@
           </el-form-item>
         </div>
         <div class="search-right">
-          <el-button @click="handleSearch" :icon="Search" class="business-btn" size="small">查询</el-button>
-          <el-button @click="handleReset" class="business-btn" size="small" style="margin-left: 8px;">重置</el-button>
+          <el-button @click="handleSearch" type="primary"  :icon="Search" size="small">查询</el-button>
+          <el-button @click="handleReset" size="small" style="margin-left: 8px;">重置</el-button>
         </div>
       </el-form>
     </div>
@@ -60,6 +73,7 @@
         </el-button>
         <el-button @click="handleExport" :icon="Download" class="action-btn">
           导出数据
+          <span v-if="selectedBudgets.length">({{ selectedBudgets.length }}条)</span>
         </el-button>
       </div>
       <div class="action-right">
@@ -144,6 +158,12 @@
         <el-table-column type="selection" width="55" />
 
         <el-table-column prop="productName" label="产品名称" min-width="150" show-overflow-tooltip />
+
+        <el-table-column prop="shopName" label="店铺名称" width="120" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span>{{ row.shopName || '-' }}</span>
+          </template>
+        </el-table-column>
 
         <el-table-column prop="sellingPrice" label="售价" width="100" align="right">
           <template #default="{ row }">
@@ -243,6 +263,15 @@
           <el-input
             v-model="budgetForm.productName"
             placeholder="请输入产品名称"
+            maxlength="100"
+            show-word-limit
+          />
+        </el-form-item>
+
+        <el-form-item label="店铺名称" prop="shopName">
+          <el-input
+            v-model="budgetForm.shopName"
+            placeholder="请输入店铺名称（可选）"
             maxlength="100"
             show-word-limit
           />
@@ -383,7 +412,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Plus,
   Delete,
-  Edit,
+  List,
   Search,
   Refresh,
   Download,
@@ -409,6 +438,7 @@ const pageSize = ref(10)
 // 搜索表单
 const searchForm = reactive({
   productName: '',
+  shopName: '',
   minGrossMargin: null,
   maxGrossMargin: null
 })
@@ -416,6 +446,7 @@ const searchForm = reactive({
 // 预算表单
 const budgetForm = reactive({
   productName: '',
+  shopName: '',
   sellingPrice: 0,
   unitCost: 0,
   shippingCost: 0,
@@ -469,6 +500,7 @@ const handleSearch = () => {
 const handleReset = () => {
   Object.assign(searchForm, {
     productName: '',
+    shopName: '',
     minGrossMargin: null,
     maxGrossMargin: null
   })
@@ -503,6 +535,7 @@ const handleEdit = (budget) => {
   editingBudget.value = budget
   Object.assign(budgetForm, {
     productName: budget.productName,
+    shopName: budget.shopName || '',
     sellingPrice: budget.sellingPrice || 0,
     unitCost: budget.unitCost || 0,
     shippingCost: budget.shippingCost || 0,
@@ -588,7 +621,6 @@ const handleSubmit = async () => {
       ElMessage.error(result.message)
     }
   } catch (error) {
-    console.error('表单验证失败:', error)
   } finally {
     submitting.value = false
   }
@@ -598,6 +630,7 @@ const resetForm = () => {
   editingBudget.value = null
   Object.assign(budgetForm, {
     productName: '',
+    shopName: '',
     sellingPrice: 0,
     unitCost: 0,
     shippingCost: 0,
@@ -625,12 +658,15 @@ const handleCurrentChange = (page) => {
 // 导出数据
 const handleExport = async () => {
   try {
-    if (budgetStore.budgets.length === 0) {
+    // 优先导出勾选的数据，如果没有勾选则导出所有数据
+    const exportData = selectedBudgets.value.length > 0 ? selectedBudgets.value : budgetStore.budgets
+
+    if (exportData.length === 0) {
       ElMessage.warning('暂无数据可导出')
       return
     }
 
-    const data = budgetStore.budgets.map(item => ({
+    const data = exportData.map(item => ({
       '产品名称': item.productName || '',
       '售价': item.sellingPrice || 0,
       '成本单价': item.unitCost || 0,
@@ -668,15 +704,16 @@ const handleExport = async () => {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `产品预算数据_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`
+    const exportType = selectedBudgets.value.length > 0 ? `勾选${selectedBudgets.value.length}条` : '全部'
+    a.download = `产品预算数据_${exportType}_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
 
-    ElMessage.success('导出成功')
+    const exportTypeMsg = selectedBudgets.value.length > 0 ? `勾选的${selectedBudgets.value.length}条数据` : '全部数据'
+    ElMessage.success(`导出${exportTypeMsg}成功`)
   } catch (error) {
-    console.error('导出失败:', error)
     ElMessage.error('导出失败')
   }
 }
@@ -696,16 +733,20 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 
-.page-header h2 {
-  margin: 0 0 8px 0;
-  color: #303133;
+.page-title {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.title-icon {
   font-size: 24px;
-  font-weight: 600;
+  margin-right: 12px;
+  color: #409eff;
 }
 
 .page-description {
-  margin: 0;
-  color: #909399;
+  color: #666;
   font-size: 14px;
 }
 

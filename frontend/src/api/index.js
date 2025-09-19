@@ -403,5 +403,15 @@ export const commissionAccountingApi = {
   // 批量删除核算佣金记录
   batchDeleteCommissionAccountings: (ids) => {
     return api.delete('/commission-accounting/batch', { data: { ids } })
+  },
+
+  // 获取店铺名称建议
+  getShopNameSuggestions: () => {
+    return api.get('/commission-accounting/suggestions/shop-names')
+  },
+
+  // 获取平台建议
+  getPlatformSuggestions: () => {
+    return api.get('/commission-accounting/suggestions/platforms')
   }
 }

@@ -282,6 +282,7 @@
         </el-form-item>
         <el-form-item label="金额" prop="amount">
           <el-input-number
+            :disabled="dialogTitle === '编辑账户'"
             v-model="form.amount"
             :min="0"
             :precision="2"
@@ -728,7 +729,6 @@ const getDepartments = async () => {
       ElMessage.error('获取部门列表失败：' + (response?.message || '未知错误'))
     }
   } catch (error) {
-    console.error('获取部门列表失败:', error)
     ElMessage.error('获取部门列表失败')
   } finally {
     departmentLoading.value = false
@@ -762,7 +762,6 @@ const getTeamAccounts = async () => {
       ElMessage.error('获取团队账户失败：' + (response?.message || '未知错误'))
     }
   } catch (error) {
-    console.error('获取团队账户失败:', error)
     ElMessage.error('获取团队账户失败')
   } finally {
     loading.value = false
@@ -936,7 +935,6 @@ const handleDelete = async (account) => {
     }
   } catch (error) {
     if (error !== 'cancel') {
-      console.error('删除失败:', error)
       ElMessage.error('删除失败')
     } else {
       ElMessage.info('已取消删除')
@@ -986,7 +984,6 @@ const handleSubmit = async () => {
         dialogVisible.value = false
         resetForm()
       } catch (error) {
-        console.error('操作失败:', error)
         ElMessage.error('操作失败，请重试')
       }
     }
@@ -1028,7 +1025,6 @@ const handleRechargeSubmit = async () => {
         }
         
       } catch (error) {
-        console.error('充值失败:', error)
         ElMessage.error('充值失败，请重试')
       } finally {
         rechargeLoading.value = false
@@ -1183,7 +1179,6 @@ const loadAccountRecords = async (accountId) => {
     }
     
   } catch (error) {
-    console.error('加载交易记录失败:', error)
     ElMessage.error('加载交易记录失败')
   } finally {
     recordLoading.value = false
@@ -1251,7 +1246,6 @@ const handleExportRecords = async () => {
 
     ElMessage.success('导出成功')
   } catch (error) {
-    console.error('导出失败:', error)
     ElMessage.error('导出失败')
   }
 }

@@ -19,7 +19,7 @@ function getArg(name) {
 function requireArg(name, hint) {
   const v = getArg(name);
   if (!v) {
-    console.error(`缺少参数 --${name}${hint ? `（${hint}）` : ''}`);
+
     process.exit(1);
   }
   return v;
@@ -40,7 +40,7 @@ async function main() {
       user.isAdmin = true;
       if (remark) user.remark = remark;
       await user.save();
-      console.log('用户已存在，已设置为管理员:', user._id.toString());
+
     } else {
       user = await User.create({
         username,
@@ -51,11 +51,11 @@ async function main() {
         isAdmin: true,
         departmentPath: ''
       });
-      console.log('管理员创建成功:', user._id.toString());
+
     }
   } catch (err) {
-    console.error('操作失败:', err.message);
-    if (err.errors) console.error(err.errors);
+
+
     process.exitCode = 1;
   } finally {
     await mongoose.connection.close();
@@ -63,7 +63,7 @@ async function main() {
 }
 
 main().catch((e) => {
-  console.error('[FATAL]', e);
+
   process.exit(1);
 });
 

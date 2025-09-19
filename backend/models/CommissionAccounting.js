@@ -9,6 +9,20 @@ const commissionAccountingSchema = new mongoose.Schema({
         trim: true
     },
 
+    // 店铺名称
+    shopName: {
+        type: String,
+        trim: true,
+        maxlength: [100, '店铺名称最多100个字符']
+    },
+
+    // 平台
+    platform: {
+        type: String,
+        trim: true,
+        maxlength: [50, '平台名称最多50个字符']
+    },
+
     // 净成交数据
     netTransactionData: {
         type: Number,

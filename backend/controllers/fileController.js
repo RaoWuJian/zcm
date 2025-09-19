@@ -172,7 +172,7 @@ const uploadFile = asyncHandler(async (req, res) => {
     });
 
   } catch (error) {
-    console.error('文件上传错误:', error);
+    
     res.status(500).json({
       success: false,
       message: '文件上传失败',
@@ -336,7 +336,7 @@ const downloadFile = asyncHandler(async (req, res) => {
     downloadStream.pipe(res);
 
     downloadStream.on('error', (error) => {
-      console.error('文件下载错误:', error);
+      
       if (!res.headersSent) {
         res.status(404).json({
           success: false,
@@ -346,7 +346,7 @@ const downloadFile = asyncHandler(async (req, res) => {
     });
 
   } catch (error) {
-    console.error('文件访问错误:', error);
+    
     res.status(500).json({
       success: false,
       message: '文件访问失败'
@@ -396,7 +396,7 @@ const updateFileInfo = asyncHandler(async (req, res) => {
     });
 
   } catch (error) {
-    console.error('更新文件信息错误:', error);
+    
     res.status(500).json({
       success: false,
       message: '更新文件信息失败'
@@ -432,7 +432,7 @@ const deleteFile = asyncHandler(async (req, res) => {
     });
 
   } catch (error) {
-    console.error('文件删除错误:', error);
+    
     res.status(500).json({
       success: false,
       message: '文件删除失败'
@@ -487,7 +487,7 @@ const batchDeleteFiles = asyncHandler(async (req, res) => {
     });
 
   } catch (error) {
-    console.error('批量删除文件错误:', error);
+    
     res.status(500).json({
       success: false,
       message: '批量删除文件失败'

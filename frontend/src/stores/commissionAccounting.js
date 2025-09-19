@@ -63,11 +63,9 @@ export const useCommissionAccountingStore = defineStore('commissionAccounting', 
         }
         return { success: true, data: response.data }
       } else {
-        console.error('获取核算佣金列表失败:', response.message)
         return { success: false, message: response.message || '获取核算佣金列表失败' }
       }
     } catch (error) {
-      console.error('获取核算佣金列表时发生错误:', error)
       return { success: false, message: '获取核算佣金列表时发生错误' }
     } finally {
       loading.value = false
@@ -86,7 +84,6 @@ export const useCommissionAccountingStore = defineStore('commissionAccounting', 
         return { success: false, message: response.message || '添加核算佣金失败' }
       }
     } catch (error) {
-      console.error('添加核算佣金时发生错误:', error)
       return { success: false, message: '添加核算佣金时发生错误' }
     }
   }
@@ -103,7 +100,6 @@ export const useCommissionAccountingStore = defineStore('commissionAccounting', 
         return { success: false, message: response.message || '更新核算佣金失败' }
       }
     } catch (error) {
-      console.error('更新核算佣金时发生错误:', error)
       return { success: false, message: '更新核算佣金时发生错误' }
     }
   }
@@ -120,7 +116,6 @@ export const useCommissionAccountingStore = defineStore('commissionAccounting', 
         return { success: false, message: response.message || '删除核算佣金失败' }
       }
     } catch (error) {
-      console.error('删除核算佣金时发生错误:', error)
       return { success: false, message: '删除核算佣金时发生错误' }
     }
   }
@@ -137,7 +132,6 @@ export const useCommissionAccountingStore = defineStore('commissionAccounting', 
         return { success: false, message: response.message || '批量删除核算佣金失败' }
       }
     } catch (error) {
-      console.error('批量删除核算佣金时发生错误:', error)
       return { success: false, message: '批量删除核算佣金时发生错误' }
     }
   }
@@ -172,6 +166,34 @@ export const useCommissionAccountingStore = defineStore('commissionAccounting', 
       netProfit
     }
   }
+
+  // 获取店铺名称建议
+  const fetchShopNameSuggestions = async () => {
+    try {
+      const response = await commissionAccountingApi.getShopNameSuggestions()
+      if (response.success) {
+        return { success: true, data: response.data || [] }
+      } else {
+        return { success: false, message: response.message || '获取店铺名称建议失败' }
+      }
+    } catch (error) {
+      return { success: false, message: '获取店铺名称建议时发生错误' }
+    }
+  }
+
+  // 获取平台建议
+  const fetchPlatformSuggestions = async () => {
+    try {
+      const response = await commissionAccountingApi.getPlatformSuggestions()
+      if (response.success) {
+        return { success: true, data: response.data || [] }
+      } else {
+        return { success: false, message: response.message || '获取平台建议失败' }
+      }
+    } catch (error) {
+      return { success: false, message: '获取平台建议时发生错误' }
+    }
+  }
   
   return {
     // 状态
@@ -195,6 +217,8 @@ export const useCommissionAccountingStore = defineStore('commissionAccounting', 
     deleteCommissionAccounting,
     batchDeleteCommissionAccountings,
     clearCommissionAccountings,
-    calculateCommissionAccounting
+    calculateCommissionAccounting,
+    fetchShopNameSuggestions,
+    fetchPlatformSuggestions
   }
 })

@@ -640,7 +640,6 @@ const validateDepartmentName = async (_rule, value, callback) => {
       callback()
     }
   } catch (error) {
-    console.error('验证部门名称时出错:', error)
     callback() // 验证出错时不阻止提交，让后端处理
   }
 }
@@ -722,7 +721,6 @@ const getDepartmentTree = async () => {
   try {
     // 尝试从API获取数据
     const response = await departmentApi.getDepartmentTree({ isActive: true })
-    console.log('API返回的原始数据:', response)
     
     if (response.success && response.data && Array.isArray(response.data)) {
       // 检查数据是否已经是树形结构（有children字段且不为空）
@@ -734,13 +732,10 @@ const getDepartmentTree = async () => {
       
       if (hasTreeStructure) {
         // 数据已经是树形结构，直接使用
-        console.log('数据已经是树形结构')
         processedData = response.data
       } else {
         // 数据是扁平结构，需要构建树形结构
-        console.log('数据是扁平结构，开始构建树形结构')
         processedData = buildDepartmentTree(response.data)
-        console.log('构建后的树形数据:', processedData)
       }
       
       // 保存处理后的树形数据
@@ -976,7 +971,6 @@ const handleEdit = async (row) => {
   if (displayParentId) {
     const parentExists = parentDepartmentOptions.value.some(dept => dept._id === displayParentId)
     if (!parentExists) {
-      console.warn(`父部门ID ${displayParentId} 在选项列表中不存在，前端显示为空，但保留原始值用于提交`)
       displayParentId = null // 前端显示为空，但保留originalParentId用于提交
     }
   }
@@ -1035,7 +1029,6 @@ const handleDelete = async (row) => {
     }
   } catch (error) {
     if (error !== 'cancel') {
-      console.error('删除失败:', error)
       ElMessage.error('删除失败')
     }
   }
@@ -1101,15 +1094,6 @@ const handleSubmit = async () => {
       parentId: finalParentId // 直接使用finalParentId，null值会被正确处理
     }
     
-    console.log('提交数据:', {
-      'form.parentId': form.parentId,
-      'form.originalParentId': form.originalParentId,
-      'finalParentId': finalParentId,
-      'submitData': submitData,
-      'parentId类型': typeof finalParentId,
-      'parentId值': finalParentId
-    })
-    
     let response
     if (form._id) {
       // 编辑
@@ -1127,7 +1111,6 @@ const handleSubmit = async () => {
       await getDepartmentTree()
     }
   } catch (error) {
-    console.error('提交失败:', error)
     ElMessage.error('提交失败')
   } finally {
     submitLoading.value = false
@@ -1267,7 +1250,6 @@ const handleConfirmAddEmployees = async () => {
     // 由于当前API结构不明确，这里使用模拟的方式
     const employeeIds = selectedEmployees.value.map(emp => emp._id)
     const departmentPath = selectedDepartment.value.departmentPath;
-    console.log(departmentPath)
     if (departmentPath === '') {
        ElMessage.error('请选择部门')
       return
@@ -1297,7 +1279,6 @@ const handleConfirmAddEmployees = async () => {
     await getAllAvailableEmployees()
     
   } catch (error) {
-    console.error('添加员工失败:', error)
     ElMessage.error('添加员工失败')
   } finally {
     addEmployeeLoading.value = false
@@ -1335,7 +1316,6 @@ const handleRemoveEmployee = async (employee) => {
     await removeEmployeeFromDepartment([employee._id])
   } catch (error) {
     if (error !== 'cancel') {
-      console.error('移除员工失败:', error)
     }
   }
 }
@@ -1362,7 +1342,6 @@ const handleBatchRemoveEmployees = async () => {
     await removeEmployeeFromDepartment(employeeIds)
   } catch (error) {
     if (error !== 'cancel') {
-      console.error('批量移除员工失败:', error)
     }
   }
 }
@@ -1405,7 +1384,6 @@ const removeEmployeeFromDepartment = async (employeeIds) => {
     })
     
   } catch (error) {
-    console.error('移除员工失败:', error)
     ElMessage.error('移除员工失败')
   } finally {
     removeEmployeeLoading.value = false

@@ -101,11 +101,9 @@ const categories = ref([])
 const selectedPermissions = computed({
   get() {
     const val = props.modelValue
-    console.log('selectedPermissions getter called, modelValue:', val)
     return Array.isArray(val) ? val : []
   },
   set(value) {
-    console.log('selectedPermissions setter called with:', value)
     emit('update:modelValue', Array.isArray(value) ? value : [])
   }
 })
@@ -115,14 +113,11 @@ const getPermissions = async () => {
   loading.value = true
   try {
     const response = await roleApi.getAvailablePermissions()
-    console.log('API response:', response)
 
     if (response.success && response.data !== undefined) {
       // 处理后端返回的数据结构: { data: { permissions: [...], categories: [...] } }
       const responseData = response.data
       const perms = responseData.permissions || []
-
-      console.log('Extracted permissions:', perms)
 
       allPermissions.value = Array.isArray(perms) ? perms : []
 
@@ -141,17 +136,13 @@ const getPermissions = async () => {
         permissions
       }))
 
-      console.log('Organized categories:', categories.value)
-
       // 默认展开第一个分类
       if (categories.value.length > 0) {
         expandedCategories.add(categories.value[0].name)
       }
     } else {
-      console.error('Invalid response structure:', response)
     }
   } catch (error) {
-    console.error('获取权限列表失败:', error)
     ElMessage.error('获取权限列表失败')
   } finally {
     loading.value = false
@@ -217,32 +208,20 @@ const toggleExpand = () => {
 
 // 全选/清空
 const selectAll = () => {
-  console.log('selectAll called')
-  console.log('allPermissions:', allPermissions.value)
-  console.log('categories:', categories.value)
-  console.log('Current selectedPermissions:', selectedPermissions.value)
-
   if (allPermissions.value.length === 0) {
-    console.log('No permissions available, trying to reload...')
     getPermissions()
     return
   }
 
   const allKeys = allPermissions.value.map(p => p.key).filter(Boolean)
-  console.log('All keys:', allKeys)
 
   // 直接通过 emit 更新父组件的值
   emit('update:modelValue', [...allKeys])
-  console.log('Emitted update:modelValue with:', allKeys)
 }
 
 const clearAll = () => {
-  console.log('clearAll called')
-  console.log('Current selectedPermissions before clear:', selectedPermissions.value)
-
   // 直接通过 emit 更新父组件的值
   emit('update:modelValue', [])
-  console.log('Emitted update:modelValue with empty array')
 }
 
 

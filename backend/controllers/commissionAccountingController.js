@@ -38,6 +38,8 @@ const checkCommissionAccountingAccess = async (recordId, user) => {
 const createCommissionAccounting = asyncHandler(async (req, res) => {
   const {
     name,
+    shopName,
+    platform,
     netTransactionData,
     commission,
     dailyConsumption,
@@ -46,6 +48,8 @@ const createCommissionAccounting = asyncHandler(async (req, res) => {
 
   const record = await CommissionAccounting.create({
     name,
+    shopName,
+    platform,
     netTransactionData,
     commission,
     dailyConsumption,
@@ -73,6 +77,8 @@ const getCommissionAccountings = asyncHandler(async (req, res) => {
     page = 1,
     limit = 10,
     name,
+    shopName,
+    platform,
     startDate,
     endDate,
     minProfit,
@@ -85,6 +91,8 @@ const getCommissionAccountings = asyncHandler(async (req, res) => {
   const query = {};
 
   if (name) query.name = { $regex: name, $options: 'i' };
+  if (shopName) query.shopName = { $regex: shopName, $options: 'i' };
+  if (platform) query.platform = { $regex: platform, $options: 'i' };
 
   // 获取用户有权限访问的用户ID列表（基于部门权限）
   let allowedUserIds = [];
@@ -290,11 +298,107 @@ const batchDeleteCommissionAccounting = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    获取店铺名称建议列表
+// @route   GET /api/commission-accounting/suggestions/shop-names
+// @access  Private
+const getShopNameSuggestions = asyncHandler(async (req, res) => {
+  const user = req.user;
+
+  // 构建查询条件（基于用户权限）
+  let query = {};
+  if (!user.isAdmin) {
+    const userDepartmentPath = user.departmentPath || '';
+
+    if (userDepartmentPath) {
+      // 转义正则表达式特殊字符
+      const escapedPath = userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      // 获取当前部门及其子部门的用户
+      const User = require('../models/User');
+      const allowedUsers = await User.find({
+        $or: [
+          { departmentPath: userDepartmentPath }, // 当前部门用户
+          { departmentPath: { $regex: `^${escapedPath}->` } }, // 子部门用户
+        ]
+      }).select('_id');
+
+      const allowedUserIds = allowedUsers.map(user => user._id);
+
+      // 限制只查看有权限的用户创建的记录
+      if (allowedUserIds.length > 0) {
+        query.createdBy = { $in: allowedUserIds };
+      } else {
+        // 如果没有权限访问任何用户，返回空结果
+        query.createdBy = { $in: [] };
+      }
+    }
+  }
+
+  // 获取所有非空的店铺名称
+  query.shopName = { $ne: null, $ne: '' };
+
+  const shopNames = await CommissionAccounting.distinct('shopName', query);
+
+  res.status(200).json({
+    success: true,
+    data: shopNames.filter(name => name && name.trim()).sort()
+  });
+});
+
+// @desc    获取平台建议列表
+// @route   GET /api/commission-accounting/suggestions/platforms
+// @access  Private
+const getPlatformSuggestions = asyncHandler(async (req, res) => {
+  const user = req.user;
+
+  // 构建查询条件（基于用户权限）
+  let query = {};
+  if (!user.isAdmin) {
+    const userDepartmentPath = user.departmentPath || '';
+
+    if (userDepartmentPath) {
+      // 转义正则表达式特殊字符
+      const escapedPath = userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      // 获取当前部门及其子部门的用户
+      const User = require('../models/User');
+      const allowedUsers = await User.find({
+        $or: [
+          { departmentPath: userDepartmentPath }, // 当前部门用户
+          { departmentPath: { $regex: `^${escapedPath}->` } }, // 子部门用户
+        ]
+      }).select('_id');
+
+      const allowedUserIds = allowedUsers.map(user => user._id);
+
+      // 限制只查看有权限的用户创建的记录
+      if (allowedUserIds.length > 0) {
+        query.createdBy = { $in: allowedUserIds };
+      } else {
+        // 如果没有权限访问任何用户，返回空结果
+        query.createdBy = { $in: [] };
+      }
+    }
+  }
+
+  // 获取所有非空的平台名称
+  query.platform = { $ne: null, $ne: '' };
+
+  const platforms = await CommissionAccounting.distinct('platform', query);
+
+  res.status(200).json({
+    success: true,
+    data: platforms.filter(name => name && name.trim()).sort()
+  });
+});
+
 module.exports = {
   createCommissionAccounting,
   getCommissionAccountings,
   getCommissionAccounting,
   updateCommissionAccounting,
   deleteCommissionAccounting,
-  batchDeleteCommissionAccounting
+  batchDeleteCommissionAccounting,
+  getShopNameSuggestions,
+  getPlatformSuggestions
 };

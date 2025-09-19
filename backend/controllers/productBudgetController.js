@@ -38,6 +38,7 @@ const checkBudgetAccess = async (budgetId, user) => {
 const createProductBudget = asyncHandler(async (req, res) => {
   const {
     productName,
+    shopName,
     sellingPrice,
     unitCost,
     shippingCost,
@@ -48,6 +49,7 @@ const createProductBudget = asyncHandler(async (req, res) => {
 
   const budget = await ProductBudget.create({
     productName,
+    shopName,
     sellingPrice,
     unitCost,
     shippingCost,
@@ -77,6 +79,7 @@ const getProductBudgets = asyncHandler(async (req, res) => {
     page = 1,
     limit = 10,
     productName,
+    shopName,
     startDate,
     endDate,
     minGrossMargin,
@@ -89,6 +92,7 @@ const getProductBudgets = asyncHandler(async (req, res) => {
   const query = {};
 
   if (productName) query.productName = { $regex: productName, $options: 'i' };
+  if (shopName) query.shopName = { $regex: shopName, $options: 'i' };
 
   // 获取用户有权限访问的用户ID列表（基于部门权限）
   let allowedUserIds = [];

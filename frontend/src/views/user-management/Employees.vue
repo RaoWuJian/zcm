@@ -99,6 +99,7 @@
         </el-button>
         <el-button @click="handleExport" :icon="Download" class="action-btn">
           导出数据
+          <span v-if="selectedRows.length">({{ selectedRows.length }}条)</span>
         </el-button>
       </div>
       <div class="action-right">
@@ -354,8 +355,18 @@ const getEmployeeList = async () => {
     const params = {
       page: pagination.page,
       limit: pagination.size,
-      search: searchForm.search
+      search: searchForm.search,
+      loginAccount: searchForm.loginAccount,
+      role: searchForm.role,
+      departmentPath: searchForm.departmentPath
     }
+
+    // 移除空值参数
+    Object.keys(params).forEach(key => {
+      if (params[key] === '' || params[key] === null || params[key] === undefined) {
+        delete params[key]
+      }
+    })
 
     const response = await employeeApi.getEmployees(params)
     if (response.success && response.data) {
@@ -365,7 +376,6 @@ const getEmployeeList = async () => {
 
     }
   } catch (error) {
-    console.error('获取员工列表失败:', error)
     ElMessage.error('获取员工列表失败')
   } finally {
     tableLoading.value = false
@@ -433,7 +443,6 @@ const handleDelete = async (row) => {
       getEmployeeList()
     }
   } catch (error) {
-    console.error('删除失败:', error)
   }
 }
 
@@ -463,7 +472,6 @@ const handleBatchDelete = async () => {
     getEmployeeList()
     selectedRows.value = []
   } catch (error) {
-    console.error('批量删除失败:', error)
   }
 }
 
@@ -521,7 +529,6 @@ const handleSubmit = async () => {
       getEmployeeList()
     }
   } catch (error) {
-    console.error('提交失败:', error)
   } finally {
     submitLoading.value = false
   }
@@ -535,7 +542,15 @@ const handleDialogClose = () => {
 // 导出数据
 const handleExport = async () => {
   try {
-    const data = tableData.value.map(item => ({
+    // 优先导出勾选的数据，如果没有勾选则导出所有数据
+    const exportData = selectedRows.value.length > 0 ? selectedRows.value : tableData.value
+
+    if (exportData.length === 0) {
+      ElMessage.warning('暂无数据可导出')
+      return
+    }
+
+    const data = exportData.map(item => ({
       '姓名': item.username,
       '登录账号': item.loginAccount,
       '角色': item.rolePermission?.roleName || '普通用户',
@@ -556,13 +571,14 @@ const handleExport = async () => {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `员工数据_${new Date().toLocaleDateString()}.csv`
+    const exportType = selectedRows.value.length > 0 ? `勾选${selectedRows.value.length}条` : '全部'
+    a.download = `员工数据_${exportType}_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`
     a.click()
     URL.revokeObjectURL(url)
-    
-    ElMessage.success('导出成功')
+
+    const exportTypeMsg = selectedRows.value.length > 0 ? `勾选的${selectedRows.value.length}条数据` : '全部数据'
+    ElMessage.success(`导出${exportTypeMsg}成功`)
   } catch (error) {
-    console.error('导出失败:', error)
     ElMessage.error('导出失败')
   }
 }
@@ -600,7 +616,6 @@ const getRoleOptions = async () => {
       }
     }
   } catch (error) {
-    console.error('获取角色列表失败:', error)
   }
 }
 
@@ -640,7 +655,6 @@ const getDepartmentOptions = async () => {
       departmentOptions.value = flatDepartments
     }
   } catch (error) {
-    console.error('获取部门选项失败:', error)
   }
 }
 

@@ -42,6 +42,8 @@ const roleSchema = new mongoose.Schema({
       'product:create',      // 创建商品信息
       'product:update',      // 编辑商品信息
       'product:delete',      // 删除商品信息
+      'product:budget',      // 财务测算
+      'product:commission',  // 产品佣金
       'product:manage',      // 管理商品
 
       // 财务管理权限
@@ -62,6 +64,19 @@ const roleSchema = new mongoose.Schema({
     type: String,
     trim: true,
     maxlength: [200, '角色描述最多200个字符'],
+    default: ''
+  },
+
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: [true, '创建人不能为空']
+  },
+
+  createdByDepartmentPath: {
+    type: String,
+    trim: true,
+    maxlength: [100, '创建人部门路径最多100个字符'],
     default: ''
   },
 

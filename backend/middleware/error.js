@@ -8,7 +8,7 @@ const errorHandler = (err, req, res, next) => {
   let error = { ...err };
   error.message = err.message;
 
-  console.error('Error:', err);
+  // 错误日志记录
 
   // Mongoose 错误处理
   if (err.name === 'CastError') {

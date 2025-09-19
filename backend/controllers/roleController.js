@@ -45,7 +45,9 @@ const createRole = asyncHandler(async (req, res) => {
     roleName,
     code,
     permissions: permissions || [],
-    description: description || ''
+    description: description || '',
+    createdBy: req.user.id,
+    createdByDepartmentPath: req.user.departmentPath || ''
   });
 
   res.status(201).json({
@@ -69,12 +71,43 @@ const getRoles = asyncHandler(async (req, res) => {
   // 构建查询条件
   let query = {};
 
+  // 权限控制：只能查看自己创建的角色和后代部门创建的角色
+  if (!req.user.isAdmin) {
+    const userDepartmentPath = req.user.departmentPath || '';
+
+    // 构建部门权限查询条件
+    const departmentConditions = [];
+
+    // 可以查看自己创建的角色
+    departmentConditions.push({ createdBy: req.user.id });
+
+    // 可以查看后代部门创建的角色
+    if (userDepartmentPath) {
+      departmentConditions.push({
+        createdByDepartmentPath: { $regex: `^${userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}->` }
+      });
+    }
+
+    query.$or = departmentConditions;
+  }
+
   if (search) {
-    query.$or = [
+    const searchConditions = [
       { code: { $regex: search, $options: 'i' } },
       { roleName: { $regex: search, $options: 'i' } },
       { description: { $regex: search, $options: 'i' } }
     ];
+
+    if (query.$or) {
+      // 如果已经有部门权限条件，需要合并搜索条件
+      query.$and = [
+        { $or: query.$or },
+        { $or: searchConditions }
+      ];
+      delete query.$or;
+    } else {
+      query.$or = searchConditions;
+    }
   }
 
   if (isActive !== undefined) {
@@ -85,6 +118,7 @@ const getRoles = asyncHandler(async (req, res) => {
   const total = await Role.countDocuments(query);
 
   const roles = await Role.find(query)
+    .populate('createdBy', 'username loginAccount departmentPath')
     .sort({ [sortBy]: sortOrder })
     .limit(limit)
     .skip(startIndex);
@@ -111,12 +145,35 @@ const getRoles = asyncHandler(async (req, res) => {
 // @route   GET /api/roles/:id
 // @access  Private/Admin
 const getRole = asyncHandler(async (req, res) => {
-  const role = await Role.findById(req.params.id);
+  let query = { _id: req.params.id };
+
+  // 权限控制：只能查看自己创建的角色和后代部门创建的角色
+  if (!req.user.isAdmin) {
+    const userDepartmentPath = req.user.departmentPath || '';
+
+    const departmentConditions = [
+      { createdBy: req.user.id },
+    ];
+
+    if (userDepartmentPath) {
+      departmentConditions.push({
+        createdByDepartmentPath: { $regex: `^${userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}->` }
+      });
+    }
+
+    query.$and = [
+      { _id: req.params.id },
+      { $or: departmentConditions }
+    ];
+  }
+
+  const role = await Role.findOne(query)
+    .populate('createdBy', 'username loginAccount departmentPath');
 
   if (!role) {
     return res.status(404).json({
       success: false,
-      message: '角色未找到'
+      message: '角色未找到或无权限访问'
     });
   }
 
@@ -130,6 +187,37 @@ const getRole = asyncHandler(async (req, res) => {
 // @route   PUT /api/roles/:id
 // @access  Private/Admin
 const updateRole = asyncHandler(async (req, res) => {
+  // 先检查权限：只能更新自己创建的角色和后代部门创建的角色
+  let query = { _id: req.params.id };
+
+  if (!req.user.isAdmin) {
+    const userDepartmentPath = req.user.departmentPath || '';
+
+    const departmentConditions = [
+      { createdBy: req.user.id },
+    ];
+
+    if (userDepartmentPath) {
+      departmentConditions.push({
+        createdByDepartmentPath: { $regex: `^${userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}->` }
+      });
+    }
+
+    query.$and = [
+      { _id: req.params.id },
+      { $or: departmentConditions }
+    ];
+  }
+
+  // 检查角色是否存在且有权限访问
+  const existingRole = await Role.findOne(query);
+  if (!existingRole) {
+    return res.status(404).json({
+      success: false,
+      message: '角色未找到或无权限修改'
+    });
+  }
+
   const fieldsToUpdate = {
     roleName: req.body.roleName,
     permissions: req.body.permissions,
@@ -150,12 +238,12 @@ const updateRole = asyncHandler(async (req, res) => {
       new: true,
       runValidators: true
     }
-  );
+  ).populate('createdBy', 'username loginAccount departmentPath');
 
   if (!role) {
     return res.status(404).json({
       success: false,
-      message: '角色未找到'
+      message: '角色更新失败'
     });
   }
 
@@ -170,12 +258,34 @@ const updateRole = asyncHandler(async (req, res) => {
 // @route   DELETE /api/roles/:id
 // @access  Private/Admin
 const deleteRole = asyncHandler(async (req, res) => {
-  const role = await Role.findById(req.params.id);
+  // 先检查权限：只能删除自己创建的角色和后代部门创建的角色
+  let query = { _id: req.params.id };
+
+  if (!req.user.isAdmin) {
+    const userDepartmentPath = req.user.departmentPath || '';
+
+    const departmentConditions = [
+      { createdBy: req.user.id },
+    ];
+
+    if (userDepartmentPath) {
+      departmentConditions.push({
+        createdByDepartmentPath: { $regex: `^${userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}->` }
+      });
+    }
+
+    query.$and = [
+      { _id: req.params.id },
+      { $or: departmentConditions }
+    ];
+  }
+
+  const role = await Role.findOne(query);
 
   if (!role) {
     return res.status(404).json({
       success: false,
-      message: '角色未找到'
+      message: '角色未找到或无权限删除'
     });
   }
 
@@ -287,6 +397,8 @@ const getAvailablePermissions = asyncHandler(async (req, res) => {
     'product:update',      // 编辑商品信息
     'product:delete',      // 删除商品信息
     'product:manage',      // 管理商品
+    'product:budget',      // 财务测算
+    'product:commission',  // 产品佣金
 
     // 财务管理权限
     'finance:read',         // 查看财务信息
@@ -329,6 +441,8 @@ const getAvailablePermissions = asyncHandler(async (req, res) => {
     'product:create': { label: '创建商品', category: '商品管理' },
     'product:update': { label: '编辑商品', category: '商品管理' },
     'product:delete': { label: '删除商品', category: '商品管理' },
+    'product:budget': { label: '财务测算', category: '商品管理' },
+    'product:commission': { label: '产品佣金', category: '商品管理' },
     'product:manage': { label: '管理商品', category: '商品管理' },
 
     // 财务管理权限

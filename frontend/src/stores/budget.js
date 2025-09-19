@@ -59,11 +59,9 @@ export const useBudgetStore = defineStore('budget', () => {
         }
         return { success: true, data: response.data }
       } else {
-        console.error('获取预算列表失败:', response.message)
         return { success: false, message: response.message || '获取预算列表失败' }
       }
     } catch (error) {
-      console.error('获取预算列表时发生错误:', error)
       return { success: false, message: '获取预算列表时发生错误' }
     } finally {
       loading.value = false
@@ -82,7 +80,6 @@ export const useBudgetStore = defineStore('budget', () => {
         return { success: false, message: response.message || '添加预算失败' }
       }
     } catch (error) {
-      console.error('添加预算时发生错误:', error)
       return { success: false, message: '添加预算时发生错误' }
     }
   }
@@ -99,7 +96,6 @@ export const useBudgetStore = defineStore('budget', () => {
         return { success: false, message: response.message || '更新预算失败' }
       }
     } catch (error) {
-      console.error('更新预算时发生错误:', error)
       return { success: false, message: '更新预算时发生错误' }
     }
   }
@@ -116,7 +112,6 @@ export const useBudgetStore = defineStore('budget', () => {
         return { success: false, message: response.message || '删除预算失败' }
       }
     } catch (error) {
-      console.error('删除预算时发生错误:', error)
       return { success: false, message: '删除预算时发生错误' }
     }
   }
@@ -133,7 +128,6 @@ export const useBudgetStore = defineStore('budget', () => {
         return { success: false, message: response.message || '批量删除预算失败' }
       }
     } catch (error) {
-      console.error('批量删除预算时发生错误:', error)
       return { success: false, message: '批量删除预算时发生错误' }
     }
   }

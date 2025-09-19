@@ -2,43 +2,73 @@
   <div class="commission-accounting">
     <!-- 页面标题 -->
     <div class="page-header">
-      <h2>产品佣金</h2>
-      <p class="page-description">核算佣金管理，实时计算佣金利润和净利润</p>
+      <div class="page-title">
+        <el-icon class="title-icon"><List /></el-icon>
+        <h2>产品佣金</h2>
+      </div>
+      <div class="page-description">
+        核算佣金管理，实时计算佣金利润和净利润
+      </div>
     </div>
-
     <!-- 搜索栏 -->
-    <div class="search-card">
-      <el-form :model="searchForm" inline>
-        <div class="search-left">
-          <el-form-item label="名称">
-            <el-input
-              v-model="searchForm.name"
-              placeholder="请输入名称"
-              clearable
-              style="width: 200px;"
-            />
+    <div class="search-card business-style">
+      <el-form :model="searchForm" class="business-search-form">
+        <div class="search-fields">
+          <el-form-item label="产品名称" class="search-item">
+             <el-autocomplete
+                v-model="searchForm.name"
+                :fetch-suggestions="queryProductNameSuggestions"
+                placeholder="请输入产品名称"
+                maxlength="100"
+                show-word-limit
+                clearable
+                style="width: 100%"
+              />
           </el-form-item>
-          <el-form-item label="净利润范围">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <el-input-number
+          <el-form-item label="店铺名称" class="search-item">
+            <el-autocomplete
+                v-model="searchForm.name"
+                :fetch-suggestions="queryShopNameSuggestions"
+                placeholder="请输入店铺名称"
+                maxlength="100"
+                show-word-limit
+                clearable
+                style="width: 100%"
+              />
+          </el-form-item>
+          <el-form-item label="平台" class="search-item">
+            <el-autocomplete
+                v-model="searchForm.platform"
+                :fetch-suggestions="queryPlatformSuggestions"
+                placeholder="请输入平台名称"
+                maxlength="100"
+                show-word-limit
+                clearable
+                style="width: 100%"
+              />
+          </el-form-item>
+          <el-form-item label="净利润范围" class="search-item">
+            <div class="profit-range">
+              <el-input
                 v-model="searchForm.minProfit"
                 placeholder="最小净利润"
-                :precision="2"
-                style="width: 150px;"
+                class="range-input"
+                @input="(value) => handleSearchProfitInput('minProfit', value)"
               />
-              <span>-</span>
-              <el-input-number
+              <span class="range-separator">-</span>
+              <el-input
                 v-model="searchForm.maxProfit"
                 placeholder="最大净利润"
-                :precision="2"
-                style="width: 150px;"
+                class="range-input"
+                @input="(value) => handleSearchProfitInput('maxProfit', value)"
               />
             </div>
           </el-form-item>
         </div>
-        <div class="search-right">
-          <el-button @click="handleSearch" :icon="Search" class="business-btn" size="small">查询</el-button>
-          <el-button @click="handleReset" class="business-btn" size="small" style="margin-left: 8px;">重置</el-button>
+
+        <div class="search-actions">
+          <el-button type="primary" @click="handleSearch" :icon="Search"  size="small">查询</el-button>
+          <el-button @click="handleReset"  size="small" style="margin-left: 8px;">重置</el-button>
         </div>
       </el-form>
     </div>
@@ -48,6 +78,15 @@
       <div class="action-left">
         <el-button type="primary" @click="showAddDialog = true" :icon="Plus" class="action-btn primary">
           新增核算
+        </el-button>
+        <el-button type="success" @click="showBatchAddDialog = true" :icon="Plus" class="action-btn success">
+          批量新增
+        </el-button>
+        <el-button type="info" @click="showImportDialog = true" :icon="Upload" class="action-btn info">
+          Excel导入
+        </el-button>
+        <el-button type="warning" @click="showSummaryDialog = true" :icon="TrendCharts" class="action-btn warning">
+          产品汇总
         </el-button>
         <el-button
           type="danger"
@@ -60,10 +99,11 @@
         </el-button>
         <el-button @click="handleExport" :icon="Download" class="action-btn">
           导出数据
+          <span v-if="selectedAccountings.length">({{ selectedAccountings.length }}条)</span>
         </el-button>
       </div>
       <div class="action-right">
-        <span class="total-count">共 {{ commissionStore.pagination?.totalRecords || 0 }} 条数据</span>
+        <span class="total-count">共 {{ commissionStore.pagination?.total || 0 }} 条数据</span>
         <el-tooltip content="刷新数据" placement="top">
           <el-button @click="handleRefresh" :icon="Refresh" circle />
         </el-tooltip>
@@ -143,8 +183,20 @@
       >
         <el-table-column type="selection" width="55" />
         
-        <el-table-column prop="name" label="名称" min-width="150" show-overflow-tooltip />
-        
+        <el-table-column prop="name" label="产品名称" min-width="150" show-overflow-tooltip />
+
+        <el-table-column prop="shopName" label="店铺名称" width="120" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span>{{ row.shopName || '-' }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="platform" label="平台" width="100" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span>{{ row.platform || '-' }}</span>
+          </template>
+        </el-table-column>
+
         <el-table-column prop="netTransactionData" label="净成交数据" width="120" align="right">
           <template #default="{ row }">
             <span class="price">¥{{ row.netTransactionData?.toFixed(2) || '0.00' }}</span>
@@ -205,7 +257,7 @@
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
           :page-sizes="[10, 20, 50, 100]"
-          :total="commissionStore.pagination.totalRecords"
+          :total="commissionStore.pagination.total"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
@@ -217,7 +269,7 @@
     <el-dialog
       v-model="showAddDialog"
       :title="editingAccounting ? '编辑核算佣金' : '新增核算佣金'"
-      width="600px"
+      width="900px"
       append-to-body
       @close="resetForm"
     >
@@ -227,56 +279,82 @@
         :rules="accountingRules"
         label-width="120px"
       >
-        <el-form-item label="名称" prop="name">
-          <el-input
+      
+        <el-form-item label="产品名称" prop="name">
+          <el-autocomplete
             v-model="accountingForm.name"
-            placeholder="请输入名称"
+            :fetch-suggestions="queryProductNameSuggestions"
+            placeholder="请输入产品名称"
             maxlength="100"
             show-word-limit
+            clearable
+            style="width: 100%"
+          />
+        </el-form-item>
+
+        <el-form-item label="店铺名称" prop="shopName">
+          <el-autocomplete
+            v-model="accountingForm.shopName"
+            :fetch-suggestions="queryShopNameSuggestions"
+            placeholder="请输入店铺名称（可选）"
+            maxlength="100"
+            show-word-limit
+            clearable
+            style="width: 100%"
+            @select="handleShopNameSelect"
+          />
+        </el-form-item>
+
+        <el-form-item label="平台" prop="platform">
+          <el-autocomplete
+            v-model="accountingForm.platform"
+            :fetch-suggestions="queryPlatformSuggestions"
+            placeholder="请输入平台名称（可选）"
+            maxlength="50"
+            show-word-limit
+            clearable
+            style="width: 100%"
+            @select="handlePlatformSelect"
           />
         </el-form-item>
 
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="净成交数据" prop="netTransactionData">
-              <el-input-number
+              <el-input
                 v-model="accountingForm.netTransactionData"
-                :min="0"
-                :precision="2"
-                placeholder="0.00"
+                placeholder="支持负数，如: -500.25"
                 style="width: 100%"
-                @change="updateCalculation"
+                @input="(value) => handleNumberInput('netTransactionData', value)"
+                @blur="updateCalculation"
               />
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="佣金(%)" prop="commission">
-              <el-input-number
+              <el-input
                 v-model="accountingForm.commission"
-                :min="0"
-                :max="100"
-                :precision="2"
-                placeholder="0.00"
+                placeholder="支持负数，如: -2.5"
                 style="width: 100%"
-                @change="updateCalculation"
+                @input="(value) => handleNumberInput('commission', value)"
+                @blur="updateCalculation"
               />
             </el-form-item>
           </el-col>
         </el-row>
 
         <el-form-item label="今日消耗" prop="dailyConsumption">
-          <el-input-number
+          <el-input
             v-model="accountingForm.dailyConsumption"
-            :min="0"
-            :precision="2"
-            placeholder="0.00"
+            placeholder="支持负数，如: -100.50"
             style="width: 100%"
-            @change="updateCalculation"
+            @input="(value) => handleNumberInput('dailyConsumption', value)"
+            @blur="updateCalculation"
           />
         </el-form-item>
 
         <!-- 实时计算结果 -->
-        <el-card class="calculation-preview" v-if="calculationResult">
+        <el-card class="calculation-preview" >
           <template #header>
             <span>实时计算结果</span>
           </template>
@@ -284,16 +362,16 @@
             <el-col :span="12">
               <div class="calc-item">
                 <span class="calc-label">佣金利润：</span>
-                <span :class="['calc-value', calculationResult.commissionProfit >= 0 ? 'profit' : 'loss']">
-                  ¥{{ calculationResult.commissionProfit }}
+                <span :class="['calc-value', calculationResult && calculationResult.commissionProfit >= 0 ? 'profit' : 'loss']">
+                  ¥{{ calculationResult ? calculationResult.commissionProfit : 0 }}
                 </span>
               </div>
             </el-col>
             <el-col :span="12">
               <div class="calc-item">
                 <span class="calc-label">净利润：</span>
-                <span :class="['calc-value', calculationResult.netProfit >= 0 ? 'profit' : 'loss']">
-                  ¥{{ calculationResult.netProfit }}
+                <span :class="['calc-value', calculationResult && calculationResult.netProfit >= 0 ? 'profit' : 'loss']">
+                  ¥{{ calculationResult ? calculationResult.netProfit : 0 }}
                 </span>
               </div>
             </el-col>
@@ -321,6 +399,551 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 批量新增对话框 -->
+    <el-dialog
+      v-model="showBatchAddDialog"
+      title="批量新增核算佣金"
+      width="900px"
+      append-to-body
+      @close="resetBatchForm"
+    >
+      <el-form
+        ref="batchFormRef"
+        :model="batchForm"
+        :rules="batchRules"
+        label-width="120px"
+      >
+        <!-- 第一行：产品名称、今日消耗 -->
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="产品名称" prop="productName">
+              <el-autocomplete
+                v-model="batchForm.productName"
+                :fetch-suggestions="queryProductNameSuggestions"
+                placeholder="请输入产品名称"
+                maxlength="100"
+                show-word-limit
+                clearable
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="今日消耗" prop="dailyConsumption">
+              <el-input
+                v-model="batchForm.dailyConsumption"
+                placeholder="支持负数，如: -100.50"
+                style="width: 100%"
+                @input="handleBatchDailyConsumptionInput"
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <!-- 第二行：备注 -->
+        <el-row>
+          <el-col :span="24">
+            <el-form-item label="备注" prop="description">
+              <el-input
+                v-model="batchForm.description"
+                placeholder="请输入备注信息（可选）"
+                maxlength="200"
+                show-word-limit
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-divider content-position="left">
+          <span style="font-weight: 600; color: #409eff;">店铺平台数据</span>
+        </el-divider>
+
+        <div class="batch-records">
+          <div
+            v-for="(record, index) in batchForm.records"
+            :key="index"
+            class="batch-record-item"
+          >
+            <div class="record-header">
+              <span class="record-title">第 {{ index + 1 }} 个店铺/平台</span>
+              <el-button
+                v-if="batchForm.records.length > 1"
+                type="danger"
+                size="small"
+                @click="removeBatchRecord(index)"
+                :icon="Delete"
+                circle
+              />
+            </div>
+
+            <!-- 两列布局：左列输入，右列计算结果 -->
+            <el-row :gutter="24">
+              <!-- 左列：数据输入 -->
+              <el-col :span="12">
+                <el-row :gutter="16">
+                  <el-col :span="24">
+                    <el-form-item label="店铺名称">
+                      <el-autocomplete
+                        v-model="record.shopName"
+                        :fetch-suggestions="queryShopNameSuggestions"
+                        placeholder="请输入店铺名称"
+                        maxlength="100"
+                        clearable
+                        style="width: 100%"
+                      />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="24">
+                    <el-form-item label="平台">
+                      <el-autocomplete
+                        v-model="record.platform"
+                        :fetch-suggestions="queryPlatformSuggestions"
+                        placeholder="请输入平台名称"
+                        maxlength="50"
+                        clearable
+                        style="width: 100%"
+                      />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="12">
+                    <el-form-item label="净成交数据" :required="true">
+                      <el-input
+                        v-model="record.netTransactionData"
+                        placeholder="支持负数，如: -500.25"
+                        style="width: 100%"
+                        @input="(value) => handleBatchNumberInput(index, 'netTransactionData', value)"
+                      />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="12">
+                    <el-form-item label="佣金(%)" :required="true">
+                      <el-input
+                        v-model="record.commission"
+                        placeholder="支持负数，如: -2.5"
+                        style="width: 100%"
+                        @input="(value) => handleBatchNumberInput(index, 'commission', value)"
+                      />
+                    </el-form-item>
+                  </el-col>
+                </el-row>
+              </el-col>
+
+              <!-- 右列：计算结果 -->
+              <el-col :span="12">
+                <div class="calculation-panel">
+                  <div class="panel-title">实时计算结果</div>
+                  <div class="calculation-content" v-if="batchCalculationResults[index]">
+                    <!-- 佣金利润和净利润占一行 -->
+                    <el-row :gutter="16">
+                      <el-col :span="12">
+                        <div class="calc-item-compact">
+                          <div class="calc-label-compact">佣金利润</div>
+                          <div :class="['calc-value-compact', batchCalculationResults[index].commissionProfit >= 0 ? 'profit' : 'loss']">
+                            ¥{{ batchCalculationResults[index].commissionProfit.toFixed(2) }}
+                          </div>
+                        </div>
+                      </el-col>
+                      <el-col :span="12">
+                        <div class="calc-item-compact">
+                          <div class="calc-label-compact">净利润</div>
+                          <div :class="['calc-value-compact', batchCalculationResults[index].netProfit >= 0 ? 'profit' : 'loss']">
+                            ¥{{ batchCalculationResults[index].netProfit.toFixed(2) }}
+                          </div>
+                        </div>
+                      </el-col>
+                    </el-row>
+
+                    <!-- 计算公式说明 -->
+                    <div class="formula-info">
+                      <div class="formula-line">
+                        <span class="formula-text">佣金利润 = 净成交数据 × 佣金%</span>
+                      </div>
+                      <div class="formula-line">
+                        <span class="formula-text">净利润 = 佣金利润 - 今日消耗</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-else class="no-calculation">
+                    <el-icon class="calc-icon"></el-icon>
+                    <span>请输入数据查看计算结果</span>
+                  </div>
+                </div>
+              </el-col>
+            </el-row>
+          </div>
+
+          <div class="add-record-btn">
+            <el-button type="dashed" @click="addBatchRecord" :icon="Plus" style="width: 100%;">
+              添加更多店铺/平台
+            </el-button>
+          </div>
+
+          <!-- 总计显示 -->
+          <div class="batch-summary" v-if="batchCalculationResults.length > 0">
+            <el-divider content-position="center">
+              <span style="font-weight: 600; color: #409eff;">汇总统计</span>
+            </el-divider>
+            <el-row :gutter="20">
+              <el-col :span="8">
+                <div class="summary-item">
+                  <div class="summary-label">总净成交数据</div>
+                  <div class="summary-value">
+                    ¥{{ batchForm.records.reduce((sum, record) => sum + (record.netTransactionData || 0), 0).toFixed(2) }}
+                  </div>
+                </div>
+              </el-col>
+              <el-col :span="8">
+                <div class="summary-item">
+                  <div class="summary-label">总佣金利润</div>
+                  <div class="summary-value profit">
+                    ¥{{ batchCalculationResults.reduce((sum, result) => sum + result.commissionProfit, 0).toFixed(2) }}
+                  </div>
+                </div>
+              </el-col>
+              <el-col :span="8">
+                <div class="summary-item">
+                  <div class="summary-label">总净利润</div>
+                  <div :class="['summary-value', batchCalculationResults.reduce((sum, result) => sum + result.netProfit, 0) >= 0 ? 'profit' : 'loss']">
+                    ¥{{ batchCalculationResults.reduce((sum, result) => sum + result.netProfit, 0).toFixed(2) }}
+                  </div>
+                </div>
+              </el-col>
+            </el-row>
+          </div>
+        </div>
+      </el-form>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showBatchAddDialog = false">取消</el-button>
+          <el-button type="primary" @click="handleBatchSubmit" :loading="batchSubmitting">
+            批量创建
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
+
+    <!-- Excel导入对话框 -->
+    <el-dialog
+      v-model="showImportDialog"
+      title="Excel批量导入"
+      width="900px"
+      append-to-body
+      @close="resetImportData"
+    >
+      <div class="import-container">
+        <!-- 步骤1: 文件上传 -->
+        <div v-if="!importData.length" class="upload-section">
+          <div class="upload-tips">
+            <h4>导入说明：</h4>
+            <ul>
+              <li>支持 Excel (.xlsx, .xls) 和 CSV 文件格式</li>
+              <li>必填字段：产品名称、净成交数据、佣金</li>
+              <li>可选字段：店铺名称、平台、今日消耗、备注</li>
+              <li>数字字段支持负数和小数</li>
+              <li>建议先下载模板，按格式填写数据</li>
+            </ul>
+
+            <div class="template-download">
+              <el-button type="primary" @click="downloadTemplate" :icon="Download">
+                下载导入模板
+              </el-button>
+            </div>
+          </div>
+
+          <el-upload
+            class="upload-demo"
+            drag
+            :auto-upload="false"
+            :on-change="handleFileUpload"
+            :show-file-list="false"
+            accept=".xlsx,.xls,.csv"
+          >
+            <el-icon class="el-icon--upload"><Upload /></el-icon>
+            <div class="el-upload__text">
+              将文件拖到此处，或<em>点击上传</em>
+            </div>
+            <template #tip>
+              <div class="el-upload__tip">
+                支持 .xlsx, .xls, .csv 格式文件
+              </div>
+            </template>
+          </el-upload>
+        </div>
+
+        <!-- 步骤2: 数据预览 -->
+        <div v-else class="preview-section">
+          <div class="preview-header">
+            <h4>数据预览 (共 {{ importData.length }} 条记录)</h4>
+            <div class="preview-actions">
+              <el-button @click="resetImportData" :icon="Refresh">重新上传</el-button>
+            </div>
+          </div>
+
+          <el-table
+            :data="importData.slice(0, 10)"
+            border
+            stripe
+            max-height="400"
+            class="preview-table"
+          >
+            <el-table-column type="index" label="序号" width="60" />
+            <el-table-column prop="name" label="产品名称" min-width="120" />
+            <el-table-column prop="shopName" label="店铺名称" min-width="120" />
+            <el-table-column prop="platform" label="平台" width="80" />
+            <el-table-column prop="netTransactionData" label="净成交数据" width="120">
+              <template #default="{ row }">
+                <span :class="{ 'negative-value': row.netTransactionData < 0 }">
+                  {{ row.netTransactionData }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="commission" label="佣金(%)" width="100">
+              <template #default="{ row }">
+                <span :class="{ 'negative-value': row.commission < 0 }">
+                  {{ row.commission }}%
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="dailyConsumption" label="今日消耗" width="100">
+              <template #default="{ row }">
+                <span :class="{ 'negative-value': row.dailyConsumption < 0 }">
+                  {{ row.dailyConsumption }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="description" label="备注" min-width="100" />
+          </el-table>
+
+          <div v-if="importData.length > 10" class="preview-more">
+            <el-alert
+              :title="`仅显示前10条记录，实际将导入 ${importData.length} 条记录`"
+              type="info"
+              :closable="false"
+            />
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showImportDialog = false">取消</el-button>
+          <el-button
+            v-if="importData.length > 0"
+            type="primary"
+            @click="handleImportConfirm"
+            :loading="importSubmitting"
+          >
+            确认导入 ({{ importData.length }} 条)
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
+
+    <!-- 产品汇总对话框 -->
+    <el-dialog
+      v-model="showSummaryDialog"
+      title="产品汇总分析"
+      width="1000px"
+      append-to-body
+      @close="resetSummaryData"
+    >
+      <div class="summary-container">
+        <!-- 搜索区域 -->
+        <div class="summary-search">
+          <el-form :model="summaryForm" inline>
+            <el-form-item label="产品名称">
+              <el-autocomplete
+                v-model="summaryForm.productName"
+                :fetch-suggestions="handleSummaryProductNameInput"
+                placeholder="请输入产品名称"
+                style="width: 300px"
+                clearable
+                @select="fetchProductSummary"
+                @keyup.enter="fetchProductSummary"
+              />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="fetchProductSummary" :loading="summaryLoading" :icon="Search">
+                查询汇总
+              </el-button>
+              <el-button @click="resetSummaryData" :icon="Refresh">
+                重置
+              </el-button>
+            </el-form-item>
+          </el-form>
+        </div>
+
+        <!-- 汇总统计卡片 -->
+        <div v-if="summaryAllData.length > 0" class="summary-stats">
+          <el-row :gutter="20">
+            <el-col :span="6">
+              <el-card class="stats-card">
+                <div class="stats-content">
+                  <div class="stats-icon success">
+                    <el-icon><List /></el-icon>
+                  </div>
+                  <div class="stats-info">
+                    <div class="stats-value">{{ summaryStats.recordCount }}</div>
+                    <div class="stats-label">记录数量</div>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+
+            <el-col :span="6">
+              <el-card class="stats-card">
+                <div class="stats-content">
+                  <div class="stats-icon commission">
+                    <el-icon><Coin /></el-icon>
+                  </div>
+                  <div class="stats-info">
+                    <div class="stats-value">{{ summaryStats.totalNetTransaction.toFixed(2) }}</div>
+                    <div class="stats-label">总净成交</div>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+
+            <el-col :span="6">
+              <el-card class="stats-card">
+                <div class="stats-content">
+                  <div class="stats-icon profit">
+                    <el-icon><TrendCharts /></el-icon>
+                  </div>
+                  <div class="stats-info">
+                    <div class="stats-value">{{ summaryStats.totalCommissionProfit.toFixed(2) }}</div>
+                    <div class="stats-label">总佣金利润</div>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+
+            <el-col :span="6">
+              <el-card class="stats-card">
+                <div class="stats-content">
+                  <div class="stats-icon" :class="summaryStats.totalNetProfit >= 0 ? 'profit' : 'danger'">
+                    <el-icon><SuccessFilled v-if="summaryStats.totalNetProfit >= 0" /><WarningFilled v-else /></el-icon>
+                  </div>
+                  <div class="stats-info">
+                    <div class="stats-value" :class="summaryStats.totalNetProfit >= 0 ? 'profit' : 'loss'">
+                      {{ summaryStats.totalNetProfit.toFixed(2) }}
+                    </div>
+                    <div class="stats-label">总净利润</div>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+          </el-row>
+        </div>
+
+        <!-- 详细数据表格 -->
+        <div v-if="summaryAllData.length > 0" class="summary-table">
+          <div class="table-header">
+            <h4>{{ summaryForm.productName }} - 各店铺平台明细</h4>
+          </div>
+
+          <el-table
+            :data="summaryData"
+            border
+            stripe
+            max-height="400"
+            :loading="summaryLoading"
+          >
+            <el-table-column type="index" label="序号" width="60" :index="(index) => (summaryCurrentPage - 1) * summaryPageSize + index + 1" />
+
+            <el-table-column prop="shopName" label="店铺名称" min-width="120">
+              <template #default="{ row }">
+                <span>{{ row.shopName || '-' }}</span>
+              </template>
+            </el-table-column>
+
+            <el-table-column prop="platform" label="平台" width="100">
+              <template #default="{ row }">
+                <span>{{ row.platform || '-' }}</span>
+              </template>
+            </el-table-column>
+
+            <el-table-column prop="netTransactionData" label="净成交数据" width="120" align="right">
+              <template #default="{ row }">
+                <span :class="['price', row.netTransactionData >= 0 ? '' : 'loss']">
+                  ¥{{ row.netTransactionData?.toFixed(2) || '0.00' }}
+                </span>
+              </template>
+            </el-table-column>
+
+            <el-table-column prop="commission" label="佣金(%)" width="100" align="right">
+              <template #default="{ row }">
+                <span class="commission">{{ row.commission?.toFixed(2) || '0.00' }}%</span>
+              </template>
+            </el-table-column>
+
+            <el-table-column prop="commissionProfit" label="佣金利润" width="120" align="right">
+              <template #default="{ row }">
+                <span :class="['price', row.commissionProfit >= 0 ? 'profit' : 'loss']">
+                  ¥{{ row.commissionProfit?.toFixed(2) || '0.00' }}
+                </span>
+              </template>
+            </el-table-column>
+
+            <el-table-column prop="dailyConsumption" label="今日消耗" width="120" align="right">
+              <template #default="{ row }">
+                <span :class="['price', row.dailyConsumption >= 0 ? '' : 'loss']">
+                  ¥{{ row.dailyConsumption?.toFixed(2) || '0.00' }}
+                </span>
+              </template>
+            </el-table-column>
+
+            <el-table-column prop="netProfit" label="净利润" width="120" align="right">
+              <template #default="{ row }">
+                <span :class="['price', row.netProfit >= 0 ? 'profit' : 'loss']">
+                  ¥{{ row.netProfit?.toFixed(2) || '0.00' }}
+                </span>
+              </template>
+            </el-table-column>
+
+            <el-table-column prop="createdAt" label="创建时间" width="180">
+              <template #default="{ row }">
+                {{ formatUtcToLocalDateTime(row.createdAt) }}
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <!-- 汇总分页 -->
+          <div class="summary-pagination">
+            <el-pagination
+              v-model:current-page="summaryCurrentPage"
+              v-model:page-size="summaryPageSize"
+              :page-sizes="[10, 20, 50, 100]"
+              :total="summaryAllData.length"
+              layout="total, sizes, prev, pager, next, jumper"
+              @size-change="handleSummarySizeChange"
+              @current-change="handleSummaryPageChange"
+            />
+          </div>
+        </div>
+
+        <!-- 空状态 -->
+        <div v-else-if="!summaryLoading" class="empty-state">
+          <el-empty description="请输入产品名称查询汇总数据" />
+        </div>
+      </div>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showSummaryDialog = false">关闭</el-button>
+          <el-button
+            v-if="summaryAllData.length > 0"
+            type="primary"
+            @click="exportSummaryData"
+            :icon="Download"
+          >
+            导出汇总数据
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -330,24 +953,40 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Plus,
   Delete,
+  List,
   Search,
   Refresh,
   Download,
+  Upload,
   TrendCharts,
   Coin,
   SuccessFilled,
-  WarningFilled
+  WarningFilled,
 } from '@element-plus/icons-vue'
 import { useCommissionAccountingStore } from '@/stores/commissionAccounting'
 import { formatUtcToLocalDateTime } from '@/utils/dateUtils'
+import { numberValidators } from '@/utils/inputValidation'
+import {
+  readExcelFile,
+  validateImportHeaders,
+  transformImportData,
+  validateImportData,
+  generateImportTemplate,
+  exportToCSV
+} from '@/utils/excelUtils'
 
 // Store
 const commissionStore = useCommissionAccountingStore()
 
 // 响应式数据
 const showAddDialog = ref(false)
+const showBatchAddDialog = ref(false)
+const showImportDialog = ref(false)
+const showSummaryDialog = ref(false)
 const editingAccounting = ref(null)
 const submitting = ref(false)
+const batchSubmitting = ref(false)
+const importSubmitting = ref(false)
 const selectedAccountings = ref([])
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -355,6 +994,8 @@ const pageSize = ref(10)
 // 搜索表单
 const searchForm = reactive({
   name: '',
+  shopName: '',
+  platform: '',
   minProfit: null,
   maxProfit: null
 })
@@ -362,14 +1003,32 @@ const searchForm = reactive({
 // 核算佣金表单
 const accountingForm = reactive({
   name: '',
+  shopName: '',
+  platform: '',
   netTransactionData: 0,
   commission: 0,
   dailyConsumption: 0,
   description: ''
 })
 
+// 批量新增表单
+const batchForm = reactive({
+  productName: '',
+  description: '',
+  dailyConsumption: 0, // 统一的今日消耗
+  records: [
+    {
+      shopName: '',
+      platform: '',
+      netTransactionData: 0,
+      commission: 0
+    }
+  ]
+})
+
 // 表单引用
 const accountingFormRef = ref()
+const batchFormRef = ref()
 
 // 表单验证规则
 const accountingRules = {
@@ -377,25 +1036,69 @@ const accountingRules = {
     { required: true, message: '请输入名称', trigger: 'blur' },
     { min: 1, max: 100, message: '名称长度在 1 到 100 个字符', trigger: 'blur' }
   ],
-  netTransactionData: [
-    { required: true, message: '请输入净成交数据', trigger: 'blur' },
-    { type: 'number', min: 0, message: '净成交数据不能小于0', trigger: 'blur' }
-  ],
-  commission: [
-    { required: true, message: '请输入佣金', trigger: 'blur' },
-    { type: 'number', min: 0, max: 100, message: '佣金范围在 0 到 100 之间', trigger: 'blur' }
-  ],
-  dailyConsumption: [
-    { type: 'number', min: 0, message: '今日消耗不能小于0', trigger: 'blur' }
+}
+
+// 批量新增验证规则
+const batchRules = {
+  productName: [
+    { required: true, message: '请输入产品名称', trigger: 'blur' },
+    { min: 1, max: 100, message: '产品名称长度在 1 到 100 个字符', trigger: 'blur' }
   ]
 }
 
 // 计算结果
 const calculationResult = ref(null)
 
+// 建议数据
+const shopNameSuggestions = ref([])
+const platformSuggestions = ref([])
+const productNameSuggestions = ref([])
+
+// 批量新增计算结果
+const batchCalculationResults = ref([])
+
+// Excel导入相关数据
+const importData = ref([])
+const importColumns = ref([])
+const importFile = ref(null)
+
+// 产品汇总相关数据
+const summaryForm = reactive({
+  productName: ''
+})
+const summaryData = ref([])
+const summaryAllData = ref([]) // 存储所有汇总数据
+const summaryLoading = ref(false)
+const summaryCurrentPage = ref(1)
+const summaryPageSize = ref(10)
+const summaryStats = ref({
+  totalNetTransaction: 0,
+  totalCommissionProfit: 0,
+  totalNetProfit: 0,
+  totalDailyConsumption: 0,
+  recordCount: 0
+})
+
 // 实时计算
 const updateCalculation = () => {
-  calculationResult.value = commissionStore.calculateCommissionAccounting(accountingForm)
+  const calculationData = {
+    netTransactionData: parseFloat(accountingForm.netTransactionData) || 0,
+    commission: parseFloat(accountingForm.commission) || 0,
+    dailyConsumption: parseFloat(accountingForm.dailyConsumption) || 0
+  }
+  calculationResult.value = commissionStore.calculateCommissionAccounting(calculationData)
+}
+
+// 批量新增实时计算
+const updateBatchCalculation = () => {
+  batchCalculationResults.value = batchForm.records.map(record => {
+    const calculationData = {
+      netTransactionData: parseFloat(record.netTransactionData) || 0,
+      commission: parseFloat(record.commission) || 0,
+      dailyConsumption: parseFloat(batchForm.dailyConsumption) || 0
+    }
+    return commissionStore.calculateCommissionAccounting(calculationData)
+  })
 }
 
 // 监听表单变化，实时计算
@@ -405,6 +1108,15 @@ watch(
     updateCalculation()
   },
   { immediate: true }
+)
+
+// 监听批量表单变化，实时计算
+watch(
+  () => [batchForm.records, batchForm.dailyConsumption],
+  () => {
+    updateBatchCalculation()
+  },
+  { deep: true, immediate: true }
 )
 
 // 获取核算佣金列表
@@ -435,6 +1147,8 @@ const handleSearch = () => {
 const handleReset = () => {
   Object.assign(searchForm, {
     name: '',
+    shopName: '',
+    platform: '',
     minProfit: null,
     maxProfit: null
   })
@@ -457,6 +1171,8 @@ const handleEdit = (accounting) => {
   editingAccounting.value = accounting
   Object.assign(accountingForm, {
     name: accounting.name,
+    shopName: accounting.shopName || '',
+    platform: accounting.platform || '',
     netTransactionData: accounting.netTransactionData,
     commission: accounting.commission,
     dailyConsumption: accounting.dailyConsumption,
@@ -528,25 +1244,35 @@ const handleSubmit = async () => {
     await accountingFormRef.value.validate()
 
     submitting.value = true
+
+    // 转换字符串为数字类型再提交
+    const submitData = {
+      ...accountingForm,
+      netTransactionData: parseFloat(accountingForm.netTransactionData) || 0,
+      commission: parseFloat(accountingForm.commission) || 0,
+      dailyConsumption: parseFloat(accountingForm.dailyConsumption) || 0
+    }
+
     let result
 
     if (editingAccounting.value) {
       // 更新
-      result = await commissionStore.updateCommissionAccounting(editingAccounting.value._id, accountingForm)
+      result = await commissionStore.updateCommissionAccounting(editingAccounting.value._id, submitData)
     } else {
       // 新增
-      result = await commissionStore.addCommissionAccounting(accountingForm)
+      result = await commissionStore.addCommissionAccounting(submitData)
     }
 
     if (result.success) {
       ElMessage.success(result.message)
       showAddDialog.value = false
       resetForm()
+      // 重新加载建议数据，以便新添加的数据能够出现在建议列表中
+      loadSuggestions()
     } else {
       ElMessage.error(result.message)
     }
   } catch (error) {
-    console.error('表单验证失败:', error)
   } finally {
     submitting.value = false
   }
@@ -557,6 +1283,8 @@ const resetForm = () => {
   editingAccounting.value = null
   Object.assign(accountingForm, {
     name: '',
+    shopName: '',
+    platform: '',
     netTransactionData: 0,
     commission: 0,
     dailyConsumption: 0,
@@ -581,16 +1309,538 @@ const handleCurrentChange = (page) => {
   fetchAccountings()
 }
 
+// 获取建议数据
+const loadSuggestions = async () => {
+  try {
+    // 获取店铺名称建议
+    const shopNameResult = await commissionStore.fetchShopNameSuggestions()
+    if (shopNameResult.success) {
+      shopNameSuggestions.value = shopNameResult.data.map(name => ({ value: name }))
+    }
+
+    // 获取平台建议
+    const platformResult = await commissionStore.fetchPlatformSuggestions()
+    if (platformResult.success) {
+      platformSuggestions.value = platformResult.data.map(name => ({ value: name }))
+    }
+
+    // 获取产品名称建议
+    const productNameResult = await commissionStore.fetchProductNameSuggestions()
+    if (productNameResult.success) {
+      productNameSuggestions.value = productNameResult.data.map(name => ({ value: name }))
+    }
+  } catch (error) {
+    console.error('获取建议数据失败:', error)
+  }
+}
+
+// 店铺名称自动完成查询
+const queryShopNameSuggestions = (queryString, callback) => {
+  const results = queryString
+    ? shopNameSuggestions.value.filter(item =>
+        item.value.toLowerCase().includes(queryString.toLowerCase())
+      )
+    : shopNameSuggestions.value
+  callback(results)
+}
+
+// 平台自动完成查询
+const queryPlatformSuggestions = (queryString, callback) => {
+  const results = queryString
+    ? platformSuggestions.value.filter(item =>
+        item.value.toLowerCase().includes(queryString.toLowerCase())
+      )
+    : platformSuggestions.value
+  callback(results)
+}
+
+// 产品名称自动完成查询
+const queryProductNameSuggestions = (queryString, callback) => {
+  const results = queryString
+    ? productNameSuggestions.value.filter(item =>
+        item.value.toLowerCase().includes(queryString.toLowerCase())
+      )
+    : productNameSuggestions.value
+  callback(results)
+}
+
+// 店铺名称选择处理
+const handleShopNameSelect = (item) => {
+  accountingForm.shopName = item.value
+}
+
+// 平台选择处理
+const handlePlatformSelect = (item) => {
+  accountingForm.platform = item.value
+}
+
+// 数字输入验证处理器
+const handleNumberInput = (field, value) => {
+  // 所有数字字段都支持小数和负数
+  const validatedValue = numberValidators.signedNumber(value)
+
+  // 更新显示值（保持输入框显示验证后的值）
+  accountingForm[field] = validatedValue
+
+  // 如果需要数值计算，在其他地方转换
+  return validatedValue
+}
+
+
+
+// 批量表单数字输入处理
+const handleBatchNumberInput = (recordIndex, field, value) => {
+  // 所有字段都支持小数和负数
+  const validatedValue = numberValidators.signedNumber(value)
+  batchForm.records[recordIndex][field] = validatedValue
+  return validatedValue
+}
+
+// 批量表单今日消耗处理
+const handleBatchDailyConsumptionInput = (value) => {
+  // 今日消耗：支持小数和负数（可能有退款或调整）
+  const validatedValue = numberValidators.signedNumber(value)
+  batchForm.dailyConsumption = validatedValue
+  return validatedValue
+}
+
+// 搜索表单利润输入处理
+const handleSearchProfitInput = (field, value) => {
+  // 利润可能为负数，支持小数和负数
+  const validatedValue = numberValidators.signedAmount(value)
+  const numValue = validatedValue === '' ? null : parseFloat(validatedValue)
+  searchForm[field] = isNaN(numValue) ? null : numValue
+  return validatedValue
+}
+
+// Excel导入相关方法
+// 处理文件上传
+const handleFileUpload = async (file) => {
+  try {
+    importSubmitting.value = true
+
+    // 读取Excel文件
+    const result = await readExcelFile(file.raw)
+
+    // 验证表头
+    const headerValidation = validateImportHeaders(result.headers)
+
+    if (!headerValidation.isValid) {
+      ElMessage.error(`缺少必填字段: ${headerValidation.missingRequired.join(', ')}`)
+      return false
+    }
+
+    // 转换数据格式
+    const transformedData = transformImportData(result.data, headerValidation.mappedFields)
+
+    // 验证数据
+    const dataValidation = validateImportData(transformedData)
+
+    // 保存导入数据
+    importData.value = dataValidation.validRows
+    importColumns.value = result.headers
+    importFile.value = file.raw
+
+    // 显示验证结果
+    if (dataValidation.errors.length > 0) {
+      ElMessage.warning(`发现 ${dataValidation.errors.length} 行数据有错误，已自动过滤`)
+    }
+
+    if (dataValidation.warnings.length > 0) {
+      ElMessage.warning(`发现 ${dataValidation.warnings.length} 行数据有警告`)
+    }
+
+    ElMessage.success(`成功解析 ${dataValidation.validRowCount} 行有效数据`)
+
+    return false // 阻止自动上传
+  } catch (error) {
+    ElMessage.error('文件解析失败: ' + error.message)
+    return false
+  } finally {
+    importSubmitting.value = false
+  }
+}
+
+// 确认导入数据
+const handleImportConfirm = async () => {
+  if (!importData.value || importData.value.length === 0) {
+    ElMessage.error('没有可导入的数据')
+    return
+  }
+
+  try {
+    importSubmitting.value = true
+
+    // 使用批量创建接口
+    const result = await commissionStore.batchAddCommissionAccounting(importData.value)
+
+    if (result.success) {
+      ElMessage.success(result.message)
+      showImportDialog.value = false
+      resetImportData()
+      // 重新加载建议数据
+      loadSuggestions()
+    } else {
+      ElMessage.error(result.message)
+    }
+  } catch (error) {
+    ElMessage.error('导入失败: ' + error.message)
+  } finally {
+    importSubmitting.value = false
+  }
+}
+
+// 重置导入数据
+const resetImportData = () => {
+  importData.value = []
+  importColumns.value = []
+  importFile.value = null
+}
+
+// 下载导入模板
+const downloadTemplate = () => {
+  const template = generateImportTemplate()
+  const csvContent = exportToCSV(template.data, template.headers)
+
+  const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+
+  link.setAttribute('href', url)
+  link.setAttribute('download', '产品佣金导入模板.csv')
+  link.style.visibility = 'hidden'
+
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+// 产品汇总相关方法
+// 获取产品汇总数据
+const fetchProductSummary = async () => {
+  if (!summaryForm.productName.trim()) {
+    ElMessage.warning('请输入产品名称')
+    return
+  }
+
+  try {
+    summaryLoading.value = true
+
+    // 简化版本：直接从当前已加载的数据中筛选
+    // 如果主列表没有数据，先加载一次
+    if (commissionStore.commissionAccountings.length === 0) {
+      await loadAccountings()
+    }
+
+    // 从当前数据中筛选匹配的产品
+    const searchTerm = summaryForm.productName.trim().toLowerCase()
+    const allData = commissionStore.commissionAccountings.filter(item =>
+      item.name && item.name.toLowerCase().includes(searchTerm)
+    )
+
+    // 存储所有数据用于统计和分页
+    summaryAllData.value = allData
+
+    // 重置分页
+    summaryCurrentPage.value = 1
+
+    // 更新当前页数据
+    updateSummaryPageData()
+
+    // 计算汇总统计（基于所有数据）
+    calculateSummaryStats()
+
+    if (summaryAllData.value.length === 0) {
+      ElMessage.info('未找到相关产品数据')
+    } else {
+      ElMessage.success(`找到 ${summaryAllData.value.length} 条相关记录`)
+    }
+
+  } catch (error) {
+    ElMessage.error('获取汇总数据失败')
+  } finally {
+    summaryLoading.value = false
+  }
+}
+
+// 更新汇总分页数据
+const updateSummaryPageData = () => {
+  const start = (summaryCurrentPage.value - 1) * summaryPageSize.value
+  const end = start + summaryPageSize.value
+  summaryData.value = summaryAllData.value.slice(start, end)
+}
+
+// 汇总分页处理
+const handleSummaryPageChange = (page) => {
+  summaryCurrentPage.value = page
+  updateSummaryPageData()
+}
+
+const handleSummarySizeChange = (size) => {
+  summaryPageSize.value = size
+  summaryCurrentPage.value = 1
+  updateSummaryPageData()
+}
+
+// 计算汇总统计（基于所有数据，不是当前页数据）
+const calculateSummaryStats = () => {
+  if (summaryAllData.value.length === 0) {
+    summaryStats.value = {
+      totalNetTransaction: 0,
+      totalCommissionProfit: 0,
+      totalNetProfit: 0,
+      totalDailyConsumption: 0,
+      recordCount: 0
+    }
+    return
+  }
+
+  const stats = summaryAllData.value.reduce((acc, item) => {
+    acc.totalNetTransaction += item.netTransactionData || 0
+    acc.totalCommissionProfit += item.commissionProfit || 0
+    acc.totalNetProfit += item.netProfit || 0
+    acc.totalDailyConsumption += item.dailyConsumption || 0
+    return acc
+  }, {
+    totalNetTransaction: 0,
+    totalCommissionProfit: 0,
+    totalNetProfit: 0,
+    totalDailyConsumption: 0
+  })
+
+  summaryStats.value = {
+    ...stats,
+    recordCount: summaryAllData.value.length
+  }
+}
+
+// 重置汇总数据
+const resetSummaryData = () => {
+  summaryForm.productName = ''
+  summaryData.value = []
+  summaryAllData.value = []
+  summaryCurrentPage.value = 1
+  summaryStats.value = {
+    totalNetTransaction: 0,
+    totalCommissionProfit: 0,
+    totalNetProfit: 0,
+    totalDailyConsumption: 0,
+    recordCount: 0
+  }
+}
+
+// 产品名称输入建议
+const handleSummaryProductNameInput = (queryString, callback) => {
+  const results = queryString
+    ? productNameSuggestions.value.filter(item =>
+        item.value.toLowerCase().includes(queryString.toLowerCase())
+      )
+    : productNameSuggestions.value
+  callback(results)
+}
+
+// 导出汇总数据
+const exportSummaryData = () => {
+  if (summaryAllData.value.length === 0) {
+    ElMessage.warning('暂无数据可导出')
+    return
+  }
+
+  try {
+    // 构建导出数据
+    const exportData = [
+      // 汇总统计行
+      {
+        '产品名称': `${summaryForm.productName} - 汇总统计`,
+        '店铺名称': '汇总',
+        '平台': '全部',
+        '净成交数据': summaryStats.value.totalNetTransaction,
+        '佣金(%)': '-',
+        '佣金利润': summaryStats.value.totalCommissionProfit,
+        '今日消耗': summaryStats.value.totalDailyConsumption,
+        '净利润': summaryStats.value.totalNetProfit,
+        '记录数量': summaryStats.value.recordCount,
+        '创建时间': new Date().toLocaleString()
+      },
+      // 空行分隔
+      {
+        '产品名称': '',
+        '店铺名称': '',
+        '平台': '',
+        '净成交数据': '',
+        '佣金(%)': '',
+        '佣金利润': '',
+        '今日消耗': '',
+        '净利润': '',
+        '记录数量': '',
+        '创建时间': ''
+      },
+      // 详细数据
+      ...summaryAllData.value.map((item, index) => ({
+        '产品名称': item.name || '',
+        '店铺名称': item.shopName || '',
+        '平台': item.platform || '',
+        '净成交数据': item.netTransactionData || 0,
+        '佣金(%)': item.commission || 0,
+        '佣金利润': item.commissionProfit || 0,
+        '今日消耗': item.dailyConsumption || 0,
+        '净利润': item.netProfit || 0,
+        '记录数量': index + 1,
+        '创建时间': item.createdAt ? formatUtcToLocalDateTime(item.createdAt) : ''
+      }))
+    ]
+
+    // 构建CSV内容
+    const headers = Object.keys(exportData[0])
+    const csvContent = [
+      headers.join(','),
+      ...exportData.map(row =>
+        headers.map(header => {
+          const value = row[header]
+          // 如果值包含逗号、引号或换行符，需要用引号包围并转义引号
+          if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+            return `"${value.replace(/"/g, '""')}"`
+          }
+          return value
+        }).join(',')
+      )
+    ].join('\n')
+
+    // 添加BOM以支持Excel正确显示中文
+    const bom = '\uFEFF'
+    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${summaryForm.productName}_汇总数据_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    ElMessage.success('汇总数据导出成功')
+  } catch (error) {
+    ElMessage.error('导出失败')
+  }
+}
+
+// 批量新增相关方法
+// 添加新的记录行
+const addBatchRecord = () => {
+  batchForm.records.push({
+    shopName: '',
+    platform: '',
+    netTransactionData: 0,
+    commission: 0
+  })
+}
+
+// 删除记录行
+const removeBatchRecord = (index) => {
+  if (batchForm.records.length > 1) {
+    batchForm.records.splice(index, 1)
+  }
+}
+
+// 批量新增提交
+const handleBatchSubmit = async () => {
+  try {
+    await batchFormRef.value.validate()
+
+    // 验证每行数据
+    const validationErrors = []
+    batchForm.records.forEach((record, index) => {
+      if (!record.shopName && !record.platform) {
+        validationErrors.push(`第${index + 1}行：店铺名称和平台至少填写一个`)
+      }
+      if (record.netTransactionData === null || record.netTransactionData === undefined) {
+        validationErrors.push(`第${index + 1}行：请输入净成交数据`)
+      }
+      if (record.commission === null || record.commission === undefined) {
+        validationErrors.push(`第${index + 1}行：请输入佣金`)
+      }
+      // 移除数值范围限制，支持负数
+    })
+
+    if (validationErrors.length > 0) {
+      ElMessage.error(validationErrors[0])
+      return
+    }
+
+    batchSubmitting.value = true
+
+    // 构建要提交的记录数组
+    const recordsToSubmit = batchForm.records.map(record => ({
+      name: batchForm.productName,
+      shopName: record.shopName || '',
+      platform: record.platform || '',
+      netTransactionData: parseFloat(record.netTransactionData) || 0,
+      commission: parseFloat(record.commission) || 0,
+      dailyConsumption: parseFloat(batchForm.dailyConsumption) || 0, // 使用统一的今日消耗
+      description: batchForm.description || ''
+    }))
+
+    const result = await commissionStore.batchAddCommissionAccounting(recordsToSubmit)
+
+    if (result.success) {
+      ElMessage.success(result.message)
+      showBatchAddDialog.value = false
+      resetBatchForm()
+      // 重新加载建议数据
+      loadSuggestions()
+    } else {
+      if (result.errors && result.errors.length > 0) {
+        ElMessage.error(result.errors[0])
+      } else {
+        ElMessage.error(result.message)
+      }
+    }
+  } catch (error) {
+    ElMessage.error('表单验证失败')
+  } finally {
+    batchSubmitting.value = false
+  }
+}
+
+// 重置批量新增表单
+const resetBatchForm = () => {
+  Object.assign(batchForm, {
+    productName: '',
+    description: '',
+    dailyConsumption: 0,
+    records: [
+      {
+        shopName: '',
+        platform: '',
+        netTransactionData: 0,
+        commission: 0
+      }
+    ]
+  })
+
+  // 重置计算结果
+  batchCalculationResults.value = []
+
+  if (batchFormRef.value) {
+    batchFormRef.value.resetFields()
+  }
+}
+
 // 导出数据
 const handleExport = async () => {
   try {
-    if (commissionStore.commissionAccountings.length === 0) {
+    // 优先导出勾选的数据，如果没有勾选则导出所有数据
+    const exportData = selectedAccountings.value.length > 0 ? selectedAccountings.value : commissionStore.commissionAccountings
+
+    if (exportData.length === 0) {
       ElMessage.warning('暂无数据可导出')
       return
     }
 
-    const data = commissionStore.commissionAccountings.map(item => ({
+    const data = exportData.map(item => ({
       '名称': item.name || '',
+      '店铺名称': item.shopName || '',
+      '平台': item.platform || '',
       '净成交数据': item.netTransactionData || 0,
       '佣金(%)': item.commission || 0,
       '佣金利润': item.commissionProfit || 0,
@@ -625,15 +1875,16 @@ const handleExport = async () => {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `核算佣金数据_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`
+    const exportType = selectedAccountings.value.length > 0 ? `勾选${selectedAccountings.value.length}条` : '全部'
+    a.download = `核算佣金数据_${exportType}_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
 
-    ElMessage.success('导出成功')
+    const exportTypeMsg = selectedAccountings.value.length > 0 ? `勾选的${selectedAccountings.value.length}条数据` : '全部数据'
+    ElMessage.success(`导出${exportTypeMsg}成功`)
   } catch (error) {
-    console.error('导出失败:', error)
     ElMessage.error('导出失败')
   }
 }
@@ -641,6 +1892,7 @@ const handleExport = async () => {
 // 生命周期
 onMounted(() => {
   fetchAccountings()
+  loadSuggestions()
 })
 </script>
 
@@ -651,62 +1903,117 @@ onMounted(() => {
   min-height: calc(100vh - 60px);
 }
 
-/* 页面标题 */
 .page-header {
   margin-bottom: 20px;
 }
 
-.page-header h2 {
-  margin: 0 0 8px 0;
-  color: #303133;
+.page-title {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.title-icon {
   font-size: 24px;
-  font-weight: 600;
+  margin-right: 12px;
+  color: #409eff;
 }
 
 .page-description {
-  margin: 0;
-  color: #909399;
+  color: #666;
   font-size: 14px;
 }
 
-/* 搜索卡片 */
-.search-card {
+/* 搜索卡片 - 商务简洁风格 */
+.search-card.business-style {
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  padding: 16px;
+  padding: 20px;
   margin-bottom: 16px;
 }
 
-.search-card .el-form {
+.business-search-form {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-}
-
-.search-left {
-  display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 16px;
-  align-items: center;
 }
 
-.search-right {
+.search-fields {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.search-item {
+  margin-bottom: 0;
+  margin-right: 0;
+}
+
+.search-item .el-form-item__label {
+  color: #606266;
+  font-size: 13px;
+  font-weight: 500;
+  padding-bottom: 4px;
+}
+
+.business-input {
+  width: 180px;
+}
+
+.business-input .el-input__wrapper {
+  border-radius: 4px;
+  border: 1px solid #dcdfe6;
+  box-shadow: none;
+}
+
+.business-input .el-input__wrapper:hover {
+  border-color: #c0c4cc;
+}
+
+.business-input .el-input__wrapper.is-focus {
+  border-color: #409eff;
+}
+
+.profit-range {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.business-btn {
-  background: #f7f8fa;
-  border-color: #d9d9d9;
-  color: #666;
+.range-input {
+  width: 140px;
 }
 
-.business-btn:hover {
-  background: #e6f7ff;
-  border-color: #91d5ff;
-  color: #1890ff;
+.range-separator {
+  color: #909399;
+  font-size: 14px;
+  margin: 0 4px;
+}
+
+.search-actions {
+  display: flex;
+  gap: 8px;
+  align-self: flex-start;
+}
+
+.business-btn {
+  border-radius: 4px;
+  font-size: 13px;
+  padding: 8px 16px;
+  min-width: 64px;
+  height: 32px;
+}
+
+.business-btn.el-button--primary {
+  background-color: #409eff;
+  border-color: #409eff;
+}
+
+.business-btn.el-button--primary:hover {
+  background-color: #66b1ff;
+  border-color: #66b1ff;
 }
 
 /* 操作栏 */
@@ -751,8 +2058,20 @@ onMounted(() => {
   color: white;
 }
 
+.action-btn.success {
+  background: linear-gradient(135deg, #67c23a 0%, #85ce61 100%);
+  border: none;
+  color: white;
+}
+
 .action-btn.danger {
   background: linear-gradient(135deg, #f56c6c 0%, #ff8a8a 100%);
+  border: none;
+  color: white;
+}
+
+.action-btn.warning {
+  background: linear-gradient(135deg, #e6a23c 0%, #f0c78a 100%);
   border: none;
   color: white;
 }
@@ -904,6 +2223,192 @@ onMounted(() => {
   gap: 12px;
 }
 
+/* 批量新增对话框样式 */
+.batch-records {
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.batch-record-item {
+  border: 1px solid #e4e7ed;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 20px;
+  background-color: #fafafa;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+.batch-record-item:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  border-color: #409eff;
+}
+
+.record-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.record-title {
+  font-weight: 600;
+  color: #303133;
+  font-size: 14px;
+}
+
+.add-record-btn {
+  margin-top: 16px;
+}
+
+.add-record-btn .el-button {
+  border: 2px dashed #c0c4cc;
+  background-color: #fafafa;
+  color: #909399;
+  transition: all 0.3s;
+}
+
+.add-record-btn .el-button:hover {
+  border-color: #409eff;
+  color: #409eff;
+  background-color: #ecf5ff;
+}
+
+/* 批量新增计算面板 */
+.calculation-panel {
+  height: 100%;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #409eff;
+  margin-bottom: 12px;
+  text-align: center;
+  border-bottom: 1px solid #e9ecef;
+  padding-bottom: 8px;
+}
+
+.calculation-content {
+  flex: 1;
+}
+
+.calc-item-compact {
+  text-align: center;
+  padding: 8px;
+  background-color: white;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.calc-label-compact {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.calc-value-compact {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.calc-value-compact.profit {
+  color: #67c23a;
+}
+
+.calc-value-compact.loss {
+  color: #f56c6c;
+}
+
+.formula-info {
+  margin-top: 12px;
+  padding: 8px;
+  background-color: #fff;
+  border-radius: 4px;
+  border: 1px solid #e9ecef;
+}
+
+.formula-line {
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.formula-line:last-child {
+  margin-bottom: 0;
+}
+
+.formula-text {
+  font-size: 11px;
+  color: #666;
+  font-family: 'Courier New', monospace;
+}
+
+.no-calculation {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  color: #999;
+  font-size: 13px;
+}
+
+.calc-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+  color: #ccc;
+}
+
+/* 批量新增汇总统计 */
+.batch-summary {
+  margin-top: 20px;
+  padding: 16px;
+  background-color: #f0f9ff;
+  border-radius: 8px;
+  border: 1px solid #bfdbfe;
+}
+
+.summary-item {
+  text-align: center;
+  padding: 12px;
+  background-color: white;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.summary-label {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.summary-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #374151;
+}
+
+.summary-value.profit {
+  color: #059669;
+}
+
+.summary-value.loss {
+  color: #dc2626;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .commission-accounting {
@@ -930,6 +2435,143 @@ onMounted(() => {
 
   .stats-cards .el-col {
     margin-bottom: 16px;
+  }
+}
+
+/* Excel导入样式 */
+.import-container {
+  .upload-section {
+    .upload-tips {
+      margin-bottom: 20px;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 6px;
+
+      h4 {
+        margin: 0 0 10px 0;
+        color: #303133;
+      }
+
+      ul {
+        margin: 0;
+        padding-left: 20px;
+
+        li {
+          margin-bottom: 5px;
+          color: #606266;
+        }
+      }
+
+      .template-download {
+        margin-top: 15px;
+        text-align: center;
+      }
+    }
+
+    .upload-demo {
+      margin-top: 20px;
+    }
+  }
+
+  .preview-section {
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+
+      h4 {
+        margin: 0;
+        color: #303133;
+      }
+    }
+
+    .preview-table {
+      .negative-value {
+        color: #f56c6c;
+        font-weight: 500;
+      }
+    }
+
+    .preview-more {
+      margin-top: 15px;
+    }
+  }
+}
+
+/* 产品汇总样式 */
+.summary-container {
+  .summary-search {
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 6px;
+  }
+
+  .summary-stats {
+    margin-bottom: 20px;
+
+    .stats-value.profit {
+      color: #67c23a;
+    }
+
+    .stats-value.loss {
+      color: #f56c6c;
+    }
+  }
+
+  .summary-table {
+    .table-header {
+      margin-bottom: 15px;
+
+      h4 {
+        margin: 0;
+        color: #303133;
+        font-size: 16px;
+        font-weight: 600;
+      }
+    }
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 0;
+  }
+
+  .summary-pagination {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .import-container {
+    .preview-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+  }
+
+  .summary-container {
+    .summary-stats {
+      .el-col {
+        margin-bottom: 15px;
+      }
+    }
+
+    .summary-search {
+      .el-form {
+        flex-direction: column;
+
+        .el-form-item {
+          margin-bottom: 15px;
+          margin-right: 0;
+        }
+      }
+    }
   }
 }
 </style>

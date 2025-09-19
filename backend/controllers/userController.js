@@ -16,7 +16,6 @@ const generateToken = (id) => {
 // @access  Public
 const login = asyncHandler(async (req, res) => {
   const { loginAccount, loginPassword } = req.body;
-  console.log(loginAccount)
   // 验证输入
   if (!loginAccount || !loginPassword) {
     return res.status(400).json({
@@ -82,7 +81,6 @@ const createUser = asyncHandler(async (req, res) => {
     });
   }
 
-  console.log(user)
   // 检查用户名和登录账号是否已存在
   const existingUser = await User.findOne({ 
     $or: [
@@ -156,6 +154,8 @@ const getUsers = asyncHandler(async (req, res) => {
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 10;
   const search = req.query.search || '';
+  const loginAccount = req.query.loginAccount || '';
+  const departmentPath = req.query.departmentPath || '';
   const role = req.query.role || '';
   const sortBy = req.query.sortBy || 'createdAt';
   const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
@@ -167,15 +167,29 @@ const getUsers = asyncHandler(async (req, res) => {
     isAdmin: false
   };
 
-  query.$or = [];
+  // 构建搜索条件
+  const searchConditions = [];
+
   if (search) {
-    query.$or = [
+    searchConditions.push(
       { username: { $regex: search, $options: 'i' } },
       { loginAccount: { $regex: search, $options: 'i' } },
       { remark: { $regex: search, $options: 'i' } },
-      { departmentPath: { $regex: search, $options: 'i' } },
+      { departmentPath: { $regex: search, $options: 'i' } }
+    );
+  }
 
-    ];
+  // 单独的搜索条件
+  if (loginAccount) {
+    query.loginAccount = { $regex: loginAccount, $options: 'i' };
+  }
+
+  if (departmentPath) {
+    query.departmentPath = { $regex: departmentPath, $options: 'i' };
+  }
+
+  if (searchConditions.length > 0) {
+    query.$or = searchConditions;
   }
 
   // 非管理员用户，只能查看后代部门的员工和无部门员工（不包括自己部门）
@@ -416,7 +430,6 @@ const deleteUser = asyncHandler(async (req, res) => {
   }
   
   const user = await User.findById(id);
-  console.log(user)
   if (!user) {
     return res.status(404).json({
       success: false,
@@ -502,7 +515,6 @@ const getUserStats = asyncHandler(async (req, res) => {
 const addUserToDepartment = asyncHandler(async (req, res) => {
   const { userIds, departmentPath } = req.body;
   const currentUser = req.user;
-  console.log(departmentPath)
 
   // 验证输入
   if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
@@ -584,12 +596,12 @@ const addUserToDepartment = asyncHandler(async (req, res) => {
 
 
 // @desc    获取没有部门的用户
-// @route   PUT /api/users/getNoDepartmentUser
-// @access 
+// @route   GET /api/users/getNoDepartmentUser
+// @access  Private
 const getNoDepartmentUser = asyncHandler(async (req, res) => {
   try {
     // 验证所有用户ID是否存在
-    const userList  = await User.find({ departmentPath: '' });
+    const userList  = await User.find({ departmentPath: '' }).populate('rolePermission');
    
     res.json({
       success: true,

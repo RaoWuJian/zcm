@@ -62,11 +62,11 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/zcm_db', 
 });
 
 mongoose.connection.on('connected', () => {
-  console.log('MongoDB 连接成功');
+  // MongoDB 连接成功
 });
 
 mongoose.connection.on('error', (err) => {
-  console.error('MongoDB 连接错误:', err);
+  // MongoDB 连接错误
 });
 
 // 导入路由
@@ -130,8 +130,7 @@ app.use(notFound);
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-  console.log(`服务器运行在端口 ${PORT}`);
-  console.log(`API文档地址: http://localhost:${PORT}/`);
+  // 服务器启动成功
 });
 
 module.exports = app;

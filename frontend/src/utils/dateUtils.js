@@ -18,7 +18,6 @@ export function formatUtcToLocalDate(utcTime) {
       day: '2-digit' 
     }).replace(/\//g, '-')
   } catch (error) {
-    console.error('日期格式化错误:', error)
     return utcTime || ''
   }
 }
@@ -43,7 +42,6 @@ export function formatUtcToLocalDateTime(utcTime) {
       hour12: false
     }).replace(/\//g, '-')
   } catch (error) {
-    console.error('日期时间格式化错误:', error)
     return utcTime || ''
   }
 }

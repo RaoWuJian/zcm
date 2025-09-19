@@ -182,7 +182,6 @@ const updateTodo = (todo) => {
 
 onMounted(() => {
   // 模拟数据加载
-  console.log('仪表盘数据加载完成')
 })
 </script>
 

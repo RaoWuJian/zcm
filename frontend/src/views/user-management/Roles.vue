@@ -76,6 +76,15 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="创建人" width="120">
+          <template #default="{ row }">
+            <div v-if="row.createdBy">
+              <div class="creator-name">{{ row.createdBy.username }}</div>
+              <div class="creator-account">{{ row.createdBy.loginAccount }}</div>
+            </div>
+            <span v-else class="text-gray">-</span>
+          </template>
+        </el-table-column>
         <el-table-column label="创建时间" width="120">
           <template #default="{ row }">
             <span class="time-text">{{ formatDate(row.createdAt || row.createTime) }}</span>
@@ -263,7 +272,6 @@ const getRoleList = async () => {
       pagination.total = total
     }
   } catch (error) {
-    console.error('获取角色列表失败:', error)
     ElMessage.error('获取角色列表失败')
   } finally {
     loading.value = false
@@ -278,7 +286,6 @@ const getStats = async () => {
       statsData.value = response.data
     }
   } catch (error) {
-    console.error('获取统计数据失败:', error)
   }
 }
 
@@ -291,11 +298,9 @@ const getPermissionLabels = async () => {
       response.data.permissions.forEach(p => {
         labels[p.key] = p.label
       })
-      console.log(labels)
       permissionLabelMap.value = labels
     }
   } catch (error) {
-    console.error('获取权限标签失败:', error)
   }
 }
 
@@ -364,7 +369,6 @@ const handleDelete = async (row) => {
       ElMessage.error(error.response.data.message)
     } else if (error !== 'cancel') {
       ElMessage.error('删除失败')
-      console.error('删除失败:', error)
     }
   }
 }
@@ -413,7 +417,6 @@ const handleSubmit = async () => {
       ElMessage.error(error.response.data.message)
     } else {
       ElMessage.error('操作失败')
-      console.error('提交失败:', error)
     }
   } finally {
     submitLoading.value = false
@@ -656,6 +659,25 @@ onMounted(() => {
 /* 时间文字 */
 .time-text {
   color: #909399;
+  font-size: 12px;
+}
+
+.creator-name {
+  font-size: 13px;
+  color: #303133;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.creator-account {
+  font-size: 11px;
+  color: #909399;
+  line-height: 1.2;
+  margin-top: 2px;
+}
+
+.text-gray {
+  color: #c0c4cc;
   font-size: 12px;
 }
 

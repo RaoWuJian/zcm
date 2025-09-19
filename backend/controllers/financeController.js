@@ -5,6 +5,36 @@ const AccountRecord = require('../models/AccountRecord');
 const { asyncHandler } = require('../middleware/error');
 const { precisionCalculate } = require('../utils/precision');
 
+/**
+ * 检查当前用户是否为记录创建者的上级部门人员
+ * @param {Object} currentUser - 当前用户对象
+ * @param {Object} recordCreator - 记录创建者用户对象
+ * @returns {boolean} - 如果是上级部门人员返回true，否则返回false
+ */
+const isUserSuperiorToCreator = (currentUser, recordCreator) => {
+  // 管理员拥有所有权限
+  if (currentUser.isAdmin) {
+    return true;
+  }
+
+  // 如果当前用户就是创建者，返回false（创建者不能修改已审批的记录）
+  if (currentUser.id === recordCreator.id || currentUser._id.toString() === recordCreator._id.toString()) {
+    return false;
+  }
+
+  const currentUserPath = currentUser.departmentPath || '';
+  const creatorPath = recordCreator.departmentPath || '';
+  // 如果任一用户没有部门路径，无法判断层级关系
+  if (!currentUserPath || !creatorPath) {
+    return false;
+  }
+
+  // 检查当前用户的部门路径是否为创建者部门路径的前缀
+  // 例如：当前用户路径 "总部->销售部"，创建者路径 "总部->销售部->华南区"
+  // 则当前用户是创建者的上级
+  return creatorPath.startsWith(currentUserPath + '->');
+};
+
 // @desc    创建财务记录
 // @route   POST /api/finance
 // @access  Private
@@ -167,19 +197,24 @@ const getFinances = asyncHandler(async (req, res) => {
 
   const finances = await Finance.find(query)
     .populate('teamId', 'name')
-    .populate('createdBy', 'username loginAccount')
-    .populate('updatedBy', 'username loginAccount')
-    .populate('approvedBy', 'username loginAccount')
+    .populate('createdBy', 'username loginAccount departmentPath')
+    .populate('updatedBy', 'username loginAccount departmentPath')
+    .populate('approvedBy', 'username loginAccount departmentPath')
     .populate('images', 'filename originalName url mimeType size')
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(Number(limit));
 
   const total = await Finance.countDocuments(query);
-
+  const list  = (finances|| []).map(item => {
+    const financeObj = item.toObject();
+    console.log(financeObj)
+    financeObj.isSuperior = isUserSuperiorToCreator(user, financeObj.createdBy);
+    return financeObj;
+  })
   res.status(200).json({
     success: true,
-    data: finances,
+    data: list,
     pagination: {
       current: Number(page),
       total: Math.ceil(total / limit),
@@ -217,7 +252,7 @@ const getFinance = asyncHandler(async (req, res) => {
 // @route   PUT /api/finance/:id
 // @access  Private
 const updateFinance = asyncHandler(async (req, res) => {
-  let finance = await Finance.findById(req.params.id).populate('teamId');
+  let finance = await Finance.findById(req.params.id).populate('teamId').populate('createdBy');
 
   if (!finance) {
     return res.status(404).json({
@@ -226,12 +261,15 @@ const updateFinance = asyncHandler(async (req, res) => {
     });
   }
 
-  // 如果已审批，则不允许修改
+  // 如果已审批，需要检查权限
   if (finance.approvalStatus === 'approved') {
-    return res.status(400).json({
-      success: false,
-      message: '已审批的记录不允许修改'
-    });
+    // 检查当前用户是否为记录创建者的上级部门人员
+    if (!isUserSuperiorToCreator(req.user, finance.createdBy)) {
+      return res.status(403).json({
+        success: false,
+        message: '已审批的记录只能由上级部门人员修改'
+      });
+    }
   }
 
   const { type: newType, amount: newAmount } = req.body;
@@ -316,13 +354,24 @@ const updateFinance = asyncHandler(async (req, res) => {
 // @route   DELETE /api/finance/:id
 // @access  Private
 const deleteFinance = asyncHandler(async (req, res) => {
-  const finance = await Finance.findById(req.params.id).populate('teamId');
+  const finance = await Finance.findById(req.params.id).populate('teamId').populate('createdBy');
 
   if (!finance) {
     return res.status(404).json({
       success: false,
       message: '财务记录不存在'
     });
+  }
+
+  // 如果已审批，需要检查权限
+  if (finance.approvalStatus === 'approved') {
+    // 检查当前用户是否为记录创建者的上级部门人员
+    if (!isUserSuperiorToCreator(req.user, finance.createdBy)) {
+      return res.status(403).json({
+        success: false,
+        message: '已审批的记录只能由上级部门人员删除'
+      });
+    }
   }
 
   try {
@@ -593,13 +642,23 @@ const batchDeleteFinance = asyncHandler(async (req, res) => {
     });
   }
 
-  // 获取所有要删除的记录，包含团队账户信息
+  // 获取所有要删除的记录，包含团队账户信息和创建者信息
   const recordsToDelete = await Finance.find({
     _id: { $in: ids }
-  }).populate('teamId');
+  }).populate('teamId').populate('createdBy');
 
-  // 处理已审批记录的余额恢复
+  // 检查已审批记录的权限
   const approvedRecords = recordsToDelete.filter(record => record.approvalStatus === 'approved');
+
+  // 验证用户是否有权限删除已审批的记录
+  for (const record of approvedRecords) {
+    if (!isUserSuperiorToCreator(req.user, record.createdBy)) {
+      return res.status(403).json({
+        success: false,
+        message: `记录 "${record.name}" 已审批，只能由上级部门人员删除`
+      });
+    }
+  }
 
   for (const record of approvedRecords) {
     const teamAccount = record.teamId;

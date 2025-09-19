@@ -14,7 +14,6 @@ const parseJwtToken = (token) => {
     )
     return JSON.parse(jsonPayload)
   } catch (error) {
-    console.error('解析JWT token失败:', error)
     return null
   }
 }
@@ -61,7 +60,6 @@ export const useUserStore = defineStore('user', {
           return { success: false, message: result.message }
         }
       } catch (error) {
-        console.error('登录失败:', error)
         return { success: false, message: '登录过程中出现错误' }
       }
     },
@@ -72,7 +70,6 @@ export const useUserStore = defineStore('user', {
         const result = await authApi.getUserInfo()
         if (result.success && result.data) {
           this.userInfo = result.data
-        console.log(result)
 
           // 同步更新localStorage中的用户信息
           localStorage.setItem('userInfo', JSON.stringify(result.data))
@@ -81,7 +78,6 @@ export const useUserStore = defineStore('user', {
           return { success: false, message: result.message || '获取用户信息失败' }
         }
       } catch (error) {
-        console.error('获取用户信息失败:', error)
         // 如果获取失败且是认证错误，清除本地数据
         if (error.response?.status === 401) {
           this.logout()
@@ -118,13 +114,11 @@ export const useUserStore = defineStore('user', {
 
       // 如果没有token，直接返回未登录状态
       if (!token) {
-        console.log('未找到登录token，用户未登录')
         return { success: false, authenticated: false, message: '用户未登录' }
       }
 
       // 检查 token 是否过期
       if (isTokenExpired(token)) {
-        console.warn('Token已过期，清除登录状态')
         this.logout()
         return { success: false, authenticated: false, message: 'Token已过期' }
       }
@@ -136,9 +130,7 @@ export const useUserStore = defineStore('user', {
       if (userInfo) {
         try {
           this.userInfo = JSON.parse(userInfo)
-          console.log('成功恢复本地用户信息')
         } catch (error) {
-          console.error('解析本地用户信息失败:', error)
           // 如果解析失败，清除无效数据
           this.logout()
           return { success: false, authenticated: false, message: '本地用户信息损坏' }
@@ -146,28 +138,22 @@ export const useUserStore = defineStore('user', {
       }
 
       // 从服务器验证token有效性并获取最新用户信息
-      console.log('正在验证token并获取最新用户信息...')
       const result = await this.fetchUserInfo()
 
       if (result.success) {
-        console.log('用户信息验证成功，登录状态有效')
         return { success: true, authenticated: true, message: '用户信息初始化成功', data: result.data }
       } else {
-        console.warn('服务器验证失败:', result.message)
 
         // 如果服务器验证失败，检查是否是401认证错误
         if (result.message?.includes('401') || result.message?.includes('未授权') || result.message?.includes('认证')) {
-          console.warn('认证失败，清除登录状态')
           this.logout()
           return { success: false, authenticated: false, message: '认证失败，请重新登录' }
         }
 
         // 如果是网络错误等其他问题，但本地有用户信息，可以继续使用
         if (this.userInfo) {
-          console.log('服务器暂时不可用，使用本地缓存的用户信息')
           return { success: true, authenticated: true, message: '使用本地缓存用户信息', data: this.userInfo }
         } else {
-          console.warn('没有可用的用户信息，清除登录状态')
           this.logout()
           return { success: false, authenticated: false, message: '无法获取用户信息' }
         }
@@ -186,7 +172,6 @@ export const useUserStore = defineStore('user', {
 
       // 检查 token 是否过期
       if (isTokenExpired(token)) {
-        console.warn('Token已过期，需要重新登录')
         this.logout()
         return false
       }

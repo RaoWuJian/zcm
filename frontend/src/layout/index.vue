@@ -112,13 +112,21 @@
               'product:create',      // 创建商品信息
               'product:update',      // 编辑商品信息
               'product:delete',      // 删除商品信息
+              'product:budget',      // 财务测算
+              'product:commission',  // 产品佣金
               'product:manage',      // 管理商品
             ])">
             <template #title>
               <el-icon><Box /></el-icon>
               <span>商品管理</span>
             </template>
-            <el-menu-item index="/product-management/product-list">
+            <el-menu-item index="/product-management/product-list" v-if="hasAnyPermission([
+              'product:read',        // 查看商品信息
+              'product:create',      // 创建商品信息
+              'product:update',      // 编辑商品信息
+              'product:delete',      // 删除商品信息
+              'product:manage',      // 管理商品
+            ])">
               <el-icon><List /></el-icon>
               <template #title>商品列表</template>
             </el-menu-item>
@@ -126,11 +134,17 @@
               <el-icon><DataAnalysis /></el-icon>
               <template #title>商品统计</template>
             </el-menu-item> -->
-            <el-menu-item index="/product-management/financial-projection">
+            <el-menu-item index="/product-management/financial-projection" v-if="hasAnyPermission([
+              'product:budget',
+              'product:manage',      // 管理商品
+            ])">
               <el-icon><List /></el-icon>
               <template #title>财务测算</template>
             </el-menu-item>
-            <el-menu-item index="/product-management/commission-accounting">
+            <el-menu-item index="/product-management/commission-accounting" v-if="hasAnyPermission([
+              'product:commission',
+              'product:manage',      // 管理商品
+            ])">
               <el-icon><Money /></el-icon>
               <template #title>产品佣金</template>
             </el-menu-item>

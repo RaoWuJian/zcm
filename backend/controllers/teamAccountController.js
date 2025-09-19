@@ -271,7 +271,7 @@ const getTeamAccounts = asyncHandler(async (req, res) => {
         accountObj.monthlyExpense = monthlyExpense;
         
       } catch (error) {
-        console.error(`计算账户 ${account._id} 本月收支失败:`, error);
+        
         accountObj.monthlyIncome = 0;
         accountObj.monthlyExpense = 0;
       }
@@ -377,7 +377,7 @@ const getTeamAccount = asyncHandler(async (req, res) => {
     accountObj.monthlyExpense = monthlyExpense;
     
   } catch (error) {
-    console.error(`计算账户 ${teamAccount._id} 本月收支失败:`, error);
+    
     accountObj.monthlyIncome = 0;
     accountObj.monthlyExpense = 0;
   }
@@ -440,10 +440,11 @@ const updateTeamAccount = asyncHandler(async (req, res) => {
 
   // 禁止直接修改账户余额，余额只能通过充值、财务记录审批等方式修改
   if (updateData.amount !== undefined) {
-    return res.status(400).json({
-      success: false,
-      message: '不能直接修改账户余额，请使用充值功能或财务记录审批来修改余额'
-    });
+    delete updateData.amount
+    // return res.status(400).json({
+    //   success: false,
+    //   message: '不能直接修改账户余额，请使用充值功能或财务记录审批来修改余额'
+    // });
   }
 
   teamAccount = await TeamAccount.findByIdAndUpdate(
@@ -733,7 +734,7 @@ const getTeamAccountRecords = asyncHandler(async (req, res) => {
     });
 
   } catch (error) {
-    console.error('获取交易记录失败:', error);
+    
     res.status(500).json({
       success: false,
       message: '获取交易记录失败'

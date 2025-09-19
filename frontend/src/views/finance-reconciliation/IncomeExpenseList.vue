@@ -101,9 +101,10 @@
           批量删除
           <span v-if="selectedRows.length">({{ selectedRows.length }})</span>
         </el-button>
-        <!-- <el-button @click="handleExport" :icon="Download" class="action-btn">
+        <el-button @click="handleExport" :icon="Download" class="action-btn">
           导出数据
-        </el-button> -->
+          <span v-if="selectedRows.length">({{ selectedRows.length }}条)</span>
+        </el-button>
       </div>
       <div class="action-right">
         <span class="total-count">共 {{ pagination.total || 0 }} 条数据</span>
@@ -212,13 +213,13 @@
         </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" type="primary" @click="handleEdit(row)" link  v-if="hasAnyPermission(['finance:update','finance:manage'])">
+            <el-button size="small" type="primary" @click="handleEdit(row)" link  v-if="hasAnyPermission(['finance:update','finance:manage']) && ((row.approvalStatus === 'pending') || row.isSuperior)">
               编辑
             </el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)" link v-if="hasAnyPermission(['finance:delete','finance:manage'])">
+            <el-button size="small" type="danger" @click="handleDelete(row)" link v-if="hasAnyPermission(['finance:delete','finance:manage']) && ((row.approvalStatus === 'pending') || row.isSuperior)">
               删除
             </el-button>
-            <template v-if="row.approvalStatus === 'pending' && hasAnyPermission(['finance:approve','finance:manage'])">
+            <template v-if="row.approvalStatus === 'pending' && row.isSuperior && hasAnyPermission(['finance:approve','finance:manage'])">
               <el-button size="small" type="success" @click="handleApprove(row, 'approved')" link>
                 通过
               </el-button>
@@ -458,6 +459,7 @@ import {
   Plus,
   Refresh,
   Delete,
+  Download,
   Setting,
   List,
   User,
@@ -539,12 +541,10 @@ const rules = {
 const initTeamAccounts = async () => {
   try {
     const response = await teamAccountApi.getTeamAccounts({ isActive: true })
-    console.log('获取团队账户列表成功:', response.data)
     if (response && response.data) {
       teamAccounts.value = response.data.data || response.data || []
     }
   } catch (error) {
-    console.error('获取团队账户列表失败:', error)
     ElMessage.error('获取团队账户列表失败')
   }
 }
@@ -570,9 +570,7 @@ const initData = async () => {
       params.endDate = searchForm.dateRange[1]
     }
     
-    console.log('正在请求财务数据，参数:', params)
     const response = await financeApi.getRecords(params)
-    console.log('API响应:', response)
     
     if (response && response.data) {
       const data = response.data
@@ -587,7 +585,6 @@ const initData = async () => {
         if (data.pagination) {
           // 使用 totalRecords 作为总记录数
           pagination.total = data.pagination.totalRecords || 0
-          console.log('分页信息:', data.pagination)
         } else {
           pagination.total = data.total || data.count || tableData.value.length
         }
@@ -596,8 +593,8 @@ const initData = async () => {
       // 数据字段映射，确保前端显示正确
       tableData.value = tableData.value.map((item) => {
         // 调试日志：查看原始数据结构
-        console.log('原始财务记录数据:', item);
-        console.log('createdBy 数据:', item.createdBy);
+
+
         
         // 获取操作人信息
         let operatorName = '未知';
@@ -614,7 +611,7 @@ const initData = async () => {
           operatorName = (operatorName).username || (operatorName).name || '未知';
         }
         
-        console.log('最终操作人名称:', operatorName);
+
         
         return {
           ...item,
@@ -630,12 +627,10 @@ const initData = async () => {
         };
       })
       
-      console.log('数据加载成功:', tableData.value.length, '条记录')
     } else {
       ElMessage.error('获取数据失败')
     }
   } catch (error) {
-    console.error('获取财务记录失败:', error)
     ElMessage.error('获取数据失败，请重试')
   } finally {
     loading.value = false
@@ -696,7 +691,6 @@ const handleBatchDelete = async () => {
     }
   } catch (error) {
     if (error !== 'cancel') {
-      console.error('批量删除失败:', error)
       ElMessage.error('删除失败，请重试')
     } else {
       ElMessage.info('已取消删除')
@@ -704,23 +698,79 @@ const handleBatchDelete = async () => {
   }
 }
 
-// 导出数据 - 已导出使用
-// const handleExport = () => {
-//   ElMessage.success('数据导出成功')
-// }
+// 导出数据
+const handleExport = async () => {
+  try {
+    // 优先导出勾选的数据，如果没有勾选则导出所有数据
+    const exportData = selectedRows.value.length > 0 ? selectedRows.value : tableData.value
 
-// 获取分类标签 - 已导出使用
-// const getCategoryLabel = (category) => {
-//   const categoryMap: Record<string, string> = {
-//     salary: '工资',
-//     bonus: '奖金',
-//     office_supplies: '办公用品',
-//     travel: '差旅费',
-//     training: '培训费',
-//     other: '其他'
-//   }
-//   return categoryMap[category] || category
-// }
+    if (exportData.length === 0) {
+      ElMessage.warning('暂无数据可导出')
+      return
+    }
+
+    const data = exportData.map(item => ({
+      '记录名称': item.recordName || '',
+      '类型': item.type === 'income' ? '收入' : '支出',
+      '分类': getCategoryLabel(item.category),
+      '金额': `¥${item.amount?.toFixed(2) || '0.00'}`,
+      '账户': item.account || '',
+      '审批状态': getApprovalStatusLabel(item.approvalStatus),
+      '备注': item.remark || '',
+      '创建者': item.createdBy?.username || '',
+      '创建时间': item.createdAt ? formatUtcToLocalDate(item.createdAt) : '',
+      '更新者': item.updatedBy?.username || '',
+      '更新时间': item.updatedAt ? formatUtcToLocalDate(item.updatedAt) : ''
+    }))
+
+    // 转换为CSV格式
+    const csv = [Object.keys(data[0]).join(',')]
+    data.forEach(row => {
+      csv.push(Object.values(row).map(value => `"${value}"`).join(','))
+    })
+
+    // 添加BOM以支持Excel正确显示中文
+    const bom = '\uFEFF'
+    const blob = new Blob([bom + csv.join('\n')], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    const exportType = selectedRows.value.length > 0 ? `勾选${selectedRows.value.length}条` : '全部'
+    a.download = `收支记录数据_${exportType}_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    const exportTypeMsg = selectedRows.value.length > 0 ? `勾选的${selectedRows.value.length}条数据` : '全部数据'
+    ElMessage.success(`导出${exportTypeMsg}成功`)
+  } catch (error) {
+    ElMessage.error('导出失败')
+  }
+}
+
+// 获取分类标签
+const getCategoryLabel = (category) => {
+  const categoryMap = {
+    salary: '工资',
+    bonus: '奖金',
+    office_supplies: '办公用品',
+    travel: '差旅费',
+    training: '培训费',
+    other: '其他'
+  }
+  return categoryMap[category] || category
+}
+
+// 获取审批状态标签
+const getApprovalStatusLabel = (status) => {
+  const statusMap = {
+    pending: '待审批',
+    approved: '已审批',
+    rejected: '已拒绝'
+  }
+  return statusMap[status] || status
+}
 
 // 获取账户标签 - 已导出使用
 // const getAccountLabel = (account) => {
@@ -789,7 +839,6 @@ const handleDelete = async (row) => {
     }
   } catch (error) {
     if (error !== 'cancel') {
-      console.error('删除失败:', error)
       ElMessage.error('删除失败，请重试')
     } else {
       ElMessage.info('已取消删除')
@@ -838,7 +887,6 @@ const handleApprove = async (row, status) => {
     }
   } catch (error) {
     if (error !== 'cancel') {
-      console.error('审批失败:', error)
       ElMessage.error(error?.message || '审批失败')
     }
   } finally {
@@ -870,7 +918,6 @@ const getImageUrlSync = (image) => {
 
 // 图片加载错误处理
 const handleImageError = (event) => {
-  console.error('图片加载失败:', event.target.src)
   event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHg9IjUwIiB5PSI1MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+5Zu+54mH5Yqg6L295aSx6LSlPC90ZXh0Pjwvc3ZnPg=='
 }
 
@@ -997,7 +1044,6 @@ const removeImage = async (index) => {
     ElMessage.success('图片删除成功')
   } catch (error) {
     if (error !== 'cancel') {
-      console.error('删除图片失败:', error)
       ElMessage.error('删除图片失败')
     }
   }
@@ -1010,7 +1056,6 @@ const uploadSingleImage = async (file) => {
 
   try {
     const response = await fileApi.uploadFile(formData)
-    console.log('文件上传响应:', response) // 调试日志
 
     if (response.success && response.data) {
       return response.data._id || response.data.id
@@ -1018,7 +1063,6 @@ const uploadSingleImage = async (file) => {
       throw new Error(response.message || '图片上传失败')
     }
   } catch (error) {
-    console.error('上传图片失败:', error)
     throw error
   }
 }
@@ -1084,7 +1128,6 @@ const handleSubmit = async () => {
             try {
               await fileApi.batchDeleteFiles(deletedImageIds.value)
             } catch (error) {
-              console.error('删除图片文件失败:', error)
               // 即使删除文件失败，也不影响主流程
             }
           }
@@ -1097,7 +1140,6 @@ const handleSubmit = async () => {
           ElMessage.error('操作失败')
         }
       } catch (error) {
-        console.error('提交失败:', error)
         ElMessage.error('操作失败，请重试')
       } finally {
         submitLoading.value = false

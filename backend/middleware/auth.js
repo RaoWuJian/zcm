@@ -45,7 +45,7 @@ const protect = async (req, res, next) => {
       }
       next();
     } catch (error) {
-      console.error('Token验证失败:', error);
+      // Token验证失败
       return res.status(401).json({
         success: false,
         message: 'Token无效，请重新登录'

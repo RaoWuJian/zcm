@@ -14,9 +14,7 @@ const api = axios.create({
   crossDomain: true
 })
 
-// 添加调试信息
-console.log('API Base URL:', import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api')
-console.log('Environment:', import.meta.env.MODE)
+// API配置信息
 
 // 请求拦截器
 api.interceptors.request.use(

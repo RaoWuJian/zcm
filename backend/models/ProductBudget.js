@@ -9,6 +9,13 @@ const budgetSchema = new mongoose.Schema({
         trim: true
     },
 
+    // 店铺名称
+    shopName: {
+        type: String,
+        trim: true,
+        maxlength: [100, '店铺名称最多100个字符']
+    },
+
     // 售价
     sellingPrice: {
         type: Number,

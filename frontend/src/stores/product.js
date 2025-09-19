@@ -86,11 +86,9 @@ export const useProductStore = defineStore('product', () => {
         }
         return { success: true, data: response.data }
       } else {
-        console.error('获取商品列表失败:', response.message)
         return { success: false, message: response.message || '获取商品列表失败' }
       }
     } catch (error) {
-      console.error('获取商品列表时发生错误:', error)
       return { success: false, message: '获取商品列表时发生错误' }
     } finally {
       loading.value = false
@@ -105,11 +103,9 @@ export const useProductStore = defineStore('product', () => {
         statistics.value = response.data
         return { success: true, data: response.data }
       } else {
-        console.error('获取商品统计失败:', response.message)
         return { success: false, message: response.message || '获取商品统计失败' }
       }
     } catch (error) {
-      console.error('获取商品统计时发生错误:', error)
       return { success: false, message: '获取商品统计时发生错误' }
     }
   }
@@ -128,11 +124,9 @@ export const useProductStore = defineStore('product', () => {
         suggestionsLoaded.value = true
         return { success: true, data: response.data }
       } else {
-        console.error('获取商品建议数据失败:', response.message)
         return { success: false, message: response.message || '获取商品建议数据失败' }
       }
     } catch (error) {
-      console.error('获取商品建议数据时发生错误:', error)
       return { success: false, message: '获取商品建议数据时发生错误' }
     } finally {
       suggestionsLoading.value = false
@@ -151,7 +145,6 @@ export const useProductStore = defineStore('product', () => {
         return { success: false, message: response.message || '添加商品失败' }
       }
     } catch (error) {
-      console.error('添加商品时发生错误:', error)
       return { success: false, message: '添加商品时发生错误' }
     }
   }
@@ -168,7 +161,6 @@ export const useProductStore = defineStore('product', () => {
         return { success: false, message: response.message || '更新商品失败' }
       }
     } catch (error) {
-      console.error('更新商品时发生错误:', error)
       return { success: false, message: '更新商品时发生错误' }
     }
   }
@@ -185,7 +177,6 @@ export const useProductStore = defineStore('product', () => {
         return { success: false, message: response.message || '删除商品失败' }
       }
     } catch (error) {
-      console.error('删除商品时发生错误:', error)
       return { success: false, message: '删除商品时发生错误' }
     }
   }
@@ -202,7 +193,6 @@ export const useProductStore = defineStore('product', () => {
         return { success: false, message: response.message || '批量删除商品失败' }
       }
     } catch (error) {
-      console.error('批量删除商品时发生错误:', error)
       return { success: false, message: '批量删除商品时发生错误' }
     }
   }

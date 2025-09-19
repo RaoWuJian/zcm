@@ -644,12 +644,12 @@ const updateDepartment = asyncHandler(async (req, res) => {
         });
       }
 
-      console.log('非管理员将部门设置在用户部门下:', userDepartmentPath);
+      
       finalParentId = userDepartment._id;
       finalParentDept = userDepartment;
     }
   }
-  console.log(finalParentId)
+
   // 检查是否会造成循环引用
   if (finalParentId && finalParentDept) {
     if (finalParentDept.departmentPath.includes(department._id.toString())) {
@@ -715,12 +715,12 @@ const updateDepartment = asyncHandler(async (req, res) => {
       if (finalParentId && finalParentDept) {
         fieldsToUpdate.departmentPath = `${finalParentDept.departmentPath}->${newDeptName}`;
         fieldsToUpdate.level = finalParentDept.level + 1;
-        console.log('设置为子部门，新路径:', fieldsToUpdate.departmentPath);
+        
       } else {
         // 根部门（一级部门）
         fieldsToUpdate.departmentPath = newDeptName;
         fieldsToUpdate.level = 1;
-        console.log('设置为一级部门，新路径:', fieldsToUpdate.departmentPath);
+        
       }
     }
 
@@ -738,9 +738,9 @@ const updateDepartment = asyncHandler(async (req, res) => {
 
     // 如果路径发生了变化，需要更新所有子孙部门的路径
     if ((needsParentUpdate || needsNameUpdate) && oldPath !== updatedDepartment.departmentPath) {
-      console.log('部门路径发生变化，更新子部门路径');
-      console.log('旧路径:', oldPath);
-      console.log('新路径:', updatedDepartment.departmentPath);
+      
+      
+      
       await updateChildrenPaths(updatedDepartment, oldPath);
     }
 

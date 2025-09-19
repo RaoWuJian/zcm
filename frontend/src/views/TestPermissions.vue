@@ -27,16 +27,13 @@ import RolePermissionsManager from '@/components/RolePermissionsManager.vue'
 const selectedPermissions = ref([])
 
 const testSelectAll = () => {
-  console.log('测试全选按钮点击')
 }
 
 const testClearAll = () => {
-  console.log('测试清空按钮点击')
   selectedPermissions.value = []
 }
 
 const testManualSet = () => {
-  console.log('手动设置权限')
   selectedPermissions.value = ['user:read', 'user:create', 'department:read']
 }
 </script>

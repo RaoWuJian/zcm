@@ -539,7 +539,7 @@ const getProductSuggestions = asyncHandler(async (req, res) => {
       data: result
     });
   } catch (error) {
-    console.error('获取建议数据失败:', error);
+    
     res.status(500).json({
       success: false,
       message: '获取建议数据失败'

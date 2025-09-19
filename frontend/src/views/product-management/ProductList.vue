@@ -91,9 +91,9 @@
           </el-form-item>
         </div>
         
-        <div class="search-actions" style="margin-left: 8px; margin-right: 0;">
-          <el-button type="primary" @click="handleSearch" class="business-btn" size="small">查询</el-button>
-          <el-button @click="handleReset" class="business-btn" size="small" style="margin-left: 8px;">重置</el-button>
+        <div class="search-actions">
+          <el-button type="primary" @click="handleSearch" :icon="Search" size="small">查询</el-button>
+          <el-button @click="handleReset" size="small" style="margin-left: 8px;">重置</el-button>
         </div>
       </el-form>
     </div>
@@ -101,8 +101,23 @@
     <!-- 操作栏 -->
     <div class="action-card">
       <div class="action-left">
-        <el-button type="primary" @click="handleAddProduct" :icon="Plus" class="action-btn primary">
+        <el-button type="primary" @click="handleAddProduct" :icon="Plus" class="action-btn primary" v-if="hasAnyPermission(['product:create','product:manage',])">
           添加商品
+        </el-button>
+        <el-button
+          type="danger"
+          @click="handleBatchDelete"
+          :disabled="!selectedProducts.length"
+          :icon="Delete"
+          class="action-btn danger"
+          v-if="hasAnyPermission(['product:delete','product:manage'])"
+        >
+          批量删除
+          <span v-if="selectedProducts.length">({{ selectedProducts.length }})</span>
+        </el-button>
+        <el-button @click="handleExport" :icon="Download" class="action-btn">
+          导出数据
+          <span v-if="selectedProducts.length">({{ selectedProducts.length }}条)</span>
         </el-button>
       </div>
       <div class="action-right">
@@ -118,9 +133,11 @@
       <el-table
         :data="productStore.products"
         v-loading="productStore.loading"
+        @selection-change="handleSelectionChange"
         stripe
         border
       >
+        <el-table-column type="selection" width="55" />
         <el-table-column prop="name" label="商品名称" min-width="150" show-overflow-tooltip />
         <el-table-column prop="team" label="团队" width="120" show-overflow-tooltip />
         <el-table-column prop="supplier" label="供应商" min-width="120" show-overflow-tooltip />
@@ -156,13 +173,13 @@
         </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="scope">
-            <el-button size="small" type="primary" @click="handleEdit(scope.row)" link>
+            <el-button size="small" type="primary" @click="handleEdit(scope.row)" link v-if="hasAnyPermission(['product:update','product:manage',])">
               编辑
             </el-button>
             <!-- <el-button size="small" type="info" @click="handleViewDetail(scope.row)" link>
               详情
             </el-button> -->
-            <el-button size="small" type="danger" @click="handleDelete(scope.row)" link>
+            <el-button size="small" type="danger" @click="handleDelete(scope.row)" link v-if="hasAnyPermission(['product:delete','product:manage',])">
               删除
             </el-button>
           </template>
@@ -433,13 +450,17 @@
 <script setup >
 import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { 
-  Plus, 
-  Refresh, 
-  List 
+import {
+  Plus,
+  Refresh,
+  List,
+  Delete,
+  Download,
+  Search
 } from '@element-plus/icons-vue'
 import { useProductStore } from '../../stores/product'
 import { precisionCalculate } from '@/utils/precision'
+import hasAnyPermission from '@/utils/checkPermissions'
 
 // 使用 Pinia store
 const productStore = useProductStore()
@@ -452,6 +473,7 @@ const productFormRef = ref()
 const currentPage = ref(1)
 const pageSize = ref(20)
 const dailyTotalProfit = ref(0)
+const selectedProducts = ref([])
 
 // 搜索表单
 const searchForm = reactive({
@@ -532,7 +554,6 @@ const teamOptions = computed(() => {
   try {
     return productStore.teamOptions || []
   } catch (error) {
-    console.error('获取团队选项失败:', error)
     return []
   }
 })
@@ -570,16 +591,12 @@ const fetchData = async () => {
       }
     })
 
-    console.log('Fetching products with params:', params)
     const result = await productStore.fetchProducts(params)
-    console.log('Fetch result:', result)
-    console.log('Products in store:', productStore.products)
 
     if (!result.success) {
       ElMessage.error(result.message || '获取商品数据失败')
     }
   } catch (error) {
-    console.error('获取商品数据失败:', error)
     ElMessage.error('获取商品数据失败')
   }
 }
@@ -605,6 +622,107 @@ const handleReset = () => {
 
 const handleRefresh = () => {
   fetchData()
+}
+
+// 选择变化
+const handleSelectionChange = (selection) => {
+  selectedProducts.value = selection
+}
+
+// 批量删除
+const handleBatchDelete = async () => {
+  if (!selectedProducts.value.length) {
+    ElMessage.warning('请选择要删除的商品')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedProducts.value.length} 个商品吗？此操作不可恢复！`,
+      '警告',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    // 批量删除需要逐个删除
+    for (const product of selectedProducts.value) {
+      const result = await productStore.deleteProduct(product._id)
+      if (!result.success) {
+        ElMessage.error(`删除商品"${product.name}"失败: ${result.error}`)
+        return
+      }
+    }
+
+    ElMessage.success('批量删除成功')
+    selectedProducts.value = []
+    fetchData() // 重新获取数据
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('批量删除失败')
+    }
+  }
+}
+
+// 导出数据
+const handleExport = async () => {
+  try {
+    // 优先导出勾选的数据，如果没有勾选则导出所有数据
+    const exportData = selectedProducts.value.length > 0 ? selectedProducts.value : productStore.products
+
+    if (exportData.length === 0) {
+      ElMessage.warning('暂无数据可导出')
+      return
+    }
+
+    const data = exportData.map(item => ({
+      '商品名称': item.name || '',
+      '团队': item.team || '',
+      '供应商': item.supplier || '',
+      '店铺名称': item.storeName || '',
+      '商品ID': item.storeId || '',
+      '平台': item.platform || '',
+      '订单数': item.dailyOrderCount || 0,
+      '销量': item.dailySalesVolume || 0,
+      '单价': `¥${(item.unitPrice || 0).toFixed(2)}`,
+      '日利润': `¥${(item.dailyTotalProfit || 0).toFixed(2)}`,
+      '付款金额': `¥${(item.dailyPaymentAmount || 0).toFixed(2)}`,
+      '产品成本': `¥${(item.productCost || 0).toFixed(2)}`,
+      '运费': `¥${(item.shippingCost || 0).toFixed(2)}`,
+      '消耗金额': `¥${(item.dailyConsumedAmount || 0).toFixed(2)}`,
+      '手续费': `¥${(item.handlingFee || 0).toFixed(2)}`,
+      '售后金额': `¥${(item.afterSalesAmount || 0).toFixed(2)}`,
+      '售后成本': `¥${(item.afterSalesCost || 0).toFixed(2)}`,
+      '创建者': item.createdBy?.username || '',
+      '创建时间': item.createdAt ? formatDate(item.createdAt) : ''
+    }))
+
+    // 转换为CSV格式
+    const csv = [Object.keys(data[0]).join(',')]
+    data.forEach(row => {
+      csv.push(Object.values(row).map(value => `"${value}"`).join(','))
+    })
+
+    // 添加BOM以支持Excel正确显示中文
+    const bom = '\uFEFF'
+    const blob = new Blob([bom + csv.join('\n')], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    const exportType = selectedProducts.value.length > 0 ? `勾选${selectedProducts.value.length}条` : '全部'
+    a.download = `商品数据_${exportType}_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    const exportTypeMsg = selectedProducts.value.length > 0 ? `勾选的${selectedProducts.value.length}条数据` : '全部数据'
+    ElMessage.success(`导出${exportTypeMsg}成功`)
+  } catch (error) {
+    ElMessage.error('导出失败')
+  }
 }
 
 const handleSizeChange = (size) => {
@@ -672,7 +790,6 @@ const handleEdit = async (product) => {
 //     const result = await productStore.getProductById(product._id)
 //     if (result.success && result.data) {
 //       // 显示详情对话框或跳转到详情页
-//       console.log('商品详情:', result.data)
 //     } else {
 //       ElMessage.error(result.error || '获取商品详情失败')
 //     }
@@ -797,15 +914,15 @@ onMounted(async () => {
 
 .business-search-form {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .search-fields {
   display: flex;
+  align-items: flex-end;
+  gap: 16px;
   flex-wrap: wrap;
-  gap: 8px;
 }
 
 .search-item {
@@ -827,6 +944,12 @@ onMounted(async () => {
   font-size: 13px !important;
 }
 
+.search-actions {
+  display: flex;
+  gap: 8px;
+  align-self: flex-start;
+}
+
 .business-btn {
   height: 28px !important;
   padding: 0 12px !important;
@@ -836,21 +959,12 @@ onMounted(async () => {
 
 /* 响应式布局 */
 @media screen and (max-width: 1200px) {
-  .business-search-form {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
   .search-fields {
     width: 100%;
   }
-  
+
   .search-actions {
-    margin-left: 0 !important;
-    margin-top: 8px;
-    width: 100%;
-    display: flex;
-    justify-content: flex-end;
+    align-self: flex-start;
   }
 }
 
@@ -858,19 +972,18 @@ onMounted(async () => {
   .search-fields {
     flex-direction: column;
   }
-  
+
   .search-item {
     width: 100%;
   }
-  
+
   .business-input,
   .business-select {
     width: 100% !important;
   }
-  
+
   .search-actions {
-    flex-direction: column;
-    align-items: stretch;
+    align-self: flex-start;
   }
 }
 
