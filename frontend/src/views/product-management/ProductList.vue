@@ -173,7 +173,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="100" fixed="right">
           <template #default="scope">
             <el-button size="small" type="primary" @click="handleEdit(scope.row)" link v-if="hasAnyPermission(['product:update','product:manage',])">
               编辑
@@ -609,7 +609,9 @@ import {
   transformProductImportData,
   validateProductImportData,
   generateProductImportTemplate,
-  exportProductToCSV
+  exportProductToCSV,
+  exportProductToExcel,
+  downloadProductImportTemplate
 } from '../../utils/productExcelUtils'
 
 // 使用 Pinia store
@@ -856,27 +858,37 @@ const handleExport = async () => {
       '创建时间': item.createdAt ? formatDate(item.createdAt) : ''
     }))
 
-    // 转换为CSV格式
-    const csv = [Object.keys(data[0]).join(',')]
-    data.forEach(row => {
-      csv.push(Object.values(row).map(value => `"${value}"`).join(','))
-    })
-
-    // 添加BOM以支持Excel正确显示中文
-    const bom = '\uFEFF'
-    const blob = new Blob([bom + csv.join('\n')], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
+    // 使用 Excel 格式导出
+    const headers = Object.keys(data[0])
     const exportType = selectedProducts.value.length > 0 ? `勾选${selectedProducts.value.length}条` : '全部'
-    a.download = `商品数据_${exportType}_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    const filename = `商品数据_${exportType}_${new Date().toLocaleDateString().replace(/\//g, '-')}`
 
-    const exportTypeMsg = selectedProducts.value.length > 0 ? `勾选的${selectedProducts.value.length}条数据` : '全部数据'
-    ElMessage.success(`导出${exportTypeMsg}成功`)
+    try {
+      // 尝试导出为 Excel 格式
+      exportProductToExcel(data, headers, filename, '商品数据')
+      const exportTypeMsg = selectedProducts.value.length > 0 ? `勾选的${selectedProducts.value.length}条数据` : '全部数据'
+      ElMessage.success(`导出${exportTypeMsg}成功（Excel格式）`)
+    } catch (excelError) {
+      // 如果 Excel 导出失败，降级到 CSV
+      console.warn('Excel导出失败，使用CSV格式：', excelError.message)
+
+      const csvContent = exportProductToCSV(data, headers)
+
+      // 添加BOM以支持Excel正确显示中文
+      const bom = '\uFEFF'
+      const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${filename}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      const exportTypeMsg = selectedProducts.value.length > 0 ? `勾选的${selectedProducts.value.length}条数据` : '全部数据'
+      ElMessage.success(`导出${exportTypeMsg}成功（CSV格式）`)
+    }
   } catch (error) {
     ElMessage.error('导出失败')
   }
@@ -1138,20 +1150,13 @@ const resetImportData = () => {
 
 // 下载导入模板
 const downloadTemplate = () => {
-  const template = generateProductImportTemplate()
-  const csvContent = exportProductToCSV(template.data, template.headers)
-
-  const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
-  const link = document.createElement('a')
-  const url = URL.createObjectURL(blob)
-
-  link.setAttribute('href', url)
-  link.setAttribute('download', '商品导入模板.csv')
-  link.style.visibility = 'hidden'
-
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
+  try {
+    // 使用新的 Excel 导出功能
+    downloadProductImportTemplate('商品导入模板')
+    ElMessage.success('模板下载成功')
+  } catch (error) {
+    ElMessage.error('模板下载失败：' + error.message)
+  }
 }
 
 // 生命周期

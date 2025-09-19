@@ -293,8 +293,20 @@ const getProducts = asyncHandler(async (req, res) => {
   // 日期范围查询
   if (startDate || endDate) {
     query.createdAt = {};
-    if (startDate) query.createdAt.$gte = new Date(startDate);
-    if (endDate) query.createdAt.$lte = new Date(endDate);
+
+    if (startDate) {
+      // 开始日期设置为当天的 00:00:00
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      query.createdAt.$gte = start;
+    }
+
+    if (endDate) {
+      // 结束日期设置为当天的 23:59:59.999
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      query.createdAt.$lte = end;
+    }
   }
 
   // 搜索功能（按产品名称、团队、供货厂家、店铺名称搜索）
@@ -458,8 +470,20 @@ const getProductStats = asyncHandler(async (req, res) => {
   // 日期范围查询
   if (startDate || endDate) {
     query.createdAt = {};
-    if (startDate) query.createdAt.$gte = new Date(startDate);
-    if (endDate) query.createdAt.$lte = new Date(endDate);
+
+    if (startDate) {
+      // 开始日期设置为当天的 00:00:00
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      query.createdAt.$gte = start;
+    }
+
+    if (endDate) {
+      // 结束日期设置为当天的 23:59:59.999
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      query.createdAt.$lte = end;
+    }
   }
 
   const stats = await Product.aggregate([

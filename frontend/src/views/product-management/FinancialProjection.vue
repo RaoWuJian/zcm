@@ -42,6 +42,34 @@
               style="width: 200px;"
             />
           </el-form-item>
+          <el-form-item label="时间区域">
+            <el-select
+              v-model="searchForm.timeRange"
+              placeholder="选择时间区域"
+              clearable
+              style="width: 200px;"
+              @change="handleTimeRangeChange"
+            >
+              <el-option label="今天" value="today" />
+              <el-option label="昨天" value="yesterday" />
+              <el-option label="半个月" value="halfMonth" />
+              <el-option label="一个月" value="oneMonth" />
+              <el-option label="三个月" value="threeMonths" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="自定义时间">
+            <el-date-picker
+              v-model="customDateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              format="YYYY-MM-DD"
+              value-format="YYYY-MM-DD"
+              style="width: 300px;"
+              @change="handleCustomDateChange"
+            />
+          </el-form-item>
           <el-form-item label="毛利范围">
             <div style="display: flex; align-items: center; gap: 8px;">
               <el-input-number
@@ -99,67 +127,6 @@
           <el-button @click="handleRefresh" :icon="Refresh" circle />
         </el-tooltip>
       </div>
-    </div>
-
-    <!-- 统计卡片 -->
-    <div class="stats-cards">
-      <el-row :gutter="20">
-        <el-col :span="6">
-          <el-card class="stats-card">
-            <div class="stats-content">
-              <div class="stats-icon profit">
-                <el-icon><TrendCharts /></el-icon>
-              </div>
-              <div class="stats-info">
-                <div class="stats-value">{{ budgetStore.totalGrossMargin.toFixed(2) }}</div>
-                <div class="stats-label">总毛利</div>
-              </div>
-            </div>
-          </el-card>
-        </el-col>
-
-        <el-col :span="6">
-          <el-card class="stats-card">
-            <div class="stats-content">
-              <div class="stats-icon commission">
-                <el-icon><Coin /></el-icon>
-              </div>
-              <div class="stats-info">
-                <div class="stats-value">{{ budgetStore.averageCommission.toFixed(2) }}%</div>
-                <div class="stats-label">平均佣金</div>
-              </div>
-            </div>
-          </el-card>
-        </el-col>
-
-        <el-col :span="6">
-          <el-card class="stats-card">
-            <div class="stats-content">
-              <div class="stats-icon success">
-                <el-icon><SuccessFilled /></el-icon>
-              </div>
-              <div class="stats-info">
-                <div class="stats-value">{{ budgetStore.profitableBudgets.length }}</div>
-                <div class="stats-label">盈利产品</div>
-              </div>
-            </div>
-          </el-card>
-        </el-col>
-
-        <el-col :span="6">
-          <el-card class="stats-card">
-            <div class="stats-content">
-              <div class="stats-icon danger">
-                <el-icon><WarningFilled /></el-icon>
-              </div>
-              <div class="stats-info">
-                <div class="stats-value">{{ budgetStore.lossBudgets.length }}</div>
-                <div class="stats-label">亏损产品</div>
-              </div>
-            </div>
-          </el-card>
-        </el-col>
-      </el-row>
     </div>
 
     <!-- 预算列表 -->
@@ -246,7 +213,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
             <el-button size="small" type="primary" @click="handleEdit(row)" link>编辑</el-button>
             <el-button size="small" type="danger" @click="handleDelete(row)" link>删除</el-button>
@@ -792,7 +759,9 @@ import {
   transformFinancialImportData,
   validateFinancialImportData,
   generateFinancialImportTemplate,
-  exportFinancialToCSV
+  exportFinancialToCSV,
+  exportFinancialToExcel,
+  downloadFinancialImportTemplate
 } from '../../utils/financialExcelUtils'
 
 // Store
@@ -809,13 +778,19 @@ const importSubmitting = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
 
+// 自定义日期范围
+const customDateRange = ref([])
+
 // 搜索表单
 const searchForm = reactive({
   productName: '',
   shopName: '',
   platform: '',
   minGrossMargin: null,
-  maxGrossMargin: null
+  maxGrossMargin: null,
+  timeRange: '', // 时间区域：today, yesterday, halfMonth, oneMonth, threeMonths
+  startDate: '',
+  endDate: ''
 })
 
 // 预算表单
@@ -972,20 +947,13 @@ const resetImportData = () => {
 
 // 下载导入模板
 const downloadTemplate = () => {
-  const template = generateFinancialImportTemplate()
-  const csvContent = exportFinancialToCSV(template.data, template.headers)
-
-  const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
-  const link = document.createElement('a')
-  const url = URL.createObjectURL(blob)
-
-  link.setAttribute('href', url)
-  link.setAttribute('download', '财务测算导入模板.csv')
-  link.style.visibility = 'hidden'
-
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
+  try {
+    // 使用新的 Excel 导出功能
+    downloadFinancialImportTemplate('财务测算导入模板')
+    ElMessage.success('模板下载成功')
+  } catch (error) {
+    ElMessage.error('模板下载失败：' + error.message)
+  }
 }
 
 // 自动完成查询方法
@@ -1219,33 +1187,34 @@ const exportSummaryData = () => {
       }))
     ]
 
-    // 转换为CSV格式
+    // 使用 Excel 格式导出汇总数据
     const headers = Object.keys(exportData[0])
-    const csvContent = [
-      headers.join(','),
-      ...exportData.map(row =>
-        headers.map(header => {
-          const value = row[header]
-          return typeof value === 'string' && value.includes(',')
-            ? `"${value}"`
-            : value
-        }).join(',')
-      )
-    ].join('\n')
+    const filename = `${summaryForm.productName}_财务测算汇总_${new Date().toLocaleDateString().replace(/\//g, '-')}`
 
-    // 下载文件
-    const bom = '\uFEFF'
-    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${summaryForm.productName}_财务测算汇总_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    try {
+      // 尝试导出为 Excel 格式
+      exportFinancialToExcel(exportData, headers, filename, `${summaryForm.productName}财务汇总`)
+      ElMessage.success('汇总数据导出成功（Excel格式）')
+    } catch (excelError) {
+      // 如果 Excel 导出失败，降级到 CSV
+      console.warn('Excel导出失败，使用CSV格式：', excelError.message)
 
-    ElMessage.success('汇总数据导出成功')
+      const csvContent = exportFinancialToCSV(exportData, headers)
+
+      // 添加BOM以支持Excel正确显示中文
+      const bom = '\uFEFF'
+      const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${filename}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      ElMessage.success('汇总数据导出成功（CSV格式）')
+    }
   } catch (error) {
     ElMessage.error('导出失败')
   }
@@ -1278,6 +1247,73 @@ watch(
   { immediate: true }
 )
 
+// 时间区域处理函数
+const handleTimeRangeChange = (value) => {
+  if (!value) {
+    searchForm.startDate = ''
+    searchForm.endDate = ''
+    customDateRange.value = []
+    return
+  }
+
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+  switch (value) {
+    case 'today':
+      searchForm.startDate = formatDate(today)
+      searchForm.endDate = formatDate(today)
+      break
+    case 'yesterday':
+      const yesterday = new Date(today)
+      yesterday.setDate(yesterday.getDate() - 1)
+      searchForm.startDate = formatDate(yesterday)
+      searchForm.endDate = formatDate(yesterday)
+      break
+    case 'halfMonth':
+      const halfMonthAgo = new Date(today)
+      halfMonthAgo.setDate(halfMonthAgo.getDate() - 15)
+      searchForm.startDate = formatDate(halfMonthAgo)
+      searchForm.endDate = formatDate(today)
+      break
+    case 'oneMonth':
+      const oneMonthAgo = new Date(today)
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
+      searchForm.startDate = formatDate(oneMonthAgo)
+      searchForm.endDate = formatDate(today)
+      break
+    case 'threeMonths':
+      const threeMonthsAgo = new Date(today)
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
+      searchForm.startDate = formatDate(threeMonthsAgo)
+      searchForm.endDate = formatDate(today)
+      break
+  }
+
+  // 清空自定义日期范围
+  customDateRange.value = []
+}
+
+// 自定义日期范围处理
+const handleCustomDateChange = (dateRange) => {
+  if (dateRange && dateRange.length === 2) {
+    searchForm.startDate = dateRange[0]
+    searchForm.endDate = dateRange[1]
+    searchForm.timeRange = '' // 清空时间区域选择
+  } else {
+    searchForm.startDate = ''
+    searchForm.endDate = ''
+  }
+}
+
+// 日期格式化函数
+const formatDate = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 const handleSearch = () => {
   currentPage.value = 1
   fetchBudgets()
@@ -1289,8 +1325,12 @@ const handleReset = () => {
     shopName: '',
     platform: '',
     minGrossMargin: null,
-    maxGrossMargin: null
+    maxGrossMargin: null,
+    timeRange: '',
+    startDate: '',
+    endDate: ''
   })
+  customDateRange.value = []
   currentPage.value = 1
   fetchBudgets()
 }
@@ -1467,6 +1507,8 @@ const handleExport = async () => {
 
     const data = exportData.map(item => ({
       '产品名称': item.productName || '',
+      '店铺名称': item.shopName  || '',
+      '平台': item.platform || '',
       '售价': item.sellingPrice || 0,
       '成本单价': item.unitCost || 0,
       '产品运费': item.shippingCost || 0,
@@ -1481,37 +1523,37 @@ const handleExport = async () => {
       '更新时间': item.updatedAt ? formatUtcToLocalDateTime(item.updatedAt) : ''
     }))
 
-    // 构建CSV内容
+    // 使用 Excel 格式导出
     const headers = Object.keys(data[0])
-    const csvContent = [
-      headers.join(','),
-      ...data.map(row =>
-        headers.map(header => {
-          const value = row[header]
-          // 如果值包含逗号、引号或换行符，需要用引号包围并转义引号
-          if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
-            return `"${value.replace(/"/g, '""')}"`
-          }
-          return value
-        }).join(',')
-      )
-    ].join('\n')
-
-    // 添加BOM以支持Excel正确显示中文
-    const bom = '\uFEFF'
-    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
     const exportType = selectedBudgets.value.length > 0 ? `勾选${selectedBudgets.value.length}条` : '全部'
-    a.download = `产品预算数据_${exportType}_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    const filename = `财务测算数据_${exportType}_${new Date().toLocaleDateString().replace(/\//g, '-')}`
 
-    const exportTypeMsg = selectedBudgets.value.length > 0 ? `勾选的${selectedBudgets.value.length}条数据` : '全部数据'
-    ElMessage.success(`导出${exportTypeMsg}成功`)
+    try {
+      // 尝试导出为 Excel 格式
+      exportFinancialToExcel(data, headers, filename, '财务测算数据')
+      const exportTypeMsg = selectedBudgets.value.length > 0 ? `勾选的${selectedBudgets.value.length}条数据` : '全部数据'
+      ElMessage.success(`导出${exportTypeMsg}成功（Excel格式）`)
+    } catch (excelError) {
+      // 如果 Excel 导出失败，降级到 CSV
+      console.warn('Excel导出失败，使用CSV格式：', excelError.message)
+
+      const csvContent = exportFinancialToCSV(data, headers)
+
+      // 添加BOM以支持Excel正确显示中文
+      const bom = '\uFEFF'
+      const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${filename}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      const exportTypeMsg = selectedBudgets.value.length > 0 ? `勾选的${selectedBudgets.value.length}条数据` : '全部数据'
+      ElMessage.success(`导出${exportTypeMsg}成功（CSV格式）`)
+    }
   } catch (error) {
     ElMessage.error('导出失败')
   }

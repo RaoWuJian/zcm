@@ -175,8 +175,20 @@ const getFinances = asyncHandler(async (req, res) => {
   // 日期范围查询
   if (startDate || endDate) {
     query.occurredAt = {};
-    if (startDate) query.occurredAt.$gte = new Date(startDate);
-    if (endDate) query.occurredAt.$lte = new Date(endDate);
+
+    if (startDate) {
+      // 开始日期设置为当天的 00:00:00
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      query.occurredAt.$gte = start;
+    }
+
+    if (endDate) {
+      // 结束日期设置为当天的 23:59:59.999
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      query.occurredAt.$lte = end;
+    }
   }
   // 添加名称模糊查询
   if (name) {
@@ -578,8 +590,20 @@ const getFinanceStats = asyncHandler(async (req, res) => {
   // 日期范围查询
   if (startDate || endDate) {
     query.occurredAt = {};
-    if (startDate) query.occurredAt.$gte = new Date(startDate);
-    if (endDate) query.occurredAt.$lte = new Date(endDate);
+
+    if (startDate) {
+      // 开始日期设置为当天的 00:00:00
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      query.occurredAt.$gte = start;
+    }
+
+    if (endDate) {
+      // 结束日期设置为当天的 23:59:59.999
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      query.occurredAt.$lte = end;
+    }
   }
 
   const stats = await Finance.aggregate([

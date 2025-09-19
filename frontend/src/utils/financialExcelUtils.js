@@ -3,9 +3,11 @@
  * 基于通用Excel工具，专门用于财务测算数据的导入导出
  */
 
-import { 
-  readExcelFile as baseReadExcelFile, 
-  exportToCSV as baseExportToCSV 
+import {
+  readExcelFile as baseReadExcelFile,
+  exportToCSV as baseExportToCSV,
+  exportToExcel,
+  downloadImportTemplate
 } from './excelUtils'
 
 /**
@@ -255,4 +257,46 @@ export function readFinancialExcelFile(file) {
  */
 export function exportFinancialToCSV(data, headers) {
   return baseExportToCSV(data, headers)
+}
+
+/**
+ * 导出财务测算数据为Excel格式
+ * @param {Array} data - 数据数组
+ * @param {Array} headers - 表头数组
+ * @param {string} filename - 文件名（不含扩展名）
+ * @param {string} sheetName - 工作表名称
+ */
+export function exportFinancialToExcel(data, headers, filename = '财务测算数据', sheetName = '财务测算') {
+  return exportToExcel(data, headers, filename, sheetName)
+}
+
+/**
+ * 下载财务测算导入模板
+ * @param {string} filename - 文件名（不含扩展名）
+ */
+export function downloadFinancialImportTemplate(filename = '财务测算导入模板') {
+  const template = generateFinancialImportTemplate()
+
+  try {
+    exportToExcel(template.data, template.headers, filename, '财务测算模板')
+    return true
+  } catch (error) {
+    // 如果Excel导出失败，降级到CSV
+    console.warn('Excel模板导出失败，使用CSV格式：', error.message)
+    const csvContent = baseExportToCSV(template.data, template.headers)
+
+    // 添加BOM以支持Excel正确显示中文
+    const bom = '\uFEFF'
+    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${filename}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    return true
+  }
 }

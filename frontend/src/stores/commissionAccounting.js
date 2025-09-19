@@ -46,6 +46,10 @@ export const useCommissionAccountingStore = defineStore('commissionAccounting', 
   const totalNetTransactionData = computed(() => {
     return commissionAccountings.value.reduce((sum, accounting) => sum + accounting.netTransactionData, 0)
   })
+
+  const totalDailyConsumption = computed(() => {
+    return commissionAccountings.value.reduce((sum, accounting) => sum + accounting.dailyConsumption, 0)
+  })
   
   // 方法
   const fetchCommissionAccountings = async (params = {}) => {
@@ -239,6 +243,7 @@ export const useCommissionAccountingStore = defineStore('commissionAccounting', 
     totalCommissionProfit,
     totalNetProfit,
     totalNetTransactionData,
+    totalDailyConsumption,
     
     // 方法
     fetchCommissionAccountings,

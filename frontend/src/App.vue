@@ -96,6 +96,18 @@ html, body {
   border-radius: 4px;
 }
 
+/* 移除按钮点击后的黑色边框 */
+.el-button:focus,
+.el-button:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2) !important;
+}
+
+/* 或者完全移除焦点样式 */
+.el-button:focus {
+  outline: none !important;
+}
+
 /* 确保所有页面元素都不超出屏幕 */
 * {
   max-width: 100vw;
@@ -120,3 +132,4 @@ html, body {
   background: #a8a8a8;
 }
 </style>
+

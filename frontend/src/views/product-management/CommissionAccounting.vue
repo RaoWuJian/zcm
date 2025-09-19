@@ -116,54 +116,59 @@
         <el-col :span="6">
           <el-card class="stats-card">
             <div class="stats-content">
+              <div class="stats-icon commission">
+                <el-icon><Coin /></el-icon>
+              </div>
+              <div class="stats-info">
+                <div class="stats-value">¥{{ commissionStore.totalNetTransactionData.toFixed(2) }}</div>
+                <div class="stats-label">总净成交</div>
+              </div>
+            </div>
+          </el-card>
+        </el-col>
+
+        <el-col :span="6">
+          <el-card class="stats-card">
+            <div class="stats-content">
               <div class="stats-icon profit">
                 <el-icon><TrendCharts /></el-icon>
               </div>
               <div class="stats-info">
-                <div class="stats-value">{{ commissionStore.totalCommissionProfit.toFixed(2) }}</div>
+                <div class="stats-value">¥{{ commissionStore.totalCommissionProfit.toFixed(2) }}</div>
                 <div class="stats-label">总佣金利润</div>
               </div>
             </div>
           </el-card>
         </el-col>
-        
+
         <el-col :span="6">
           <el-card class="stats-card">
             <div class="stats-content">
-              <div class="stats-icon commission">
-                <el-icon><Coin /></el-icon>
+              <div class="stats-icon warning">
+                <el-icon><Money /></el-icon>
               </div>
               <div class="stats-info">
-                <div class="stats-value">{{ commissionStore.totalNetProfit.toFixed(2) }}</div>
+                <div class="stats-value consumption">¥{{ commissionStore.totalDailyConsumption.toFixed(2) }}</div>
+                <div class="stats-label">总消耗</div>
+              </div>
+            </div>
+          </el-card>
+        </el-col>
+
+        <el-col :span="6">
+          <el-card class="stats-card">
+            <div class="stats-content">
+              <div class="stats-icon" :class="commissionStore.totalNetProfit >= 0 ? 'success' : 'danger'">
+                <el-icon>
+                  <SuccessFilled v-if="commissionStore.totalNetProfit >= 0" />
+                  <WarningFilled v-else />
+                </el-icon>
+              </div>
+              <div class="stats-info">
+                <div class="stats-value" :class="commissionStore.totalNetProfit >= 0 ? 'profit' : 'loss'">
+                  ¥{{ commissionStore.totalNetProfit.toFixed(2) }}
+                </div>
                 <div class="stats-label">总净利润</div>
-              </div>
-            </div>
-          </el-card>
-        </el-col>
-        
-        <el-col :span="6">
-          <el-card class="stats-card">
-            <div class="stats-content">
-              <div class="stats-icon success">
-                <el-icon><SuccessFilled /></el-icon>
-              </div>
-              <div class="stats-info">
-                <div class="stats-value">{{ commissionStore.profitableAccountings.length }}</div>
-                <div class="stats-label">盈利记录</div>
-              </div>
-            </div>
-          </el-card>
-        </el-col>
-        
-        <el-col :span="6">
-          <el-card class="stats-card">
-            <div class="stats-content">
-              <div class="stats-icon danger">
-                <el-icon><WarningFilled /></el-icon>
-              </div>
-              <div class="stats-info">
-                <div class="stats-value">{{ commissionStore.lossAccountings.length }}</div>
-                <div class="stats-label">亏损记录</div>
               </div>
             </div>
           </el-card>
@@ -243,7 +248,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
             <el-button size="small" type="primary" @click="handleEdit(row)" link>编辑</el-button>
             <el-button size="small" type="danger" @click="handleDelete(row)" link>删除</el-button>
@@ -430,13 +435,23 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="今日消耗" prop="dailyConsumption">
-              <el-input
-                v-model="batchForm.dailyConsumption"
-                placeholder="支持负数，如: -100.50"
-                style="width: 100%"
-                @input="handleBatchDailyConsumptionInput"
-              />
+            <el-form-item label="今日总消耗" prop="totalDailyConsumption">
+              <div style="display: flex; gap: 8px;">
+                <el-input
+                  v-model="batchForm.totalDailyConsumption"
+                  placeholder="支持负数，如: -100.50"
+                  style="flex: 1"
+                  @input="handleBatchTotalDailyConsumptionInput"
+                />
+                <el-button
+                  type="primary"
+                  @click="distributeTotalConsumptionToPlatforms"
+                  :disabled="!batchForm.totalDailyConsumption || batchForm.records.length === 0"
+                  style="white-space: nowrap;"
+                >
+                  分摊
+                </el-button>
+              </div>
             </el-form-item>
           </el-col>
         </el-row>
@@ -526,6 +541,17 @@
                       />
                     </el-form-item>
                   </el-col>
+                  <el-col :span="24">
+                    <el-form-item label="今日消耗">
+                      <el-input
+                        v-model="record.dailyConsumption"
+                        placeholder="自动分摊或手动输入，支持负数"
+                        style="width: 100%"
+                        @input="(value) => handleDailyConsumptionInput(index, value)"
+                        @focus="onDailyConsumptionFocus(index)"
+                      />
+                    </el-form-item>
+                  </el-col>
                 </el-row>
               </el-col>
 
@@ -584,16 +610,18 @@
             <el-divider content-position="center">
               <span style="font-weight: 600; color: #409eff;">汇总统计</span>
             </el-divider>
-            <el-row :gutter="20">
-              <el-col :span="8">
+
+            <!-- 第一行：基础数据 -->
+            <el-row :gutter="16" style="margin-bottom: 16px;">
+              <el-col :span="6">
                 <div class="summary-item">
                   <div class="summary-label">总净成交数据</div>
                   <div class="summary-value">
-                    ¥{{ batchForm.records.reduce((sum, record) => sum + (record.netTransactionData || 0), 0).toFixed(2) }}
+                    ¥{{ batchForm.records.reduce((sum, record) => sum + (parseFloat(record.netTransactionData) || 0), 0).toFixed(2) }}
                   </div>
                 </div>
               </el-col>
-              <el-col :span="8">
+              <el-col :span="6">
                 <div class="summary-item">
                   <div class="summary-label">总佣金利润</div>
                   <div class="summary-value profit">
@@ -601,7 +629,15 @@
                   </div>
                 </div>
               </el-col>
-              <el-col :span="8">
+              <el-col :span="6">
+                <div class="summary-item">
+                  <div class="summary-label">今日总消耗</div>
+                  <div class="summary-value consumption">
+                    ¥{{ batchForm.records.reduce((sum, record) => sum + (parseFloat(record.dailyConsumption) || 0), 0).toFixed(2) }}
+                  </div>
+                </div>
+              </el-col>
+              <el-col :span="6">
                 <div class="summary-item">
                   <div class="summary-label">总净利润</div>
                   <div :class="['summary-value', batchCalculationResults.reduce((sum, result) => sum + result.netProfit, 0) >= 0 ? 'profit' : 'loss']">
@@ -610,6 +646,20 @@
                 </div>
               </el-col>
             </el-row>
+
+            <!-- 第二行：计算公式说明 -->
+            <div class="formula-explanation">
+              <div class="formula-text">
+                <span class="formula-highlight">总净利润</span> =
+                <span class="formula-highlight profit">总佣金利润</span> -
+                <span class="formula-highlight consumption">今日总消耗</span>
+              </div>
+              <div class="formula-calculation">
+                ¥{{ batchCalculationResults.reduce((sum, result) => sum + result.netProfit, 0).toFixed(2) }} =
+                ¥{{ batchCalculationResults.reduce((sum, result) => sum + result.commissionProfit, 0).toFixed(2) }} -
+                ¥{{ batchForm.records.reduce((sum, record) => sum + (parseFloat(record.dailyConsumption) || 0), 0).toFixed(2) }}
+              </div>
+            </div>
           </div>
         </div>
       </el-form>
@@ -745,7 +795,7 @@
     <el-dialog
       v-model="showSummaryDialog"
       title="产品汇总分析"
-      width="1000px"
+       width="1000px"
       append-to-body
       @close="resetSummaryData"
     >
@@ -777,58 +827,64 @@
 
         <!-- 汇总统计卡片 -->
         <div v-if="summaryAllData.length > 0" class="summary-stats">
-          <el-row :gutter="20">
-            <el-col :span="6">
-              <el-card class="stats-card">
-                <div class="stats-content">
-                  <div class="stats-icon success">
-                    <el-icon><List /></el-icon>
-                  </div>
-                  <div class="stats-info">
-                    <div class="stats-value">{{ summaryStats.recordCount }}</div>
-                    <div class="stats-label">记录数量</div>
-                  </div>
-                </div>
-              </el-card>
-            </el-col>
-
-            <el-col :span="6">
+          <!-- 第一行：基础统计数据 -->
+          <el-row :gutter="16" style="margin-bottom: 20px;">
+            <el-col :span="6" :xs="12" :sm="8" :md="6" :lg="6">
               <el-card class="stats-card">
                 <div class="stats-content">
                   <div class="stats-icon commission">
                     <el-icon><Coin /></el-icon>
                   </div>
                   <div class="stats-info">
-                    <div class="stats-value">{{ summaryStats.totalNetTransaction.toFixed(2) }}</div>
+                    <div class="stats-value">¥{{ summaryStats.totalNetTransaction.toFixed(2) }}</div>
                     <div class="stats-label">总净成交</div>
                   </div>
                 </div>
               </el-card>
             </el-col>
 
-            <el-col :span="6">
+            <el-col :span="6" :xs="12" :sm="8" :md="6" :lg="6">
               <el-card class="stats-card">
                 <div class="stats-content">
                   <div class="stats-icon profit">
                     <el-icon><TrendCharts /></el-icon>
                   </div>
                   <div class="stats-info">
-                    <div class="stats-value">{{ summaryStats.totalCommissionProfit.toFixed(2) }}</div>
+                    <div class="stats-value">¥{{ summaryStats.totalCommissionProfit.toFixed(2) }}</div>
                     <div class="stats-label">总佣金利润</div>
                   </div>
                 </div>
               </el-card>
             </el-col>
 
-            <el-col :span="6">
+            <el-col :span="6" :xs="12" :sm="8" :md="6" :lg="6">
+              <el-card class="stats-card">
+                <div class="stats-content">
+                  <div class="stats-icon" :class="summaryStats.totalDailyConsumption >= 0 ? 'warning' : 'success'">
+                    <el-icon><Money /></el-icon>
+                  </div>
+                  <div class="stats-info">
+                    <div class="stats-value" :class="summaryStats.totalDailyConsumption >= 0 ? 'consumption' : 'profit'">
+                      ¥{{ summaryStats.totalDailyConsumption.toFixed(2) }}
+                    </div>
+                    <div class="stats-label">今日总消耗</div>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+
+            <el-col :span="6" :xs="12" :sm="8" :md="6" :lg="6">
               <el-card class="stats-card">
                 <div class="stats-content">
                   <div class="stats-icon" :class="summaryStats.totalNetProfit >= 0 ? 'profit' : 'danger'">
-                    <el-icon><SuccessFilled v-if="summaryStats.totalNetProfit >= 0" /><WarningFilled v-else /></el-icon>
+                    <el-icon>
+                      <SuccessFilled v-if="summaryStats.totalNetProfit >= 0" />
+                      <WarningFilled v-else />
+                    </el-icon>
                   </div>
                   <div class="stats-info">
                     <div class="stats-value" :class="summaryStats.totalNetProfit >= 0 ? 'profit' : 'loss'">
-                      {{ summaryStats.totalNetProfit.toFixed(2) }}
+                      ¥{{ summaryStats.totalNetProfit.toFixed(2) }}
                     </div>
                     <div class="stats-label">总净利润</div>
                   </div>
@@ -948,7 +1004,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Plus,
@@ -960,8 +1016,11 @@ import {
   Upload,
   TrendCharts,
   Coin,
+  Money,
   SuccessFilled,
   WarningFilled,
+  
+  InfoFilled,
 } from '@element-plus/icons-vue'
 import { useCommissionAccountingStore } from '@/stores/commissionAccounting'
 import { formatUtcToLocalDateTime } from '@/utils/dateUtils'
@@ -972,7 +1031,9 @@ import {
   transformImportData,
   validateImportData,
   generateImportTemplate,
-  exportToCSV
+  exportToCSV,
+  exportToExcel,
+  downloadImportTemplate
 } from '@/utils/excelUtils'
 
 // Store
@@ -1015,13 +1076,14 @@ const accountingForm = reactive({
 const batchForm = reactive({
   productName: '',
   description: '',
-  dailyConsumption: 0, // 统一的今日消耗
+  totalDailyConsumption: 0, // 今日总消耗
   records: [
     {
       shopName: '',
       platform: '',
       netTransactionData: 0,
-      commission: 0
+      commission: 0,
+      dailyConsumption: 0 // 每个平台的今日消耗
     }
   ]
 })
@@ -1095,7 +1157,7 @@ const updateBatchCalculation = () => {
     const calculationData = {
       netTransactionData: parseFloat(record.netTransactionData) || 0,
       commission: parseFloat(record.commission) || 0,
-      dailyConsumption: parseFloat(batchForm.dailyConsumption) || 0
+      dailyConsumption: parseFloat(record.dailyConsumption) || 0
     }
     return commissionStore.calculateCommissionAccounting(calculationData)
   })
@@ -1112,7 +1174,7 @@ watch(
 
 // 监听批量表单变化，实时计算
 watch(
-  () => [batchForm.records, batchForm.dailyConsumption],
+  () => [batchForm.records, batchForm.totalDailyConsumption],
   () => {
     updateBatchCalculation()
   },
@@ -1393,15 +1455,92 @@ const handleBatchNumberInput = (recordIndex, field, value) => {
   // 所有字段都支持小数和负数
   const validatedValue = numberValidators.signedNumber(value)
   batchForm.records[recordIndex][field] = validatedValue
+
+  // 触发实时计算更新
+  nextTick(() => {
+    updateBatchCalculation()
+  })
+
   return validatedValue
 }
 
-// 批量表单今日消耗处理
-const handleBatchDailyConsumptionInput = (value) => {
-  // 今日消耗：支持小数和负数（可能有退款或调整）
+// 批量表单今日总消耗处理
+const handleBatchTotalDailyConsumptionInput = (value) => {
+  // 今日总消耗：支持小数和负数（可能有退款或调整）
   const validatedValue = numberValidators.signedNumber(value)
-  batchForm.dailyConsumption = validatedValue
+  batchForm.totalDailyConsumption = validatedValue
+
+  // 不再自动分摊，需要用户点击分摊按钮
   return validatedValue
+}
+
+// 计算单个平台的平摊消耗（保留两位小数）
+const calculatePlatformConsumption = () => {
+  const totalConsumption = parseFloat(batchForm.totalDailyConsumption) || 0
+  const platformCount = batchForm.records.length
+  if (platformCount === 0) return 0
+
+  // 保留两位小数
+  return parseFloat((totalConsumption / platformCount).toFixed(2))
+}
+
+// 将总消耗平摊到各个平台
+const distributeTotalConsumptionToPlatforms = () => {
+  if (!batchForm.totalDailyConsumption || batchForm.records.length === 0) {
+    ElMessage.warning('请先输入今日总消耗和添加平台数据')
+    return
+  }
+
+  const platformConsumption = calculatePlatformConsumption()
+
+  // 强制分摊到所有平台，覆盖已有值
+  batchForm.records.forEach(record => {
+    record.dailyConsumption = platformConsumption
+  })
+
+  // 处理分摊后的余数，确保总和等于原始总消耗
+  const actualTotal = batchForm.records.reduce((sum, record) => sum + (parseFloat(record.dailyConsumption) || 0), 0)
+  const difference = parseFloat(batchForm.totalDailyConsumption) - actualTotal
+
+  // 如果有余数，加到第一个平台上
+  if (Math.abs(difference) > 0.001 && batchForm.records.length > 0) {
+    batchForm.records[0].dailyConsumption = parseFloat((batchForm.records[0].dailyConsumption + difference).toFixed(2))
+  }
+
+  ElMessage.success(`已将总消耗 ¥${batchForm.totalDailyConsumption} 平摊到 ${batchForm.records.length} 个平台`)
+}
+
+// 处理单个平台今日消耗输入
+const handleDailyConsumptionInput = (recordIndex, value) => {
+  // 验证并设置值
+  const validatedValue = numberValidators.signedNumber(value)
+  batchForm.records[recordIndex].dailyConsumption = validatedValue
+
+  // 重新计算总消耗（所有平台消耗的总和）
+  updateTotalDailyConsumption()
+
+  return validatedValue
+}
+
+// 更新今日总消耗（根据各平台消耗计算）
+const updateTotalDailyConsumption = () => {
+  const total = batchForm.records.reduce((sum, record) => {
+    return sum + (parseFloat(record.dailyConsumption) || 0)
+  }, 0)
+
+  // 保留两位小数
+  batchForm.totalDailyConsumption = parseFloat(total.toFixed(2))
+}
+
+// 当用户聚焦到平台消耗输入框时，如果值为0则自动填入平摊值
+const onDailyConsumptionFocus = (index) => {
+  const record = batchForm.records[index]
+  if (!record.dailyConsumption || record.dailyConsumption === 0) {
+    const platformConsumption = calculatePlatformConsumption()
+    record.dailyConsumption = platformConsumption
+    // 更新总消耗
+    updateTotalDailyConsumption()
+  }
 }
 
 // 搜索表单利润输入处理
@@ -1421,6 +1560,7 @@ const handleFileUpload = async (file) => {
 
     // 读取Excel文件
     const result = await readExcelFile(file.raw)
+    console.log(result)
 
     // 验证表头
     const headerValidation = validateImportHeaders(result.headers)
@@ -1499,20 +1639,13 @@ const resetImportData = () => {
 
 // 下载导入模板
 const downloadTemplate = () => {
-  const template = generateImportTemplate()
-  const csvContent = exportToCSV(template.data, template.headers)
-
-  const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
-  const link = document.createElement('a')
-  const url = URL.createObjectURL(blob)
-
-  link.setAttribute('href', url)
-  link.setAttribute('download', '产品佣金导入模板.csv')
-  link.style.visibility = 'hidden'
-
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
+  try {
+    // 使用新的 Excel 导出功能
+    downloadImportTemplate('产品佣金导入模板')
+    ElMessage.success('模板下载成功')
+  } catch (error) {
+    ElMessage.error('模板下载失败：' + error.message)
+  }
 }
 
 // 产品汇总相关方法
@@ -1690,35 +1823,34 @@ const exportSummaryData = () => {
       }))
     ]
 
-    // 构建CSV内容
+    // 使用 Excel 格式导出汇总数据
     const headers = Object.keys(exportData[0])
-    const csvContent = [
-      headers.join(','),
-      ...exportData.map(row =>
-        headers.map(header => {
-          const value = row[header]
-          // 如果值包含逗号、引号或换行符，需要用引号包围并转义引号
-          if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
-            return `"${value.replace(/"/g, '""')}"`
-          }
-          return value
-        }).join(',')
-      )
-    ].join('\n')
+    const filename = `${summaryForm.productName}_汇总数据_${new Date().toLocaleDateString().replace(/\//g, '-')}`
 
-    // 添加BOM以支持Excel正确显示中文
-    const bom = '\uFEFF'
-    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${summaryForm.productName}_汇总数据_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    try {
+      // 尝试导出为 Excel 格式
+      exportToExcel(exportData, headers, filename, `${summaryForm.productName}汇总`)
+      ElMessage.success('汇总数据导出成功（Excel格式）')
+    } catch (excelError) {
+      // 如果 Excel 导出失败，降级到 CSV
+      console.warn('Excel导出失败，使用CSV格式：', excelError.message)
 
-    ElMessage.success('汇总数据导出成功')
+      const csvContent = exportToCSV(exportData, headers)
+
+      // 添加BOM以支持Excel正确显示中文
+      const bom = '\uFEFF'
+      const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${filename}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      ElMessage.success('汇总数据导出成功（CSV格式）')
+    }
   } catch (error) {
     ElMessage.error('导出失败')
   }
@@ -1727,18 +1859,41 @@ const exportSummaryData = () => {
 // 批量新增相关方法
 // 添加新的记录行
 const addBatchRecord = () => {
+  // 添加新记录时，如果有总消耗，自动填入建议的平摊值
+  const suggestedConsumption = batchForm.totalDailyConsumption ?
+    calculatePlatformConsumption() : 0
+
   batchForm.records.push({
     shopName: '',
     platform: '',
     netTransactionData: 0,
-    commission: 0
+    commission: 0,
+    dailyConsumption: suggestedConsumption
   })
+
+  // 如果添加了新记录且有总消耗，重新计算平摊
+  if (batchForm.totalDailyConsumption) {
+    // 延迟执行，确保新记录已添加
+    nextTick(() => {
+      distributeTotalConsumptionToPlatforms()
+    })
+  }
 }
 
 // 删除记录行
 const removeBatchRecord = (index) => {
   if (batchForm.records.length > 1) {
     batchForm.records.splice(index, 1)
+
+    // 删除记录后重新计算总消耗
+    updateTotalDailyConsumption()
+
+    // 如果有总消耗设置，重新分摊到剩余平台
+    if (batchForm.totalDailyConsumption) {
+      nextTick(() => {
+        distributeTotalConsumptionToPlatforms()
+      })
+    }
   }
 }
 
@@ -1776,7 +1931,7 @@ const handleBatchSubmit = async () => {
       platform: record.platform || '',
       netTransactionData: parseFloat(record.netTransactionData) || 0,
       commission: parseFloat(record.commission) || 0,
-      dailyConsumption: parseFloat(batchForm.dailyConsumption) || 0, // 使用统一的今日消耗
+      dailyConsumption: parseFloat(record.dailyConsumption) || 0, // 使用每个平台的今日消耗
       description: batchForm.description || ''
     }))
 
@@ -1807,13 +1962,14 @@ const resetBatchForm = () => {
   Object.assign(batchForm, {
     productName: '',
     description: '',
-    dailyConsumption: 0,
+    totalDailyConsumption: 0, // 修正字段名
     records: [
       {
         shopName: '',
         platform: '',
         netTransactionData: 0,
-        commission: 0
+        commission: 0,
+        dailyConsumption: 0 // 确保每个平台的今日消耗也被重置
       }
     ]
   })
@@ -1853,37 +2009,37 @@ const handleExport = async () => {
       '更新时间': item.updatedAt ? formatUtcToLocalDateTime(item.updatedAt) : ''
     }))
 
-    // 构建CSV内容
+    // 使用 Excel 格式导出
     const headers = Object.keys(data[0])
-    const csvContent = [
-      headers.join(','),
-      ...data.map(row =>
-        headers.map(header => {
-          const value = row[header]
-          // 如果值包含逗号、引号或换行符，需要用引号包围并转义引号
-          if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
-            return `"${value.replace(/"/g, '""')}"`
-          }
-          return value
-        }).join(',')
-      )
-    ].join('\n')
-
-    // 添加BOM以支持Excel正确显示中文
-    const bom = '\uFEFF'
-    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
     const exportType = selectedAccountings.value.length > 0 ? `勾选${selectedAccountings.value.length}条` : '全部'
-    a.download = `核算佣金数据_${exportType}_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    const filename = `核算佣金数据_${exportType}_${new Date().toLocaleDateString().replace(/\//g, '-')}`
 
-    const exportTypeMsg = selectedAccountings.value.length > 0 ? `勾选的${selectedAccountings.value.length}条数据` : '全部数据'
-    ElMessage.success(`导出${exportTypeMsg}成功`)
+    try {
+      // 尝试导出为 Excel 格式
+      exportToExcel(data, headers, filename, '核算佣金数据')
+      const exportTypeMsg = selectedAccountings.value.length > 0 ? `勾选的${selectedAccountings.value.length}条数据` : '全部数据'
+      ElMessage.success(`导出${exportTypeMsg}成功（Excel格式）`)
+    } catch (excelError) {
+      // 如果 Excel 导出失败，降级到 CSV
+      console.warn('Excel导出失败，使用CSV格式：', excelError.message)
+
+      const csvContent = exportToCSV(data, headers)
+
+      // 添加BOM以支持Excel正确显示中文
+      const bom = '\uFEFF'
+      const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${filename}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      const exportTypeMsg = selectedAccountings.value.length > 0 ? `勾选的${selectedAccountings.value.length}条数据` : '全部数据'
+      ElMessage.success(`导出${exportTypeMsg}成功（CSV格式）`)
+    }
   } catch (error) {
     ElMessage.error('导出失败')
   }
@@ -2126,6 +2282,11 @@ onMounted(() => {
 
 .stats-icon.danger {
   background: linear-gradient(135deg, #f56c6c 0%, #ff8a8a 100%);
+  color: white;
+}
+
+.stats-icon.warning {
+  background: linear-gradient(135deg, #e6a23c 0%, #f0c78a 100%);
   color: white;
 }
 
@@ -2518,6 +2679,10 @@ onMounted(() => {
     .stats-value.loss {
       color: #f56c6c;
     }
+
+    .stats-value.consumption {
+      color: #e6a23c;
+    }
   }
 
   .summary-table {
@@ -2572,6 +2737,288 @@ onMounted(() => {
         }
       }
     }
+  }
+}
+
+/* 分摊按钮样式 */
+.el-button {
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+/* 今日总消耗输入框样式 */
+.form-tip {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #909399;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  .el-icon {
+    font-size: 14px;
+  }
+}
+
+/* 公式说明样式 */
+.formula-explanation {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 12px 16px;
+  text-align: center;
+
+  .formula-text {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #0f172a;
+
+    .formula-highlight {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 700;
+
+      &.profit {
+        background-color: #dcfce7;
+        color: #166534;
+      }
+
+      &.consumption {
+        background-color: #fef3c7;
+        color: #92400e;
+      }
+    }
+  }
+
+  .formula-calculation {
+    font-size: 13px;
+    color: #64748b;
+    font-family: 'Courier New', monospace;
+  }
+}
+
+/* 汇总统计公式卡片 */
+.formula-card {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+
+  .formula-content {
+    text-align: center;
+
+    .formula-title {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #334155;
+      margin-bottom: 16px;
+
+      .el-icon {
+        color: #3b82f6;
+      }
+    }
+
+    .formula-expression {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 12px;
+      font-size: 16px;
+      font-weight: 600;
+
+      .formula-item {
+        padding: 6px 12px;
+        border-radius: 6px;
+
+        &.profit {
+          background-color: #dcfce7;
+          color: #166534;
+        }
+
+        &.consumption {
+          background-color: #fef3c7;
+          color: #92400e;
+        }
+      }
+
+      .formula-operator {
+        font-size: 18px;
+        font-weight: 700;
+        color: #64748b;
+      }
+    }
+
+    .formula-calculation {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      font-size: 14px;
+      font-family: 'Courier New', monospace;
+
+      .calculation-result {
+        font-weight: 700;
+        font-size: 16px;
+
+        &.profit {
+          color: #166534;
+        }
+
+        &.loss {
+          color: #dc2626;
+        }
+      }
+
+      .calculation-operator {
+        font-weight: 600;
+        color: #64748b;
+      }
+
+      .calculation-value {
+        font-weight: 600;
+
+        &.profit {
+          color: #166534;
+        }
+
+        &.consumption {
+          color: #92400e;
+        }
+      }
+    }
+  }
+}
+
+/* 批量新增汇总统计样式优化 */
+.batch-summary {
+  .summary-item {
+    text-align: center;
+
+    .summary-value {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 4px;
+
+      &.profit {
+        color: #166534;
+      }
+
+      &.loss {
+        color: #dc2626;
+      }
+
+      &.consumption {
+        color: #92400e;
+      }
+    }
+
+    .summary-label {
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 500;
+    }
+  }
+}
+
+/* 主列表页面简化版公式卡片 */
+.formula-card-simple {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+
+  .formula-content-simple {
+    text-align: center;
+    padding: 8px 0;
+
+    .formula-expression-simple {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 14px;
+      font-weight: 600;
+
+      .formula-item-simple {
+        padding: 4px 8px;
+        border-radius: 4px;
+
+        &.profit {
+          background-color: #dcfce7;
+          color: #166534;
+        }
+
+        &.consumption {
+          background-color: #fef3c7;
+          color: #92400e;
+        }
+      }
+
+      .formula-operator-simple {
+        font-size: 16px;
+        font-weight: 700;
+        color: #64748b;
+      }
+    }
+
+    .formula-calculation-simple {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
+
+      .calculation-result-simple {
+        font-weight: 700;
+        font-size: 14px;
+
+        &.profit {
+          color: #166534;
+        }
+
+        &.loss {
+          color: #dc2626;
+        }
+      }
+
+      .calculation-operator-simple {
+        font-weight: 600;
+        color: #64748b;
+      }
+
+      .calculation-value-simple {
+        font-weight: 600;
+
+        &.profit {
+          color: #166534;
+        }
+
+        &.consumption {
+          color: #92400e;
+        }
+      }
+    }
+  }
+}
+
+/* 统计卡片数值样式 */
+.stats-value {
+  &.consumption {
+    color: #92400e;
+  }
+
+  &.profit {
+    color: #166534;
+  }
+
+  &.loss {
+    color: #dc2626;
   }
 }
 </style>

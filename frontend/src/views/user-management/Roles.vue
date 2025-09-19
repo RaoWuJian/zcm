@@ -56,6 +56,7 @@
         :data="tableData"
         v-loading="loading"
         stripe
+        max-height="600"
         border
       >
         <el-table-column label="角色信息" min-width="80">

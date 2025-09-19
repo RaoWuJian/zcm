@@ -1,7 +1,9 @@
 /**
  * Excel文件处理工具
- * 使用原生JavaScript解析Excel文件，无需额外依赖
+ * 使用 SheetJS (xlsx) 库解析Excel文件
  */
+
+import * as XLSX from 'xlsx'
 
 /**
  * 读取Excel文件内容
@@ -21,38 +23,37 @@ export function readExcelFile(file) {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'text/csv'
     ]
-    
+
     if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx?|csv)$/i)) {
       reject(new Error('请选择Excel文件(.xlsx, .xls)或CSV文件'))
       return
     }
 
     const reader = new FileReader()
-    
+
     reader.onload = function(e) {
       try {
         const data = new Uint8Array(e.target.result)
-        
+
         if (file.name.toLowerCase().endsWith('.csv')) {
           // 处理CSV文件
           const text = new TextDecoder('utf-8').decode(data)
           const result = parseCSV(text)
           resolve(result)
         } else {
-          // 处理Excel文件 - 使用简化的解析方法
-          // 注意：这是一个简化版本，实际项目中建议使用 xlsx 库
-          const result = parseExcelSimple(data)
+          // 处理Excel文件 - 使用 SheetJS
+          const result = parseExcelWithSheetJS(data)
           resolve(result)
         }
       } catch (error) {
         reject(new Error('文件解析失败：' + error.message))
       }
     }
-    
+
     reader.onerror = function() {
       reject(new Error('文件读取失败'))
     }
-    
+
     reader.readAsArrayBuffer(file)
   })
 }
@@ -124,14 +125,67 @@ function parseCSVLine(line) {
 }
 
 /**
- * 简化的Excel解析（仅作为示例，建议使用专业库）
+ * 使用 SheetJS 解析Excel文件
  * @param {Uint8Array} data - Excel文件数据
  * @returns {Object} 解析结果
  */
-function parseExcelSimple(data) {
-  // 这是一个非常简化的Excel解析示例
-  // 实际项目中强烈建议使用 xlsx 库
-  throw new Error('Excel文件解析需要专业库支持，请使用CSV格式或安装xlsx库')
+function parseExcelWithSheetJS(data) {
+  try {
+    // 使用 SheetJS 读取工作簿
+    const workbook = XLSX.read(data, {
+      type: 'array',
+      codepage: 65001 // UTF-8 编码，解决中文乱码问题
+    })
+
+    // 获取第一个工作表
+    const firstSheetName = workbook.SheetNames[0]
+    if (!firstSheetName) {
+      throw new Error('Excel文件中没有找到工作表')
+    }
+
+    const worksheet = workbook.Sheets[firstSheetName]
+
+    // 将工作表转换为JSON数组
+    const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+      header: 1, // 使用数组格式，第一行作为表头
+      defval: '', // 空单元格的默认值
+      blankrows: false // 跳过空行
+    })
+
+    if (jsonData.length === 0) {
+      throw new Error('Excel文件内容为空')
+    }
+
+    // 提取表头
+    const headers = jsonData[0].map(header => String(header).trim()).filter(h => h)
+
+    if (headers.length === 0) {
+      throw new Error('Excel文件表头为空')
+    }
+
+    // 提取数据行
+    const rows = []
+    for (let i = 1; i < jsonData.length; i++) {
+      const rowData = jsonData[i]
+      if (rowData && rowData.length > 0 && rowData.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== '')) {
+        const row = {}
+        headers.forEach((header, index) => {
+          const cellValue = rowData[index]
+          row[header] = cellValue !== null && cellValue !== undefined ? String(cellValue).trim() : ''
+        })
+        rows.push(row)
+      }
+    }
+
+    return {
+      headers,
+      data: rows,
+      totalRows: rows.length,
+      sheetName: firstSheetName
+    }
+  } catch (error) {
+    throw new Error('Excel文件解析失败：' + error.message)
+  }
 }
 
 /**
@@ -268,7 +322,7 @@ export function validateImportData(data) {
     }
 
     // 验证数据范围
-    if (row.netTransactionData < -999999 || row.netTransactionData > 999999) {
+    if (row.netTransactionData < -99999999 || row.netTransactionData > 99999999) {
       rowWarnings.push('净成交数据超出合理范围')
     }
 
@@ -276,7 +330,7 @@ export function validateImportData(data) {
       rowWarnings.push('佣金超出合理范围(-100% ~ 100%)')
     }
 
-    if (row.dailyConsumption < -999999 || row.dailyConsumption > 999999) {
+    if (row.dailyConsumption < -99999999 || row.dailyConsumption > 99999999) {
       rowWarnings.push('今日消耗超出合理范围')
     }
 
@@ -354,7 +408,7 @@ export function generateImportTemplate() {
 export function exportToCSV(data, headers) {
   const csvContent = [
     headers.join(','),
-    ...data.map(row => 
+    ...data.map(row =>
       headers.map(header => {
         const value = row[header] || ''
         // 如果值包含逗号或引号，需要用引号包围
@@ -367,4 +421,74 @@ export function exportToCSV(data, headers) {
   ].join('\n')
 
   return csvContent
+}
+
+/**
+ * 导出数据为Excel格式
+ * @param {Array} data - 数据数组
+ * @param {Array} headers - 表头数组
+ * @param {string} filename - 文件名（不含扩展名）
+ * @param {string} sheetName - 工作表名称
+ */
+export function exportToExcel(data, headers, filename = 'export', sheetName = 'Sheet1') {
+  try {
+    // 创建工作簿
+    const workbook = XLSX.utils.book_new()
+
+    // 准备数据，表头在第一行
+    const worksheetData = [
+      headers,
+      ...data.map(row => headers.map(header => row[header] || ''))
+    ]
+
+    // 创建工作表
+    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData)
+
+    // 设置列宽（可选）
+    const colWidths = headers.map(header => ({
+      wch: Math.max(header.length, 15) // 最小宽度15字符
+    }))
+    worksheet['!cols'] = colWidths
+
+    // 添加工作表到工作簿
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName)
+
+    // 导出文件
+    XLSX.writeFile(workbook, `${filename}.xlsx`)
+
+    return true
+  } catch (error) {
+    throw new Error('Excel导出失败：' + error.message)
+  }
+}
+
+/**
+ * 下载导入模板
+ * @param {string} filename - 文件名（不含扩展名）
+ */
+export function downloadImportTemplate(filename = '核算佣金导入模板') {
+  const template = generateImportTemplate()
+
+  try {
+    exportToExcel(template.data, template.headers, filename, '导入模板')
+    return true
+  } catch (error) {
+    // 如果Excel导出失败，降级到CSV
+    console.warn('Excel模板导出失败，使用CSV格式：', error.message)
+    const csvContent = exportToCSV(template.data, template.headers)
+
+    // 添加BOM以支持Excel正确显示中文
+    const bom = '\uFEFF'
+    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${filename}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    return true
+  }
 }
