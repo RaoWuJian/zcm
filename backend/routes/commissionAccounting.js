@@ -9,7 +9,8 @@ const {
   batchDeleteCommissionAccounting,
   getShopNameSuggestions,
   getPlatformSuggestions,
-  getProductNameSuggestions
+  getProductNameSuggestions,
+  getTeamSuggestions
 } = require('../controllers/commissionAccountingController');
 const { protect } = require('../middleware/auth');
 
@@ -36,6 +37,9 @@ router.route('/suggestions/platforms')
 
 router.route('/suggestions/product-names')
   .get(getProductNameSuggestions); // 获取产品名称建议
+
+router.route('/suggestions/teams')
+  .get(getTeamSuggestions); // 获取团队建议
 
 router.route('/:id')
   .get(getCommissionAccounting)     // 获取单个核算佣金记录

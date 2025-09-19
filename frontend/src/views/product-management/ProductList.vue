@@ -71,22 +71,18 @@
               class="business-input"
             />
           </el-form-item>
-          <el-form-item label="开始日期" class="search-item">
+          <el-form-item label="时间筛选" class="search-item">
             <el-date-picker
-              v-model="searchForm.startDate"
-              type="date"
-              placeholder="开始日期"
-              class="business-input"
-              style="width: 150px"
-            />
-          </el-form-item>
-          <el-form-item label="结束日期" class="search-item">
-            <el-date-picker
-              v-model="searchForm.endDate"
-              type="date"
-              placeholder="结束日期"
-              class="business-input"
-              style="width: 150px"
+              v-model="dateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              format="YYYY-MM-DD"
+              value-format="YYYY-MM-DD"
+              style="width: 350px;"
+              :shortcuts="dateShortcuts"
+              @change="handleDateRangeChange"
             />
           </el-form-item>
         </div>
@@ -138,6 +134,7 @@
         v-loading="productStore.loading"
         @selection-change="handleSelectionChange"
         stripe
+        max-height="600"
         border
       >
         <el-table-column type="selection" width="55" />
@@ -647,6 +644,83 @@ const searchForm = reactive({
   endDate: ''
 })
 
+// 日期范围
+const dateRange = ref([])
+
+// 日期快捷选项
+const dateShortcuts = [
+  {
+    text: '今天',
+    value: () => {
+      const today = new Date()
+      return [today, today]
+    }
+  },
+  {
+    text: '昨天',
+    value: () => {
+      const yesterday = new Date()
+      yesterday.setDate(yesterday.getDate() - 1)
+      return [yesterday, yesterday]
+    }
+  },
+  {
+    text: '最近3天',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 2)
+      return [start, end]
+    }
+  },
+  {
+    text: '最近7天',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 6)
+      return [start, end]
+    }
+  },
+  {
+    text: '半个月',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 14)
+      return [start, end]
+    }
+  },
+  {
+    text: '本月',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(1)
+      return [start, end]
+    }
+  },
+  {
+    text: '上个月',
+    value: () => {
+      const end = new Date()
+      end.setDate(0) // 上个月最后一天
+      const start = new Date()
+      start.setMonth(start.getMonth() - 1, 1) // 上个月第一天
+      return [start, end]
+    }
+  },
+  {
+    text: '三个月',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setMonth(start.getMonth() - 3)
+      return [start, end]
+    }
+  }
+]
+
 // 商品表单
 const productForm = reactive({
   name: '',
@@ -765,6 +839,17 @@ const handleSearch = () => {
   fetchData()
 }
 
+// 日期范围处理函数
+const handleDateRangeChange = (dates) => {
+  if (dates && dates.length === 2) {
+    searchForm.startDate = dates[0]
+    searchForm.endDate = dates[1]
+  } else {
+    searchForm.startDate = ''
+    searchForm.endDate = ''
+  }
+}
+
 const handleReset = () => {
   searchForm.search = ''
   searchForm.team = ''
@@ -775,6 +860,7 @@ const handleReset = () => {
   searchForm.maxProfit = undefined
   searchForm.startDate = ''
   searchForm.endDate = ''
+  dateRange.value = []
   currentPage.value = 1
   fetchData()
 }

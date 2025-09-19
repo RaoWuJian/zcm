@@ -448,5 +448,10 @@ export const commissionAccountingApi = {
   // 获取产品名称建议
   getProductNameSuggestions: () => {
     return api.get('/commission-accounting/suggestions/product-names')
+  },
+
+  // 获取团队建议
+  getTeamSuggestions: () => {
+    return api.get('/commission-accounting/suggestions/teams')
   }
 }

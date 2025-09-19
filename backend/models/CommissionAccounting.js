@@ -23,6 +23,13 @@ const commissionAccountingSchema = new mongoose.Schema({
         maxlength: [50, '平台名称最多50个字符']
     },
 
+    // 团队（可选）
+    team: {
+        type: String,
+        trim: true,
+        maxlength: [50, '团队名称最多50个字符']
+    },
+
     // 净成交数据
     netTransactionData: {
         type: Number,

@@ -41,6 +41,7 @@ const createCommissionAccounting = asyncHandler(async (req, res) => {
     name,
     shopName,
     platform,
+    team,
     netTransactionData,
     commission,
     dailyConsumption,
@@ -51,6 +52,7 @@ const createCommissionAccounting = asyncHandler(async (req, res) => {
     name,
     shopName,
     platform,
+    team,
     netTransactionData,
     commission,
     dailyConsumption,
@@ -179,6 +181,7 @@ const getCommissionAccountings = asyncHandler(async (req, res) => {
     name,
     shopName,
     platform,
+    team,
     startDate,
     endDate,
     minProfit,
@@ -193,6 +196,7 @@ const getCommissionAccountings = asyncHandler(async (req, res) => {
   if (name) query.name = { $regex: name, $options: 'i' };
   if (shopName) query.shopName = { $regex: shopName, $options: 'i' };
   if (platform) query.platform = { $regex: platform, $options: 'i' };
+  if (team) query.team = { $regex: team, $options: 'i' };
 
   // 获取用户有权限访问的用户ID列表（基于部门权限）
   let allowedUserIds = [];
@@ -551,6 +555,43 @@ const getProductNameSuggestions = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    获取团队建议列表
+// @route   GET /api/commission-accounting/suggestions/teams
+// @access  Private
+const getTeamSuggestions = asyncHandler(async (req, res) => {
+  const user = req.user;
+
+  // 构建查询条件（基于用户权限）
+  let query = {};
+  if (!user.isAdmin) {
+    const userDepartmentPath = user.departmentPath || '';
+
+    if (userDepartmentPath) {
+      const escapedPath = userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const User = require('../models/User');
+      const allowedUsers = await User.find({
+        $or: [
+          { departmentPath: userDepartmentPath },
+          { departmentPath: { $regex: `^${escapedPath}->` } },
+        ]
+      }).select('_id');
+
+      const allowedUserIds = allowedUsers.map(user => user._id);
+      query.createdBy = { $in: allowedUserIds };
+    } else {
+      query.createdBy = user._id;
+    }
+  }
+
+  // 获取所有不重复的团队名称
+  const teams = await CommissionAccounting.distinct('team', query);
+
+  res.status(200).json({
+    success: true,
+    data: teams.filter(name => name && name.trim()).sort()
+  });
+});
+
 module.exports = {
   createCommissionAccounting,
   batchCreateCommissionAccounting,
@@ -561,5 +602,6 @@ module.exports = {
   batchDeleteCommissionAccounting,
   getShopNameSuggestions,
   getPlatformSuggestions,
-  getProductNameSuggestions
+  getProductNameSuggestions,
+  getTeamSuggestions
 };

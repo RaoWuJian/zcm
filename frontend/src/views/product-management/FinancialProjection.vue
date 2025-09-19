@@ -42,32 +42,18 @@
               style="width: 200px;"
             />
           </el-form-item>
-          <el-form-item label="时间区域">
-            <el-select
-              v-model="searchForm.timeRange"
-              placeholder="选择时间区域"
-              clearable
-              style="width: 200px;"
-              @change="handleTimeRangeChange"
-            >
-              <el-option label="今天" value="today" />
-              <el-option label="昨天" value="yesterday" />
-              <el-option label="半个月" value="halfMonth" />
-              <el-option label="一个月" value="oneMonth" />
-              <el-option label="三个月" value="threeMonths" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="自定义时间">
+          <el-form-item label="时间筛选">
             <el-date-picker
-              v-model="customDateRange"
+              v-model="dateRange"
               type="daterange"
               range-separator="至"
               start-placeholder="开始日期"
               end-placeholder="结束日期"
               format="YYYY-MM-DD"
               value-format="YYYY-MM-DD"
-              style="width: 300px;"
-              @change="handleCustomDateChange"
+              style="width: 350px;"
+              :shortcuts="dateShortcuts"
+              @change="handleDateRangeChange"
             />
           </el-form-item>
           <el-form-item label="毛利范围">
@@ -136,6 +122,7 @@
         v-loading="budgetStore.loading"
         @selection-change="handleSelectionChange"
         stripe
+        max-height="600"
         border
         style="width: 100%"
       >
@@ -226,7 +213,7 @@
         <el-pagination
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
-          :page-sizes="[10, 20, 50, 100]"
+          :page-sizes="[10, 20, 50, 100, 1000]"
           :total="budgetStore.pagination.totalRecords"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleSizeChange"
@@ -778,9 +765,6 @@ const importSubmitting = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
 
-// 自定义日期范围
-const customDateRange = ref([])
-
 // 搜索表单
 const searchForm = reactive({
   productName: '',
@@ -788,10 +772,86 @@ const searchForm = reactive({
   platform: '',
   minGrossMargin: null,
   maxGrossMargin: null,
-  timeRange: '', // 时间区域：today, yesterday, halfMonth, oneMonth, threeMonths
   startDate: '',
   endDate: ''
 })
+
+// 日期范围
+const dateRange = ref([])
+
+// 日期快捷选项
+const dateShortcuts = [
+  {
+    text: '今天',
+    value: () => {
+      const today = new Date()
+      return [today, today]
+    }
+  },
+  {
+    text: '昨天',
+    value: () => {
+      const yesterday = new Date()
+      yesterday.setDate(yesterday.getDate() - 1)
+      return [yesterday, yesterday]
+    }
+  },
+  {
+    text: '最近3天',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 2)
+      return [start, end]
+    }
+  },
+  {
+    text: '最近7天',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 6)
+      return [start, end]
+    }
+  },
+  {
+    text: '半个月',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 14)
+      return [start, end]
+    }
+  },
+  {
+    text: '本月',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(1)
+      return [start, end]
+    }
+  },
+  {
+    text: '上个月',
+    value: () => {
+      const end = new Date()
+      end.setDate(0) // 上个月最后一天
+      const start = new Date()
+      start.setMonth(start.getMonth() - 1, 1) // 上个月第一天
+      return [start, end]
+    }
+  },
+  {
+    text: '三个月',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setMonth(start.getMonth() - 3)
+      return [start, end]
+    }
+  }
+]
 
 // 预算表单
 const budgetForm = reactive({
@@ -1247,71 +1307,15 @@ watch(
   { immediate: true }
 )
 
-// 时间区域处理函数
-const handleTimeRangeChange = (value) => {
-  if (!value) {
-    searchForm.startDate = ''
-    searchForm.endDate = ''
-    customDateRange.value = []
-    return
-  }
-
-  const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-
-  switch (value) {
-    case 'today':
-      searchForm.startDate = formatDate(today)
-      searchForm.endDate = formatDate(today)
-      break
-    case 'yesterday':
-      const yesterday = new Date(today)
-      yesterday.setDate(yesterday.getDate() - 1)
-      searchForm.startDate = formatDate(yesterday)
-      searchForm.endDate = formatDate(yesterday)
-      break
-    case 'halfMonth':
-      const halfMonthAgo = new Date(today)
-      halfMonthAgo.setDate(halfMonthAgo.getDate() - 15)
-      searchForm.startDate = formatDate(halfMonthAgo)
-      searchForm.endDate = formatDate(today)
-      break
-    case 'oneMonth':
-      const oneMonthAgo = new Date(today)
-      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
-      searchForm.startDate = formatDate(oneMonthAgo)
-      searchForm.endDate = formatDate(today)
-      break
-    case 'threeMonths':
-      const threeMonthsAgo = new Date(today)
-      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
-      searchForm.startDate = formatDate(threeMonthsAgo)
-      searchForm.endDate = formatDate(today)
-      break
-  }
-
-  // 清空自定义日期范围
-  customDateRange.value = []
-}
-
-// 自定义日期范围处理
-const handleCustomDateChange = (dateRange) => {
-  if (dateRange && dateRange.length === 2) {
-    searchForm.startDate = dateRange[0]
-    searchForm.endDate = dateRange[1]
-    searchForm.timeRange = '' // 清空时间区域选择
+// 日期范围处理函数
+const handleDateRangeChange = (dates) => {
+  if (dates && dates.length === 2) {
+    searchForm.startDate = dates[0]
+    searchForm.endDate = dates[1]
   } else {
     searchForm.startDate = ''
     searchForm.endDate = ''
   }
-}
-
-// 日期格式化函数
-const formatDate = (date) => {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
 }
 
 const handleSearch = () => {
@@ -1326,11 +1330,10 @@ const handleReset = () => {
     platform: '',
     minGrossMargin: null,
     maxGrossMargin: null,
-    timeRange: '',
     startDate: '',
     endDate: ''
   })
-  customDateRange.value = []
+  dateRange.value = []
   currentPage.value = 1
   fetchBudgets()
 }
@@ -1942,3 +1945,4 @@ onMounted(() => {
   }
 }
 </style>
+

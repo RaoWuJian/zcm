@@ -47,6 +47,32 @@
                 style="width: 100%"
               />
           </el-form-item>
+          <el-form-item label="团队" class="search-item">
+            <el-autocomplete
+                v-model="searchForm.team"
+                :fetch-suggestions="queryTeamSuggestions"
+                placeholder="请输入团队名称"
+                maxlength="100"
+                show-word-limit
+                clearable
+                style="width: 100%"
+              />
+          </el-form-item>
+          <el-form-item label="时间筛选" class="search-item">
+            <el-date-picker
+              v-model="dateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              format="YYYY-MM-DD"
+              value-format="YYYY-MM-DD"
+              style="width: 350px;"
+              :shortcuts="dateShortcuts"
+              @change="handleDateRangeChange"
+            />
+          </el-form-item>
+
           <el-form-item label="净利润范围" class="search-item">
             <div class="profit-range">
               <el-input
@@ -110,70 +136,88 @@
       </div>
     </div>
 
-    <!-- 统计卡片 -->
-    <div class="stats-cards">
-      <el-row :gutter="20">
-        <el-col :span="6">
-          <el-card class="stats-card">
-            <div class="stats-content">
-              <div class="stats-icon commission">
-                <el-icon><Coin /></el-icon>
-              </div>
-              <div class="stats-info">
-                <div class="stats-value">¥{{ commissionStore.totalNetTransactionData.toFixed(2) }}</div>
-                <div class="stats-label">总净成交</div>
-              </div>
-            </div>
-          </el-card>
-        </el-col>
+    <!-- 可折叠统计面板 -->
+    <div class="stats-panel">
+      <div class="stats-header" @click="toggleStatsPanel">
+        <div class="stats-title">
+          <el-icon class="stats-title-icon"><DataAnalysis /></el-icon>
+          <span>数据统计</span>
+        </div>
+        <div class="stats-toggle">
+          <el-icon class="toggle-icon" :class="{ 'expanded': showStatsPanel }">
+            <ArrowDown />
+          </el-icon>
+        </div>
+      </div>
 
-        <el-col :span="6">
-          <el-card class="stats-card">
-            <div class="stats-content">
-              <div class="stats-icon profit">
-                <el-icon><TrendCharts /></el-icon>
-              </div>
-              <div class="stats-info">
-                <div class="stats-value">¥{{ commissionStore.totalCommissionProfit.toFixed(2) }}</div>
-                <div class="stats-label">总佣金利润</div>
-              </div>
-            </div>
-          </el-card>
-        </el-col>
+      <el-collapse-transition>
+        <div v-show="showStatsPanel" class="stats-content-wrapper">
+          <div class="stats-cards">
+            <el-row :gutter="20">
+              <el-col :span="6">
+                <el-card class="stats-card">
+                  <div class="stats-content">
+                    <div class="stats-icon commission">
+                      <el-icon><Coin /></el-icon>
+                    </div>
+                    <div class="stats-info">
+                      <div class="stats-value">¥{{ commissionStore.totalNetTransactionData.toFixed(2) }}</div>
+                      <div class="stats-label">总净成交</div>
+                    </div>
+                  </div>
+                </el-card>
+              </el-col>
 
-        <el-col :span="6">
-          <el-card class="stats-card">
-            <div class="stats-content">
-              <div class="stats-icon warning">
-                <el-icon><Money /></el-icon>
-              </div>
-              <div class="stats-info">
-                <div class="stats-value consumption">¥{{ commissionStore.totalDailyConsumption.toFixed(2) }}</div>
-                <div class="stats-label">总消耗</div>
-              </div>
-            </div>
-          </el-card>
-        </el-col>
+              <el-col :span="6">
+                <el-card class="stats-card">
+                  <div class="stats-content">
+                    <div class="stats-icon profit">
+                      <el-icon><TrendCharts /></el-icon>
+                    </div>
+                    <div class="stats-info">
+                      <div class="stats-value">¥{{ commissionStore.totalCommissionProfit.toFixed(2) }}</div>
+                      <div class="stats-label">总佣金利润</div>
+                    </div>
+                  </div>
+                </el-card>
+              </el-col>
 
-        <el-col :span="6">
-          <el-card class="stats-card">
-            <div class="stats-content">
-              <div class="stats-icon" :class="commissionStore.totalNetProfit >= 0 ? 'success' : 'danger'">
-                <el-icon>
-                  <SuccessFilled v-if="commissionStore.totalNetProfit >= 0" />
-                  <WarningFilled v-else />
-                </el-icon>
-              </div>
-              <div class="stats-info">
-                <div class="stats-value" :class="commissionStore.totalNetProfit >= 0 ? 'profit' : 'loss'">
-                  ¥{{ commissionStore.totalNetProfit.toFixed(2) }}
-                </div>
-                <div class="stats-label">总净利润</div>
-              </div>
-            </div>
-          </el-card>
-        </el-col>
-      </el-row>
+              <el-col :span="6">
+                <el-card class="stats-card">
+                  <div class="stats-content">
+                    <div class="stats-icon warning">
+                      <el-icon><Money /></el-icon>
+                    </div>
+                    <div class="stats-info">
+                      <div class="stats-value consumption">¥{{ commissionStore.totalDailyConsumption.toFixed(2) }}</div>
+                      <div class="stats-label">总消耗</div>
+                    </div>
+                  </div>
+                </el-card>
+              </el-col>
+
+              <el-col :span="6">
+                <el-card class="stats-card">
+                  <div class="stats-content">
+                    <div class="stats-icon" :class="commissionStore.totalNetProfit >= 0 ? 'success' : 'danger'">
+                      <el-icon>
+                        <SuccessFilled v-if="commissionStore.totalNetProfit >= 0" />
+                        <WarningFilled v-else />
+                      </el-icon>
+                    </div>
+                    <div class="stats-info">
+                      <div class="stats-value" :class="commissionStore.totalNetProfit >= 0 ? 'profit' : 'loss'">
+                        ¥{{ commissionStore.totalNetProfit.toFixed(2) }}
+                      </div>
+                      <div class="stats-label">总净利润</div>
+                    </div>
+                  </div>
+                </el-card>
+              </el-col>
+            </el-row>
+          </div>
+        </div>
+      </el-collapse-transition>
     </div>
 
     <!-- 核算佣金列表 -->
@@ -185,6 +229,7 @@
         stripe
         border
         style="width: 100%"
+        max-height="600"
       >
         <el-table-column type="selection" width="55" />
         
@@ -199,6 +244,12 @@
         <el-table-column prop="platform" label="平台" width="100" show-overflow-tooltip>
           <template #default="{ row }">
             <span>{{ row.platform || '-' }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="team" label="团队" width="100" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span>{{ row.team || '-' }}</span>
           </template>
         </el-table-column>
 
@@ -320,6 +371,19 @@
             clearable
             style="width: 100%"
             @select="handlePlatformSelect"
+          />
+        </el-form-item>
+
+        <el-form-item label="团队" prop="team">
+          <el-autocomplete
+            v-model="accountingForm.team"
+            :fetch-suggestions="queryTeamSuggestions"
+            placeholder="请输入团队名称（可选）"
+            maxlength="50"
+            show-word-limit
+            clearable
+            style="width: 100%"
+            @select="handleTeamSelect"
           />
         </el-form-item>
 
@@ -515,6 +579,18 @@
                         v-model="record.platform"
                         :fetch-suggestions="queryPlatformSuggestions"
                         placeholder="请输入平台名称"
+                        maxlength="50"
+                        clearable
+                        style="width: 100%"
+                      />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="24">
+                    <el-form-item label="团队">
+                      <el-autocomplete
+                        v-model="record.team"
+                        :fetch-suggestions="queryTeamSuggestions"
+                        placeholder="请输入团队名称"
                         maxlength="50"
                         clearable
                         style="width: 100%"
@@ -921,6 +997,12 @@
               </template>
             </el-table-column>
 
+            <el-table-column prop="team" label="团队" width="100">
+              <template #default="{ row }">
+                <span>{{ row.team || '-' }}</span>
+              </template>
+            </el-table-column>
+
             <el-table-column prop="netTransactionData" label="净成交数据" width="120" align="right">
               <template #default="{ row }">
                 <span :class="['price', row.netTransactionData >= 0 ? '' : 'loss']">
@@ -1019,7 +1101,8 @@ import {
   Money,
   SuccessFilled,
   WarningFilled,
-  
+  DataAnalysis,
+  ArrowDown,
   InfoFilled,
 } from '@element-plus/icons-vue'
 import { useCommissionAccountingStore } from '@/stores/commissionAccounting'
@@ -1052,20 +1135,104 @@ const selectedAccountings = ref([])
 const currentPage = ref(1)
 const pageSize = ref(10)
 
+// 统计面板控制
+const showStatsPanel = ref(false) // 默认折叠
+
 // 搜索表单
 const searchForm = reactive({
   name: '',
   shopName: '',
   platform: '',
+  team: '',
   minProfit: null,
-  maxProfit: null
+  maxProfit: null,
+  startDate: '',
+  endDate: ''
 })
+
+// 日期范围
+const dateRange = ref([])
+
+// 日期快捷选项
+const dateShortcuts = [
+  {
+    text: '今天',
+    value: () => {
+      const today = new Date()
+      return [today, today]
+    }
+  },
+  {
+    text: '昨天',
+    value: () => {
+      const yesterday = new Date()
+      yesterday.setDate(yesterday.getDate() - 1)
+      return [yesterday, yesterday]
+    }
+  },
+  {
+    text: '最近3天',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 2)
+      return [start, end]
+    }
+  },
+  {
+    text: '最近7天',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 6)
+      return [start, end]
+    }
+  },
+  {
+    text: '半个月',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 14)
+      return [start, end]
+    }
+  },
+  {
+    text: '本月',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(1)
+      return [start, end]
+    }
+  },
+  {
+    text: '上个月',
+    value: () => {
+      const end = new Date()
+      end.setDate(0) // 上个月最后一天
+      const start = new Date()
+      start.setMonth(start.getMonth() - 1, 1) // 上个月第一天
+      return [start, end]
+    }
+  },
+  {
+    text: '三个月',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setMonth(start.getMonth() - 3)
+      return [start, end]
+    }
+  }
+]
 
 // 核算佣金表单
 const accountingForm = reactive({
   name: '',
   shopName: '',
   platform: '',
+  team: '',
   netTransactionData: 0,
   commission: 0,
   dailyConsumption: 0,
@@ -1081,6 +1248,7 @@ const batchForm = reactive({
     {
       shopName: '',
       platform: '',
+      team: '',
       netTransactionData: 0,
       commission: 0,
       dailyConsumption: 0 // 每个平台的今日消耗
@@ -1115,6 +1283,7 @@ const calculationResult = ref(null)
 const shopNameSuggestions = ref([])
 const platformSuggestions = ref([])
 const productNameSuggestions = ref([])
+const teamSuggestions = ref([])
 
 // 批量新增计算结果
 const batchCalculationResults = ref([])
@@ -1199,6 +1368,17 @@ const fetchAccountings = async () => {
   await commissionStore.fetchCommissionAccountings(params)
 }
 
+// 日期范围处理函数
+const handleDateRangeChange = (dates) => {
+  if (dates && dates.length === 2) {
+    searchForm.startDate = dates[0]
+    searchForm.endDate = dates[1]
+  } else {
+    searchForm.startDate = ''
+    searchForm.endDate = ''
+  }
+}
+
 // 搜索
 const handleSearch = () => {
   currentPage.value = 1
@@ -1211,11 +1391,23 @@ const handleReset = () => {
     name: '',
     shopName: '',
     platform: '',
+    team: '',
     minProfit: null,
-    maxProfit: null
+    maxProfit: null,
+    startDate: '',
+    endDate: ''
   })
+  dateRange.value = []
   currentPage.value = 1
+
+  // 重置后重新设置默认搜索今天
+  initializeDefaultSearch()
   fetchAccountings()
+}
+
+// 切换统计面板
+const toggleStatsPanel = () => {
+  showStatsPanel.value = !showStatsPanel.value
 }
 
 // 刷新
@@ -1235,6 +1427,7 @@ const handleEdit = (accounting) => {
     name: accounting.name,
     shopName: accounting.shopName || '',
     platform: accounting.platform || '',
+    team: accounting.team || '',
     netTransactionData: accounting.netTransactionData,
     commission: accounting.commission,
     dailyConsumption: accounting.dailyConsumption,
@@ -1347,6 +1540,7 @@ const resetForm = () => {
     name: '',
     shopName: '',
     platform: '',
+    team: '',
     netTransactionData: 0,
     commission: 0,
     dailyConsumption: 0,
@@ -1391,6 +1585,12 @@ const loadSuggestions = async () => {
     if (productNameResult.success) {
       productNameSuggestions.value = productNameResult.data.map(name => ({ value: name }))
     }
+
+    // 获取团队建议
+    const teamResult = await commissionStore.fetchTeamSuggestions()
+    if (teamResult.success) {
+      teamSuggestions.value = teamResult.data.map(name => ({ value: name }))
+    }
   } catch (error) {
     console.error('获取建议数据失败:', error)
   }
@@ -1426,6 +1626,16 @@ const queryProductNameSuggestions = (queryString, callback) => {
   callback(results)
 }
 
+// 团队自动完成查询
+const queryTeamSuggestions = (queryString, callback) => {
+  const results = queryString
+    ? teamSuggestions.value.filter(item =>
+        item.value.toLowerCase().includes(queryString.toLowerCase())
+      )
+    : teamSuggestions.value
+  callback(results)
+}
+
 // 店铺名称选择处理
 const handleShopNameSelect = (item) => {
   accountingForm.shopName = item.value
@@ -1434,6 +1644,11 @@ const handleShopNameSelect = (item) => {
 // 平台选择处理
 const handlePlatformSelect = (item) => {
   accountingForm.platform = item.value
+}
+
+// 团队选择处理
+const handleTeamSelect = (item) => {
+  accountingForm.team = item.value
 }
 
 // 数字输入验证处理器
@@ -1787,6 +2002,7 @@ const exportSummaryData = () => {
         '产品名称': `${summaryForm.productName} - 汇总统计`,
         '店铺名称': '汇总',
         '平台': '全部',
+        '团队': '全部',
         '净成交数据': summaryStats.value.totalNetTransaction,
         '佣金(%)': '-',
         '佣金利润': summaryStats.value.totalCommissionProfit,
@@ -1800,6 +2016,7 @@ const exportSummaryData = () => {
         '产品名称': '',
         '店铺名称': '',
         '平台': '',
+        '团队': '',
         '净成交数据': '',
         '佣金(%)': '',
         '佣金利润': '',
@@ -1813,6 +2030,7 @@ const exportSummaryData = () => {
         '产品名称': item.name || '',
         '店铺名称': item.shopName || '',
         '平台': item.platform || '',
+        '团队': item.team || '',
         '净成交数据': item.netTransactionData || 0,
         '佣金(%)': item.commission || 0,
         '佣金利润': item.commissionProfit || 0,
@@ -1866,6 +2084,7 @@ const addBatchRecord = () => {
   batchForm.records.push({
     shopName: '',
     platform: '',
+    team: '',
     netTransactionData: 0,
     commission: 0,
     dailyConsumption: suggestedConsumption
@@ -1967,6 +2186,7 @@ const resetBatchForm = () => {
       {
         shopName: '',
         platform: '',
+        team: '',
         netTransactionData: 0,
         commission: 0,
         dailyConsumption: 0 // 确保每个平台的今日消耗也被重置
@@ -1997,6 +2217,7 @@ const handleExport = async () => {
       '名称': item.name || '',
       '店铺名称': item.shopName || '',
       '平台': item.platform || '',
+      '团队': item.team || '',
       '净成交数据': item.netTransactionData || 0,
       '佣金(%)': item.commission || 0,
       '佣金利润': item.commissionProfit || 0,
@@ -2045,9 +2266,21 @@ const handleExport = async () => {
   }
 }
 
+// 初始化默认搜索今天的数据
+const initializeDefaultSearch = () => {
+  const today = new Date()
+  const todayStr = today.toISOString().split('T')[0] // YYYY-MM-DD格式
+
+  // 设置默认日期为今天
+  searchForm.startDate = todayStr
+  searchForm.endDate = todayStr
+  dateRange.value = [today, today]
+}
+
 // 生命周期
 onMounted(() => {
-  fetchAccountings()
+  initializeDefaultSearch() // 先设置默认搜索条件
+  fetchAccountings() // 然后获取数据
   loadSuggestions()
 })
 </script>
@@ -2154,6 +2387,8 @@ onMounted(() => {
   align-self: flex-start;
 }
 
+
+
 .business-btn {
   border-radius: 4px;
   font-size: 13px;
@@ -2232,9 +2467,67 @@ onMounted(() => {
   color: white;
 }
 
+/* 可折叠统计面板 */
+.stats-panel {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.stats-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-bottom: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  user-select: none;
+}
+
+.stats-header:hover {
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+}
+
+.stats-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.stats-title-icon {
+  font-size: 18px;
+  color: #6366f1;
+}
+
+.stats-toggle {
+  display: flex;
+  align-items: center;
+}
+
+.toggle-icon {
+  font-size: 16px;
+  color: #6b7280;
+  transition: transform 0.3s ease;
+}
+
+.toggle-icon.expanded {
+  transform: rotate(180deg);
+}
+
+.stats-content-wrapper {
+  padding: 20px;
+}
+
 /* 统计卡片 */
 .stats-cards {
-  margin-bottom: 20px;
+  margin: 0;
 }
 
 .stats-card {
@@ -2585,6 +2878,8 @@ onMounted(() => {
     margin-bottom: 16px;
   }
 
+
+
   .action-card {
     flex-direction: column;
     gap: 16px;
@@ -2596,6 +2891,19 @@ onMounted(() => {
 
   .stats-cards .el-col {
     margin-bottom: 16px;
+  }
+
+  /* 统计面板响应式 */
+  .stats-header {
+    padding: 12px 16px;
+  }
+
+  .stats-title {
+    font-size: 14px;
+  }
+
+  .stats-content-wrapper {
+    padding: 16px;
   }
 }
 

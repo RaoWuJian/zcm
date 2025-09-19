@@ -228,6 +228,20 @@ export const useCommissionAccountingStore = defineStore('commissionAccounting', 
       return { success: false, message: '获取产品名称建议时发生错误' }
     }
   }
+
+  // 获取团队建议
+  const fetchTeamSuggestions = async () => {
+    try {
+      const response = await commissionAccountingApi.getTeamSuggestions()
+      if (response.success) {
+        return { success: true, data: response.data || [] }
+      } else {
+        return { success: false, message: response.message || '获取团队建议失败' }
+      }
+    } catch (error) {
+      return { success: false, message: '获取团队建议时发生错误' }
+    }
+  }
   
   return {
     // 状态
@@ -256,6 +270,7 @@ export const useCommissionAccountingStore = defineStore('commissionAccounting', 
     calculateCommissionAccounting,
     fetchShopNameSuggestions,
     fetchPlatformSuggestions,
-    fetchProductNameSuggestions
+    fetchProductNameSuggestions,
+    fetchTeamSuggestions
   }
 })
