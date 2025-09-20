@@ -17,8 +17,7 @@
         </div>
         <div class="welcome-avatar">
           <el-avatar :size="80" class="user-avatar">
-            <img v-if="userInfo?.avatar" :src="userInfo.avatar" alt="头像" />
-            <span v-else class="avatar-text">{{ userInfo?.username?.charAt(0).toUpperCase() || 'U' }}</span>
+            <span class="avatar-text">{{ getAvatarText(userInfo) }}</span>
           </el-avatar>
           <div class="avatar-decoration"></div>
         </div>
@@ -129,23 +128,31 @@
           <div class="personal-content">
             <div class="info-item">
               <span class="info-label">姓名</span>
-              <span class="info-value">{{ userInfo?.realName || userInfo?.username || '未设置' }}</span>
+              <span class="info-value">{{ userInfo?.username || '未设置' }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">登录账号</span>
+              <span class="info-value">{{ userInfo?.loginAccount || '未设置' }}</span>
             </div>
             <div class="info-item">
               <span class="info-label">部门</span>
-              <span class="info-value">{{ userInfo?.department || '未设置' }}</span>
+              <span class="info-value">{{ getDepartmentName(userInfo?.departmentPath) }}</span>
             </div>
             <div class="info-item">
               <span class="info-label">角色</span>
-              <span class="info-value">{{ userInfo?.role || '普通用户' }}</span>
+              <span class="info-value">{{ getRoleName(userInfo) }}</span>
             </div>
             <div class="info-item">
-              <span class="info-label">邮箱</span>
-              <span class="info-value">{{ userInfo?.email || '未设置' }}</span>
+              <span class="info-label">账户状态</span>
+              <span class="info-value">
+                <el-tag :type="userInfo?.isActive ? 'success' : 'danger'" size="small">
+                  {{ userInfo?.isActive ? '正常' : '已禁用' }}
+                </el-tag>
+              </span>
             </div>
             <div class="info-item">
-              <span class="info-label">上次登录</span>
-              <span class="info-value">{{ formatLastLogin(userInfo?.lastLoginTime) }}</span>
+              <span class="info-label">备注</span>
+              <span class="info-value">{{ userInfo?.remark || '无' }}</span>
             </div>
           </div>
         </el-card>
@@ -275,7 +282,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
@@ -297,6 +304,10 @@ const userInfo = computed(() => userStore.userInfo)
 
 // 当前时间
 const currentTime = ref('')
+
+// 定时器管理
+const timeTimer = ref(null)
+const quoteTimer = ref(null)
 
 // 欢迎语
 const greeting = computed(() => {
@@ -582,17 +593,44 @@ const updateCurrentTime = () => {
   })
 }
 
-// 格式化最后登录时间
-const formatLastLogin = (time) => {
-  if (!time) return '首次登录'
-  const date = new Date(time)
-  const now = new Date()
-  const diff = now - date
+// 获取部门名称（从部门路径中提取最后一级）
+const getDepartmentName = (departmentPath) => {
+  if (!departmentPath) return '未设置'
+  const parts = departmentPath.split('->')
+  return parts[parts.length - 1] || '未设置'
+}
 
-  if (diff < 60000) return '刚刚'
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
-  return date.toLocaleDateString('zh-CN')
+// 获取角色名称
+const getRoleName = (user) => {
+  if (!user) return '未设置'
+
+  // 如果是管理员
+  if (user.isAdmin) return '系统管理员'
+
+  // 如果有角色权限信息
+  if (user.rolePermission && user.rolePermission.roleName) {
+    return user.rolePermission.roleName
+  }
+
+  // 默认返回
+  return '普通用户'
+}
+
+// 获取头像显示文字
+const getAvatarText = (user) => {
+  if (!user) return 'U'
+
+  // 优先使用用户名的第一个字符
+  if (user.username) {
+    return user.username.charAt(0).toUpperCase()
+  }
+
+  // 其次使用登录账号的第一个字符
+  if (user.loginAccount) {
+    return user.loginAccount.charAt(0).toUpperCase()
+  }
+
+  return 'U'
 }
 
 // 获取公告图标
@@ -649,6 +687,44 @@ const updateDailyQuote = () => {
   dailyQuote.value = getRandomQuote()
 }
 
+// 启动定时器
+const startTimers = () => {
+  // 启动时间更新定时器
+  if (!timeTimer.value) {
+    timeTimer.value = setInterval(updateCurrentTime, 1000)
+  }
+
+  // 启动寄语更新定时器
+  if (!quoteTimer.value) {
+    quoteTimer.value = setInterval(updateDailyQuote, 30 * 60 * 1000) // 30分钟
+  }
+}
+
+// 停止定时器
+const stopTimers = () => {
+  if (timeTimer.value) {
+    clearInterval(timeTimer.value)
+    timeTimer.value = null
+  }
+
+  if (quoteTimer.value) {
+    clearInterval(quoteTimer.value)
+    quoteTimer.value = null
+  }
+}
+
+// 页面可见性变化处理
+const handleVisibilityChange = () => {
+  if (document.hidden) {
+    // 页面不可见时停止定时器
+    stopTimers()
+  } else {
+    // 页面可见时启动定时器
+    updateCurrentTime() // 立即更新时间
+    startTimers()
+  }
+}
+
 
 
 // 处理快捷操作
@@ -661,17 +737,23 @@ const handleQuickAction = (action) => {
 }
 
 onMounted(() => {
-  // 初始化时间
+  // 初始化时间和寄语
   updateCurrentTime()
-
-  // 每秒更新时间
-  setInterval(updateCurrentTime, 1000)
-
-  // 初始化随机寄语
   updateDailyQuote()
 
-  // 每30分钟更新一次寄语（可选）
-  setInterval(updateDailyQuote, 30 * 60 * 1000)
+  // 启动定时器
+  startTimers()
+
+  // 监听页面可见性变化
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+})
+
+onUnmounted(() => {
+  // 清理定时器
+  stopTimers()
+
+  // 移除事件监听器
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 </script>
 
@@ -1237,36 +1319,45 @@ onMounted(() => {
 /* 今日寄语卡片 */
 .quote-content {
   text-align: center;
-  padding: 16px 0;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
 }
 
 .quote-text {
   position: relative;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  max-width: 90%;
 }
 
 .quote-icon {
   position: absolute;
-  top: -8px;
-  left: -8px;
-  font-size: 24px;
+  top: -12px;
+  left: -12px;
+  font-size: 28px;
   color: #667eea;
-  opacity: 0.3;
+  opacity: 0.2;
 }
 
 .quote-message {
   font-size: 16px;
-  line-height: 1.6;
+  line-height: 1.8;
   color: #333;
   margin: 0;
   font-style: italic;
-  padding: 0 16px;
+  padding: 8px 0;
+  text-align: center;
+  font-weight: 500;
 }
 
 .quote-author {
   font-size: 14px;
   color: #666;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  font-weight: 500;
 }
 
 .quote-category {
@@ -1792,9 +1883,22 @@ onMounted(() => {
     font-size: 13px;
   }
 
+  .quote-content {
+    padding: 16px 12px;
+    min-height: 160px;
+  }
+
+  .quote-text {
+    max-width: 95%;
+  }
+
   .quote-message {
     font-size: 14px;
-    padding: 0 8px;
+    line-height: 1.6;
+  }
+
+  .quote-author {
+    font-size: 13px;
   }
 }
 
