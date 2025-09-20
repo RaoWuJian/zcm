@@ -22,7 +22,18 @@ const errorHandler = (err, req, res, next) => {
   // Mongoose 重复字段错误
   if (err.code === 11000) {
     const field = Object.keys(err.keyValue)[0];
-    const message = `${field} 已存在`;
+    const value = err.keyValue[field];
+    let message = `${field} 已存在`;
+
+    // 提供更具体的错误信息
+    if (field === 'loginAccount') {
+      message = `登录账号 "${value}" 已存在，请使用其他账号`;
+    } else if (field === 'username') {
+      message = `用户名 "${value}" 已存在，请使用其他用户名`;
+    } else if (field === 'departmentName') {
+      message = `部门名称 "${value}" 已存在，请使用其他名称`;
+    }
+
     error = {
       message,
       statusCode: 400
@@ -31,11 +42,23 @@ const errorHandler = (err, req, res, next) => {
 
   // Mongoose 验证错误
   if (err.name === 'ValidationError') {
-    const message = Object.values(err.errors).map(val => val.message).join(', ');
-    error = {
-      message,
-      statusCode: 400
-    };
+    // 提取所有验证错误信息
+    const errors = Object.values(err.errors).map(val => val.message);
+
+    // 如果只有一个错误，直接显示
+    if (errors.length === 1) {
+      error = {
+        message: errors[0],
+        statusCode: 400
+      };
+    } else {
+      // 多个错误时，显示第一个错误并提示还有其他错误
+      error = {
+        message: `${errors[0]}（还有${errors.length - 1}个其他验证错误）`,
+        statusCode: 400,
+        details: errors // 可选：提供所有错误详情
+      };
+    }
   }
 
   // JWT 错误

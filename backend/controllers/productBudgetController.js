@@ -124,11 +124,6 @@ const batchCreateProductBudget = asyncHandler(async (req, res) => {
     // 批量创建记录
     const createdBudgets = await ProductBudget.insertMany(budgetsToCreate);
 
-    // 验证创建结果
-    createdBudgets.forEach((budget, index) => {
-      console.log(`记录 ${index + 1} (${budget.productName}): 毛利=${budget.grossMargin}, 实际佣金=${budget.actualCommission}%`);
-    });
-
     res.status(201).json({
       success: true,
       message: `成功创建 ${createdBudgets.length} 条产品预算记录`,

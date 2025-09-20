@@ -18,9 +18,41 @@ const login = asyncHandler(async (req, res) => {
   const { loginAccount, loginPassword } = req.body;
   // 验证输入
   if (!loginAccount || !loginPassword) {
+    let message = '请输入登录账号名和密码';
+    if (!loginAccount && !loginPassword) {
+      message = '请输入登录账号名和密码';
+    } else if (!loginAccount) {
+      message = '请输入登录账号名';
+    } else if (!loginPassword) {
+      message = '请输入登录密码';
+    }
+
     return res.status(400).json({
       success: false,
-      message: '请输入登录账号名和密码'
+      message: message
+    });
+  }
+
+  // 验证登录账号格式
+  if (loginAccount.length < 3) {
+    return res.status(400).json({
+      success: false,
+      message: '登录账号名至少3个字符'
+    });
+  }
+
+  if (loginAccount.length > 30) {
+    return res.status(400).json({
+      success: false,
+      message: '登录账号名最多30个字符'
+    });
+  }
+
+  // 验证密码格式
+  if (loginPassword.length < 6) {
+    return res.status(400).json({
+      success: false,
+      message: '密码至少6个字符'
     });
   }
 
@@ -73,11 +105,61 @@ const login = asyncHandler(async (req, res) => {
 const createUser = asyncHandler(async (req, res) => {
   const { username, loginAccount, loginPassword, remark, rolePermission, departmentPath } = req.body;
   const user = req.user;
-  // 检查必填字段
-  if (!username || !loginAccount || !loginPassword) {
+  // 检查必填字段并提供具体的错误信息
+  const missingFields = [];
+  if (!username) missingFields.push('员工姓名');
+  if (!loginAccount) missingFields.push('登录账号');
+  if (!loginPassword) missingFields.push('登录密码');
+  if (!rolePermission) missingFields.push('员工角色');
+  if (!departmentPath) missingFields.push('所属部门');
+
+  if (missingFields.length > 0) {
     return res.status(400).json({
       success: false,
-      message: '请填写所有必填字段：用户名、登录账号、登录密码'
+      message: `请填写以下必填字段：${missingFields.join('、')}`
+    });
+  }
+
+  // 验证字段格式
+  if (username.length < 2) {
+    return res.status(400).json({
+      success: false,
+      message: '员工姓名至少2个字符'
+    });
+  }
+
+  if (username.length > 50) {
+    return res.status(400).json({
+      success: false,
+      message: '员工姓名最多50个字符'
+    });
+  }
+
+  if (loginAccount.length < 3) {
+    return res.status(400).json({
+      success: false,
+      message: '登录账号至少3个字符'
+    });
+  }
+
+  if (loginAccount.length > 30) {
+    return res.status(400).json({
+      success: false,
+      message: '登录账号最多30个字符'
+    });
+  }
+
+  if (loginPassword.length < 6) {
+    return res.status(400).json({
+      success: false,
+      message: '登录密码至少6个字符'
+    });
+  }
+
+  if (remark && remark.length > 200) {
+    return res.status(400).json({
+      success: false,
+      message: '备注最多200个字符'
     });
   }
 
@@ -625,8 +707,21 @@ const getNoDepartmentUser = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    用户登出
+// @route   POST /api/users/logout
+// @access  Private
+const logout = asyncHandler(async (req, res) => {
+  // 这里可以实现token黑名单等逻辑
+  // 目前只是返回成功响应，实际的token失效由前端处理
+  res.json({
+    success: true,
+    message: '登出成功'
+  });
+});
+
 module.exports = {
   login,
+  logout,
   getMe,
   updateMe,
   updatePassword,

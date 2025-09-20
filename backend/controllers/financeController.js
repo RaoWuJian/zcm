@@ -220,7 +220,6 @@ const getFinances = asyncHandler(async (req, res) => {
   const total = await Finance.countDocuments(query);
   const list  = (finances|| []).map(item => {
     const financeObj = item.toObject();
-    console.log(financeObj)
     financeObj.isSuperior = isUserSuperiorToCreator(user, financeObj.createdBy);
     return financeObj;
   })

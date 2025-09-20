@@ -68,6 +68,9 @@ api.interceptors.response.use(
     } else {
       // HTTP错误
       switch (error.response.status) {
+        case 400:
+          message = error.response.data?.message || '请求参数错误'
+          break
         case 401:
           message = '未授权，请重新登录'
           shouldLogout = true
@@ -79,7 +82,7 @@ api.interceptors.response.use(
           message = '请求地址出错'
           break
         case 422:
-          message = '请求参数错误'
+          message = error.response.data?.message || '请求参数错误'
           break
         case 500:
           message = '服务器内部错误'

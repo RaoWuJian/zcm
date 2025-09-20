@@ -33,7 +33,7 @@ const createAdminUser = async () => {
     });
 
     if (existingAdmin) {
-       // console.log('✅ 管理员账户已存在:', {
+      console.log('✅ 管理员账户已存在:', {
         用户名: existingAdmin.username,
         登录账号: existingAdmin.loginAccount,
         部门路径: existingAdmin.departmentPath,

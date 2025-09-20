@@ -115,6 +115,16 @@
           产品汇总
         </el-button>
         <el-button
+          type="primary"
+          @click="handleSelectedSummary"
+          :disabled="selectedAccountings.length === 0"
+          :icon="TrendCharts"
+          class="action-btn primary"
+          plain
+        >
+          多选汇总 ({{ selectedAccountings.length }})
+        </el-button>
+        <el-button
           type="danger"
           @click="handleBatchDelete"
           :disabled="selectedAccountings.length === 0"
@@ -142,6 +152,9 @@
         <div class="stats-title">
           <el-icon class="stats-title-icon"><DataAnalysis /></el-icon>
           <span>数据统计</span>
+          <el-tooltip content="统计基于当前查询条件下的所有数据，只在第一页时计算以提高性能" placement="top">
+            <el-icon class="stats-info-icon"><InfoFilled /></el-icon>
+          </el-tooltip>
         </div>
         <div class="stats-toggle">
           <el-icon class="toggle-icon" :class="{ 'expanded': showStatsPanel }">
@@ -871,14 +884,14 @@
     <el-dialog
       v-model="showSummaryDialog"
       title="产品汇总分析"
-       width="1000px"
+      width="1000px"
       append-to-body
       @close="resetSummaryData"
     >
       <div class="summary-container">
         <!-- 搜索区域 -->
         <div class="summary-search">
-          <el-form :model="summaryForm" inline>
+          <el-form :model="summaryForm" inline @submit.prevent="fetchProductSummary">
             <el-form-item label="产品名称">
               <el-autocomplete
                 v-model="summaryForm.productName"
@@ -887,7 +900,7 @@
                 style="width: 300px"
                 clearable
                 @select="fetchProductSummary"
-                @keyup.enter="fetchProductSummary"
+                @keyup.enter.prevent="fetchProductSummary"
               />
             </el-form-item>
             <el-form-item>
@@ -1082,6 +1095,155 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 多选汇总对话框 -->
+    <el-dialog
+      v-model="showSelectedSummaryDialog"
+      title="多选数据汇总"
+      width="60vw"
+      append-to-body
+    >
+      <div class="selected-summary-container">
+        <!-- 汇总统计卡片 -->
+        <div class="summary-stats">
+          <el-row :gutter="16" style="margin-bottom: 20px;">
+            <el-col :span="6" :xs="12" :sm="8" :md="6" :lg="6">
+              <el-card class="stats-card">
+                <div class="stats-content">
+                  <div class="stats-icon commission">
+                    <el-icon><Coin /></el-icon>
+                  </div>
+                  <div class="stats-info">
+                    <div class="stats-value">¥{{ selectedSummaryStats.totalNetTransaction.toFixed(2) }}</div>
+                    <div class="stats-label">总净成交</div>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+
+            <el-col :span="6" :xs="12" :sm="8" :md="6" :lg="6">
+              <el-card class="stats-card">
+                <div class="stats-content">
+                  <div class="stats-icon profit">
+                    <el-icon><TrendCharts /></el-icon>
+                  </div>
+                  <div class="stats-info">
+                    <div class="stats-value">¥{{ selectedSummaryStats.totalCommissionProfit.toFixed(2) }}</div>
+                    <div class="stats-label">总佣金利润</div>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+
+            <el-col :span="6" :xs="12" :sm="8" :md="6" :lg="6">
+              <el-card class="stats-card">
+                <div class="stats-content">
+                  <div class="stats-icon" :class="selectedSummaryStats.totalDailyConsumption >= 0 ? 'warning' : 'success'">
+                    <el-icon><Money /></el-icon>
+                  </div>
+                  <div class="stats-info">
+                    <div class="stats-value" :class="selectedSummaryStats.totalDailyConsumption >= 0 ? 'consumption' : 'profit'">
+                      ¥{{ selectedSummaryStats.totalDailyConsumption.toFixed(2) }}
+                    </div>
+                    <div class="stats-label">今日总消耗</div>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+
+            <el-col :span="6" :xs="12" :sm="8" :md="6" :lg="6">
+              <el-card class="stats-card">
+                <div class="stats-content">
+                  <div class="stats-icon" :class="selectedSummaryStats.totalNetProfit >= 0 ? 'profit' : 'danger'">
+                    <el-icon>
+                      <SuccessFilled v-if="selectedSummaryStats.totalNetProfit >= 0" />
+                      <WarningFilled v-else />
+                    </el-icon>
+                  </div>
+                  <div class="stats-info">
+                    <div class="stats-value" :class="selectedSummaryStats.totalNetProfit >= 0 ? 'profit' : 'loss'">
+                      ¥{{ selectedSummaryStats.totalNetProfit.toFixed(2) }}
+                    </div>
+                    <div class="stats-label">总净利润</div>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+          </el-row>
+        </div>
+
+        <!-- 选中数据详情 -->
+        <div class="selected-details">
+          <div class="table-header">
+            <h4>选中数据明细 (共{{ selectedSummaryStats.recordCount }}条)</h4>
+          </div>
+
+          <el-table
+            :data="selectedAccountings"
+            border
+            stripe
+            height="400"
+          >
+            <el-table-column prop="name" label="产品名称" min-width="150" show-overflow-tooltip />
+            <el-table-column prop="shopName" label="店铺名称" width="120" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span>{{ row.shopName || '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="platform" label="平台" width="100" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span>{{ row.platform || '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="team" label="团队" width="100" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span>{{ row.team || '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="netTransactionData" label="净成交数据" width="120" align="right">
+              <template #default="{ row }">
+                <span class="amount">¥{{ row.netTransactionData?.toFixed(2) || '0.00' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="commission" label="佣金%" width="80" align="right">
+              <template #default="{ row }">
+                <span>{{ row.commission?.toFixed(1) || '0.0' }}%</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="commissionProfit" label="佣金利润" width="120" align="right">
+              <template #default="{ row }">
+                <span class="amount profit">¥{{ row.commissionProfit?.toFixed(2) || '0.00' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="dailyConsumption" label="今日消耗" width="120" align="right">
+              <template #default="{ row }">
+                <span class="amount consumption">¥{{ row.dailyConsumption?.toFixed(2) || '0.00' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="netProfit" label="净利润" width="120" align="right">
+              <template #default="{ row }">
+                <span class="amount" :class="row.netProfit >= 0 ? 'profit' : 'loss'">
+                  ¥{{ row.netProfit?.toFixed(2) || '0.00' }}
+                </span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </div>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showSelectedSummaryDialog = false">关闭</el-button>
+          <el-button
+            type="primary"
+            @click="exportSelectedSummaryData"
+            :icon="Download"
+          >
+            导出汇总数据
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -1127,6 +1289,7 @@ const showAddDialog = ref(false)
 const showBatchAddDialog = ref(false)
 const showImportDialog = ref(false)
 const showSummaryDialog = ref(false)
+const showSelectedSummaryDialog = ref(false)
 const editingAccounting = ref(null)
 const submitting = ref(false)
 const batchSubmitting = ref(false)
@@ -1310,6 +1473,15 @@ const summaryStats = ref({
   recordCount: 0
 })
 
+// 多选汇总相关数据
+const selectedSummaryStats = ref({
+  totalNetTransaction: 0,
+  totalCommissionProfit: 0,
+  totalNetProfit: 0,
+  totalDailyConsumption: 0,
+  recordCount: 0
+})
+
 // 实时计算
 const updateCalculation = () => {
   const calculationData = {
@@ -1382,6 +1554,13 @@ const handleDateRangeChange = (dates) => {
 // 搜索
 const handleSearch = () => {
   currentPage.value = 1
+  // 清空之前的统计数据，因为搜索条件改变了
+  commissionStore.stats.totalNetTransactionData = 0
+  commissionStore.stats.totalCommissionProfit = 0
+  commissionStore.stats.totalNetProfit = 0
+  commissionStore.stats.totalDailyConsumption = 0
+  commissionStore.stats.averageCommission = 0
+  commissionStore.stats.recordCount = 0
   fetchAccountings()
 }
 
@@ -1399,6 +1578,14 @@ const handleReset = () => {
   })
   dateRange.value = []
   currentPage.value = 1
+
+  // 清空统计数据，因为搜索条件重置了
+  commissionStore.stats.totalNetTransactionData = 0
+  commissionStore.stats.totalCommissionProfit = 0
+  commissionStore.stats.totalNetProfit = 0
+  commissionStore.stats.totalDailyConsumption = 0
+  commissionStore.stats.averageCommission = 0
+  commissionStore.stats.recordCount = 0
 
   // 重置后重新设置默认搜索今天
   initializeDefaultSearch()
@@ -1557,6 +1744,13 @@ const resetForm = () => {
 const handleSizeChange = (size) => {
   pageSize.value = size
   currentPage.value = 1
+  // 改变页面大小时回到第一页，清空统计数据以便重新计算
+  commissionStore.stats.totalNetTransactionData = 0
+  commissionStore.stats.totalCommissionProfit = 0
+  commissionStore.stats.totalNetProfit = 0
+  commissionStore.stats.totalDailyConsumption = 0
+  commissionStore.stats.averageCommission = 0
+  commissionStore.stats.recordCount = 0
   fetchAccountings()
 }
 
@@ -1775,7 +1969,6 @@ const handleFileUpload = async (file) => {
 
     // 读取Excel文件
     const result = await readExcelFile(file.raw)
-    console.log(result)
 
     // 验证表头
     const headerValidation = validateImportHeaders(result.headers)
@@ -1985,6 +2178,109 @@ const handleSummaryProductNameInput = (queryString, callback) => {
       )
     : productNameSuggestions.value
   callback(results)
+}
+
+// 多选汇总处理
+const handleSelectedSummary = () => {
+  if (selectedAccountings.value.length === 0) {
+    ElMessage.warning('请先选择要汇总的数据')
+    return
+  }
+
+  // 计算多选数据的统计
+  const stats = selectedAccountings.value.reduce((acc, item) => {
+    acc.totalNetTransaction += item.netTransactionData || 0
+    acc.totalCommissionProfit += item.commissionProfit || 0
+    acc.totalNetProfit += item.netProfit || 0
+    acc.totalDailyConsumption += item.dailyConsumption || 0
+    return acc
+  }, {
+    totalNetTransaction: 0,
+    totalCommissionProfit: 0,
+    totalNetProfit: 0,
+    totalDailyConsumption: 0
+  })
+
+  selectedSummaryStats.value = {
+    ...stats,
+    recordCount: selectedAccountings.value.length
+  }
+
+  showSelectedSummaryDialog.value = true
+}
+
+// 导出多选汇总数据
+const exportSelectedSummaryData = () => {
+  if (selectedAccountings.value.length === 0) {
+    ElMessage.warning('暂无选中数据可导出')
+    return
+  }
+
+  try {
+    // 构建导出数据
+    const exportData = [
+      // 汇总统计行
+      {
+        '产品名称': '多选汇总统计',
+        '店铺名称': '汇总',
+        '平台': '全部',
+        '团队': '全部',
+        '净成交数据': selectedSummaryStats.value.totalNetTransaction,
+        '佣金(%)': '-',
+        '佣金利润': selectedSummaryStats.value.totalCommissionProfit,
+        '今日消耗': selectedSummaryStats.value.totalDailyConsumption,
+        '净利润': selectedSummaryStats.value.totalNetProfit,
+        '记录数量': selectedSummaryStats.value.recordCount,
+        '创建时间': new Date().toLocaleString()
+      },
+      // 空行分隔
+      {
+        '产品名称': '',
+        '店铺名称': '',
+        '平台': '',
+        '团队': '',
+        '净成交数据': '',
+        '佣金(%)': '',
+        '佣金利润': '',
+        '今日消耗': '',
+        '净利润': '',
+        '记录数量': '',
+        '创建时间': ''
+      },
+      // 详细数据
+      ...selectedAccountings.value.map(item => ({
+        '产品名称': item.name || '',
+        '店铺名称': item.shopName || '',
+        '平台': item.platform || '',
+        '团队': item.team || '',
+        '净成交数据': item.netTransactionData || 0,
+        '佣金(%)': item.commission || 0,
+        '佣金利润': item.commissionProfit || 0,
+        '今日消耗': item.dailyConsumption || 0,
+        '净利润': item.netProfit || 0,
+        '记录数量': 1,
+        '创建时间': formatUtcToLocalDateTime(item.createdAt)
+      }))
+    ]
+
+    // 使用 Excel 格式导出汇总数据
+    const headers = Object.keys(exportData[0])
+    const filename = `多选汇总数据_${new Date().toLocaleDateString().replace(/\//g, '-')}`
+
+    try {
+      // 尝试导出为 Excel 格式
+      exportToExcel(exportData, headers, filename, '多选汇总')
+      ElMessage.success('多选汇总数据导出成功（Excel格式）')
+    } catch (excelError) {
+      // 如果 Excel 导出失败，降级到 CSV
+      console.warn('Excel导出失败，使用CSV格式：', excelError.message)
+      exportToCSV(exportData, headers, filename)
+      ElMessage.success('多选汇总数据导出成功（CSV格式）')
+    }
+  } catch (error) {
+    console.error('导出失败:', error)
+    ElMessage.error('导出失败')
+  }
 }
 
 // 导出汇总数据
@@ -2504,6 +2800,16 @@ onMounted(() => {
 .stats-title-icon {
   font-size: 18px;
   color: #6366f1;
+}
+
+.stats-info-icon {
+  font-size: 14px;
+  color: #6b7280;
+  cursor: help;
+
+  &:hover {
+    color: #4f46e5;
+  }
 }
 
 .stats-toggle {
@@ -3327,6 +3633,26 @@ onMounted(() => {
 
   &.loss {
     color: #dc2626;
+  }
+}
+
+/* 多选汇总弹框样式 */
+.selected-summary-container {
+  .summary-stats {
+    margin-bottom: 20px;
+  }
+
+  .selected-details {
+    .table-header {
+      margin-bottom: 16px;
+
+      h4 {
+        margin: 0;
+        color: #374151;
+        font-size: 16px;
+        font-weight: 600;
+      }
+    }
   }
 }
 </style>

@@ -106,6 +106,16 @@
         <el-button type="warning" @click="showSummaryDialog = true" :icon="TrendCharts" class="action-btn warning">
           产品汇总
         </el-button>
+        <el-button
+          type="primary"
+          @click="handleSelectedSummary"
+          :disabled="selectedBudgets.length === 0"
+          :icon="TrendCharts"
+          class="action-btn primary"
+          plain
+        >
+          多选汇总 ({{ selectedBudgets.length }})
+        </el-button>
       </div>
       <div class="action-right">
         <span class="total-count">共 {{ budgetStore.pagination?.totalRecords || 0 }} 条数据</span>
@@ -536,7 +546,7 @@
       <div class="summary-container">
         <!-- 搜索区域 -->
         <div class="summary-search">
-          <el-form :model="summaryForm" inline>
+          <el-form :model="summaryForm" inline @submit.prevent="fetchProductSummary">
             <el-form-item label="产品名称">
               <el-autocomplete
                 v-model="summaryForm.productName"
@@ -545,7 +555,7 @@
                 style="width: 300px"
                 clearable
                 @select="fetchProductSummary"
-                @keyup.enter="fetchProductSummary"
+                @keyup.enter.prevent="fetchProductSummary"
               />
             </el-form-item>
             <el-form-item>
@@ -718,6 +728,131 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 多选汇总对话框 -->
+    <el-dialog
+      v-model="showSelectedSummaryDialog"
+      title="多选数据汇总"
+      width="60vw"
+      append-to-body
+    >
+      <div class="selected-summary-container">
+        <!-- 汇总统计卡片 -->
+        <div class="summary-stats">
+          <el-row :gutter="16" style="margin-bottom: 20px;">
+            <el-col :span="8" :xs="24" :sm="12" :md="8" :lg="8">
+              <el-card class="stats-card">
+                <div class="stats-content">
+                  <div class="stats-icon commission">
+                    <el-icon><Coin /></el-icon>
+                  </div>
+                  <div class="stats-info">
+                    <div class="stats-value">¥{{ selectedSummaryStats.totalSellingPrice.toFixed(2) }}</div>
+                    <div class="stats-label">总售价</div>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+
+            <el-col :span="8" :xs="24" :sm="12" :md="8" :lg="8">
+              <el-card class="stats-card">
+                <div class="stats-content">
+                  <div class="stats-icon profit">
+                    <el-icon><TrendCharts /></el-icon>
+                  </div>
+                  <div class="stats-info">
+                    <div class="stats-value">¥{{ selectedSummaryStats.totalGrossMargin.toFixed(2) }}</div>
+                    <div class="stats-label">总毛利</div>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+
+            <el-col :span="8" :xs="24" :sm="12" :md="8" :lg="8">
+              <el-card class="stats-card">
+                <div class="stats-content">
+                  <div class="stats-icon" :class="selectedSummaryStats.totalActualCommission >= 0 ? 'profit' : 'danger'">
+                    <el-icon>
+                      <SuccessFilled v-if="selectedSummaryStats.totalActualCommission >= 0" />
+                      <WarningFilled v-else />
+                    </el-icon>
+                  </div>
+                  <div class="stats-info">
+                    <div class="stats-value" :class="selectedSummaryStats.totalActualCommission >= 0 ? 'profit' : 'loss'">
+                      {{ selectedSummaryStats.totalActualCommission.toFixed(2) }}%
+                    </div>
+                    <div class="stats-label">平均实际佣金</div>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+          </el-row>
+        </div>
+
+        <!-- 选中数据详情 -->
+        <div class="selected-details">
+          <div class="table-header">
+            <h4>选中数据明细 (共{{ selectedSummaryStats.recordCount }}条)</h4>
+          </div>
+
+          <el-table
+            :data="selectedBudgets"
+            border
+            stripe
+            height="400"
+          >
+            <el-table-column prop="productName" label="产品名称" min-width="120" show-overflow-tooltip />
+            <el-table-column prop="shopName" label="店铺名称" min-width="120" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span>{{ row.shopName || '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="platform" label="平台" width="100" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span>{{ row.platform || '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="sellingPrice" label="售价" width="100" align="right">
+              <template #default="{ row }">
+                <span class="amount">¥{{ row.sellingPrice?.toFixed(2) || '0.00' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="unitCost" label="成本单价" width="100" align="right">
+              <template #default="{ row }">
+                <span class="amount">¥{{ row.unitCost?.toFixed(2) || '0.00' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="grossMargin" label="毛利" width="100" align="right">
+              <template #default="{ row }">
+                <span class="amount" :class="row.grossMargin >= 0 ? 'profit' : 'loss'">
+                  ¥{{ row.grossMargin?.toFixed(2) || '0.00' }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="actualCommission" label="实际佣金%" width="120" align="right">
+              <template #default="{ row }">
+                <span class="amount" :class="row.actualCommission >= 0 ? 'profit' : 'loss'">
+                  {{ row.actualCommission?.toFixed(2) || '0.00' }}%
+                </span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </div>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showSelectedSummaryDialog = false">关闭</el-button>
+          <el-button
+            type="primary"
+            @click="exportSelectedSummaryData"
+            :icon="Download"
+          >
+            导出汇总数据
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -758,6 +893,7 @@ const budgetStore = useBudgetStore()
 const showAddDialog = ref(false)
 const showImportDialog = ref(false)
 const showSummaryDialog = ref(false)
+const showSelectedSummaryDialog = ref(false)
 const editingBudget = ref(null)
 const selectedBudgets = ref([])
 const submitting = ref(false)
@@ -903,6 +1039,14 @@ const summaryLoading = ref(false)
 const summaryCurrentPage = ref(1)
 const summaryPageSize = ref(10)
 const summaryStats = ref({
+  totalSellingPrice: 0,
+  totalGrossMargin: 0,
+  totalActualCommission: 0,
+  recordCount: 0
+})
+
+// 多选汇总相关数据
+const selectedSummaryStats = ref({
   totalSellingPrice: 0,
   totalGrossMargin: 0,
   totalActualCommission: 0,
@@ -1197,6 +1341,117 @@ const handleSummaryProductNameInput = (queryString, callback) => {
       )
     : productNameSuggestions.value
   callback(results)
+}
+
+// 多选汇总处理
+const handleSelectedSummary = () => {
+  if (selectedBudgets.value.length === 0) {
+    ElMessage.warning('请先选择要汇总的数据')
+    return
+  }
+
+  // 计算多选数据的统计
+  const stats = selectedBudgets.value.reduce((acc, item) => {
+    acc.totalSellingPrice += item.sellingPrice || 0
+    acc.totalGrossMargin += item.grossMargin || 0
+    return acc
+  }, {
+    totalSellingPrice: 0,
+    totalGrossMargin: 0
+  })
+
+  // 计算平均实际佣金
+  const totalActualCommission = selectedBudgets.value.reduce((sum, item) => {
+    return sum + (item.actualCommission || 0)
+  }, 0)
+  const averageActualCommission = selectedBudgets.value.length > 0
+    ? totalActualCommission / selectedBudgets.value.length
+    : 0
+
+  selectedSummaryStats.value = {
+    ...stats,
+    totalActualCommission: averageActualCommission,
+    recordCount: selectedBudgets.value.length
+  }
+
+  showSelectedSummaryDialog.value = true
+}
+
+// 导出多选汇总数据
+const exportSelectedSummaryData = () => {
+  if (selectedBudgets.value.length === 0) {
+    ElMessage.warning('暂无选中数据可导出')
+    return
+  }
+
+  try {
+    // 构建导出数据
+    const exportData = [
+      // 汇总统计行
+      {
+        '产品名称': '多选汇总统计',
+        '店铺名称': '汇总',
+        '平台': '全部',
+        '售价': selectedSummaryStats.value.totalSellingPrice,
+        '成本单价': '-',
+        '运费': '-',
+        '平台费用': '-',
+        '手续费': '-',
+        '毛利': selectedSummaryStats.value.totalGrossMargin,
+        '实际佣金(%)': selectedSummaryStats.value.totalActualCommission.toFixed(2),
+        '记录数量': selectedSummaryStats.value.recordCount,
+        '创建时间': new Date().toLocaleString()
+      },
+      // 空行分隔
+      {
+        '产品名称': '',
+        '店铺名称': '',
+        '平台': '',
+        '售价': '',
+        '成本单价': '',
+        '运费': '',
+        '平台费用': '',
+        '手续费': '',
+        '毛利': '',
+        '实际佣金(%)': '',
+        '记录数量': '',
+        '创建时间': ''
+      },
+      // 详细数据
+      ...selectedBudgets.value.map(item => ({
+        '产品名称': item.productName || '',
+        '店铺名称': item.shopName || '',
+        '平台': item.platform || '',
+        '售价': item.sellingPrice || 0,
+        '成本单价': item.unitCost || 0,
+        '运费': item.shippingCost || 0,
+        '平台费用': item.platformFee || 0,
+        '手续费': item.handlingFee || 0,
+        '毛利': item.grossMargin || 0,
+        '实际佣金(%)': (item.actualCommission || 0).toFixed(2),
+        '记录数量': 1,
+        '创建时间': formatUtcToLocalDateTime(item.createdAt)
+      }))
+    ]
+
+    // 使用 Excel 格式导出汇总数据
+    const headers = Object.keys(exportData[0])
+    const filename = `多选财务汇总数据_${new Date().toLocaleDateString().replace(/\//g, '-')}`
+
+    try {
+      // 尝试导出为 Excel 格式
+      exportFinancialToExcel(exportData, headers, filename, '多选财务汇总')
+      ElMessage.success('多选汇总数据导出成功（Excel格式）')
+    } catch (excelError) {
+      // 如果 Excel 导出失败，降级到 CSV
+      console.warn('Excel导出失败，使用CSV格式：', excelError.message)
+      exportFinancialToCSV(exportData, headers, filename)
+      ElMessage.success('多选汇总数据导出成功（CSV格式）')
+    }
+  } catch (error) {
+    console.error('导出失败:', error)
+    ElMessage.error('导出失败')
+  }
 }
 
 // 导出汇总数据
@@ -1655,43 +1910,58 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 
+/* 统计卡片样式 */
 .stats-card {
   border-radius: 8px;
   overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.stats-card:hover {
+  transform: translateY(-2px);
 }
 
 .stats-content {
   display: flex;
   align-items: center;
-  padding: 10px;
+  padding: 8px;
 }
 
 .stats-icon {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-right: 16px;
   font-size: 24px;
-  color: #fff;
 }
 
 .stats-icon.profit {
-  background: linear-gradient(135deg, #67c23a, #85ce61);
+  background: linear-gradient(135deg, #67c23a 0%, #85ce61 100%);
+  color: white;
 }
 
 .stats-icon.commission {
-  background: linear-gradient(135deg, #409eff, #66b1ff);
+  background: linear-gradient(135deg, #e6a23c 0%, #f0c78a 100%);
+  color: white;
 }
 
 .stats-icon.success {
-  background: linear-gradient(135deg, #67c23a, #85ce61);
+  background: linear-gradient(135deg, #409eff 0%, #66b3ff 100%);
+  color: white;
 }
 
 .stats-icon.danger {
-  background: linear-gradient(135deg, #f56c6c, #f78989);
+  background: linear-gradient(135deg, #f56c6c 0%, #ff8a8a 100%);
+  color: white;
+}
+
+.stats-icon.warning {
+  background: linear-gradient(135deg, #e6a23c 0%, #f0c78a 100%);
+  color: white;
 }
 
 .stats-info {
@@ -1699,11 +1969,23 @@ onMounted(() => {
 }
 
 .stats-value {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 600;
   color: #303133;
   line-height: 1;
   margin-bottom: 4px;
+}
+
+.stats-value.profit {
+  color: #67c23a;
+}
+
+.stats-value.loss {
+  color: #f56c6c;
+}
+
+.stats-value.consumption {
+  color: #e6a23c;
 }
 
 .stats-label {
@@ -1940,6 +2222,26 @@ onMounted(() => {
           margin-bottom: 15px;
           margin-right: 0;
         }
+      }
+    }
+  }
+}
+
+/* 多选汇总弹框样式 */
+.selected-summary-container {
+  .summary-stats {
+    margin-bottom: 20px;
+  }
+
+  .selected-details {
+    .table-header {
+      margin-bottom: 16px;
+
+      h4 {
+        margin: 0;
+        color: #374151;
+        font-size: 16px;
+        font-weight: 600;
       }
     }
   }

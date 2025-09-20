@@ -115,6 +115,12 @@ const routes = [
         ]
       },
       {
+        path: 'operation-logs',
+        name: 'OperationLogs',
+        component: () => import('../views/OperationLogs.vue'),
+        meta: { title: '操作日志', icon: 'Document', hideInMenu: true }
+      },
+      {
         path: 'settings',
         name: 'Settings',
         component: () => import('../views/Settings.vue'),

@@ -55,17 +55,17 @@
               </el-option>
             </el-select>
           </el-form-item>
-          <el-form-item label="日期范围" class="search-item">
-            <el-date-picker
-              v-model="searchForm.dateRange"
-              type="daterange"
-              range-separator="至"
-              start-placeholder="开始"
-              end-placeholder="结束"
-              value-format="YYYY-MM-DD"
-              class="business-input"
-              style="width: 300px;"
-            />
+          <el-form-item label="审批状态" class="search-item">
+            <el-select
+              v-model="searchForm.approvalStatus"
+              placeholder="全部状态"
+              clearable
+              class="business-select"
+            >
+              <el-option label="待审批" value="pending" />
+              <el-option label="已通过" value="approved" />
+              <el-option label="已拒绝" value="rejected" />
+            </el-select>
           </el-form-item>
           <el-form-item label="关键词" class="search-item">
             <el-input
@@ -75,11 +75,25 @@
               class="business-input"
             />
           </el-form-item>
+           <el-form-item label="时间筛选" class="search-item">
+            <el-date-picker
+              v-model="searchForm.dateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              format="YYYY-MM-DD"
+              value-format="YYYY-MM-DD"
+              style="width: 350px;"
+              :shortcuts="dateShortcuts"
+              @change="handleDateRangeChange"
+            />
+          </el-form-item>
         </div>
         
-        <div class="search-actions" style="margin-left: 8px; margin-right: 0;">
-          <el-button type="primary" @click="handleSearch" class="business-btn" size="small">查询</el-button>
-          <el-button @click="handleReset" class="business-btn" size="small" style="margin-left: 8px;">重置</el-button>
+        <div class="search-actions">
+          <el-button type="primary" @click="handleSearch" :icon="Search" size="small">查询</el-button>
+          <el-button @click="handleReset" size="small">重置</el-button>
         </div>
       </el-form>
     </div>
@@ -89,6 +103,16 @@
       <div class="action-left">
         <el-button type="primary" @click="handleAdd" :icon="Plus" class="action-btn primary" v-if="hasAnyPermission(['finance:create','finance:manage'])">
           新增收支记录
+        </el-button>
+        <el-button
+          type="primary"
+          @click="handleSelectedSummary"
+          :disabled="selectedRows.length === 0"
+          :icon="TrendCharts"
+          class="action-btn primary"
+          plain
+        >
+          多选汇总 ({{ selectedRows.length }})
         </el-button>
         <el-button
           type="danger"
@@ -449,6 +473,122 @@
       :initial-index="currentImageIndex"
       @close="closeImagePreview"
     />
+
+    <!-- 多选汇总对话框 -->
+    <el-dialog
+      v-model="showSelectedSummaryDialog"
+      title="多选数据汇总"
+      width="60vw"
+      append-to-body
+    >
+      <div class="selected-summary-container">
+        <!-- 汇总统计卡片 -->
+        <div class="summary-stats">
+          <el-row :gutter="16" style="margin-bottom: 20px;">
+            <el-col :span="8" :xs="24" :sm="12" :md="8" :lg="8">
+              <el-card class="stats-card">
+                <div class="stats-content">
+                  <div class="stats-icon income">
+                    <el-icon><TrendCharts /></el-icon>
+                  </div>
+                  <div class="stats-info">
+                    <div class="stats-value income">¥{{ selectedSummaryStats.totalIncome.toFixed(2) }}</div>
+                    <div class="stats-label">总收入</div>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+
+            <el-col :span="8" :xs="24" :sm="12" :md="8" :lg="8">
+              <el-card class="stats-card">
+                <div class="stats-content">
+                  <div class="stats-icon expense">
+                    <el-icon><Minus /></el-icon>
+                  </div>
+                  <div class="stats-info">
+                    <div class="stats-value expense">¥{{ selectedSummaryStats.totalExpense.toFixed(2) }}</div>
+                    <div class="stats-label">总支出</div>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+
+            <el-col :span="8" :xs="24" :sm="12" :md="8" :lg="8">
+              <el-card class="stats-card">
+                <div class="stats-content">
+                  <div class="stats-icon" :class="selectedSummaryStats.netProfit >= 0 ? 'profit' : 'loss'">
+                    <el-icon><TrendCharts /></el-icon>
+                  </div>
+                  <div class="stats-info">
+                    <div class="stats-value" :class="selectedSummaryStats.netProfit >= 0 ? 'profit' : 'loss'">
+                      ¥{{ selectedSummaryStats.netProfit.toFixed(2) }}
+                    </div>
+                    <div class="stats-label">净利润</div>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+          </el-row>
+        </div>
+
+        <!-- 选中数据详情 -->
+        <div class="selected-details">
+          <div class="table-header">
+            <h4>选中数据明细 (共{{ selectedSummaryStats.recordCount }}条)</h4>
+          </div>
+
+          <el-table
+            :data="selectedRows"
+            border
+            stripe
+            height="400"
+          >
+            <el-table-column prop="recordName" label="记录名称" min-width="120" show-overflow-tooltip />
+            <el-table-column prop="type" label="类型" width="80" align="center">
+              <template #default="{ row }">
+                <el-tag :type="row.type === 'income' ? 'success' : 'danger'" size="small">
+                  {{ row.type === 'income' ? '收入' : '支出' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="amount" label="金额" width="120" align="right">
+              <template #default="{ row }">
+                <span class="amount-text" :class="row.type">
+                  ¥{{ row.amount?.toFixed(2) || '0.00' }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="teamAccountName" label="团队账户" width="120" show-overflow-tooltip />
+            <el-table-column prop="payerName" label="收款/付款方" width="120" show-overflow-tooltip />
+            <el-table-column prop="transactionTime" label="发生时间" width="120">
+              <template #default="{ row }">
+                <span class="time-text">{{ formatUtcToLocalDate(row.transactionTime || row.occurredAt) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="approvalStatus" label="审批状态" width="100" align="center">
+              <template #default="{ row }">
+                <el-tag :type="getApprovalStatusType(row.approvalStatus)" size="small">
+                  {{ getApprovalStatusLabel(row.approvalStatus) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </div>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showSelectedSummaryDialog = false">关闭</el-button>
+          <el-button
+            type="primary"
+            @click="exportSelectedSummaryData"
+            :icon="Download"
+          >
+            导出汇总数据
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -464,7 +604,8 @@ import {
   List,
   User,
   TrendCharts,
-  Minus
+  Minus,
+  Search
 } from '@element-plus/icons-vue'
 import { financeApi, teamAccountApi, fileApi } from '@/api/index';
 import hasAnyPermission from '@/utils/checkPermissions'
@@ -473,6 +614,7 @@ import { formatUtcToLocalDate } from '@/utils/dateUtils'
 // 响应式数据
 const loading = ref(false)
 const dialogVisible = ref(false)
+const showSelectedSummaryDialog = ref(false)
 
 // 图片预览相关
 const imagePreviewVisible = ref(false)
@@ -486,7 +628,19 @@ const submitLoading = ref(false)
 const uploadRef = ref()
 
 // 团队账户数据
-const teamAccounts = ref([])// 搜索表单
+const teamAccounts = ref([])
+
+// 多选汇总相关数据
+const selectedSummaryStats = ref({
+  totalIncome: 0,
+  totalExpense: 0,
+  netProfit: 0,
+  incomeCount: 0,
+  expenseCount: 0,
+  recordCount: 0
+})
+
+// 搜索表单
 // 搜索表单
 const searchForm = reactive({
   recordName: '',
@@ -505,6 +659,80 @@ const pagination = reactive({
   pageSize: 20,
   total: 0
 })
+
+// 日期快捷选项
+const dateShortcuts = [
+  {
+    text: '今天',
+    value: () => {
+      const today = new Date()
+      return [today, today]
+    }
+  },
+  {
+    text: '昨天',
+    value: () => {
+      const yesterday = new Date()
+      yesterday.setDate(yesterday.getDate() - 1)
+      return [yesterday, yesterday]
+    }
+  },
+  {
+    text: '最近3天',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 2)
+      return [start, end]
+    }
+  },
+  {
+    text: '最近7天',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 6)
+      return [start, end]
+    }
+  },
+  {
+    text: '半个月',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 14)
+      return [start, end]
+    }
+  },
+  {
+    text: '本月',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(1)
+      return [start, end]
+    }
+  },
+  {
+    text: '上个月',
+    value: () => {
+      const end = new Date()
+      end.setDate(0) // 上个月最后一天
+      const start = new Date()
+      start.setMonth(start.getMonth() - 1, 1) // 上个月第一天
+      return [start, end]
+    }
+  },
+  {
+    text: '三个月',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setMonth(start.getMonth() - 3)
+      return [start, end]
+    }
+  }
+]
 
 // 表单数据
 const form = reactive({
@@ -656,6 +884,12 @@ const handleReset = () => {
   handleSearch()
 }
 
+// 日期范围变化处理
+const handleDateRangeChange = (dates) => {
+  searchForm.dateRange = dates
+  // 可以在这里添加自动搜索逻辑，或者让用户手动点击查询按钮
+}
+
 // 选择变化
 const handleSelectionChange = (selection) => {
   selectedRows.value = selection
@@ -772,6 +1006,16 @@ const getApprovalStatusLabel = (status) => {
   return statusMap[status] || status
 }
 
+// 获取审批状态类型
+const getApprovalStatusType = (status) => {
+  const typeMap = {
+    pending: 'warning',
+    approved: 'success',
+    rejected: 'danger'
+  }
+  return typeMap[status] || 'info'
+}
+
 // 获取账户标签 - 已导出使用
 // const getAccountLabel = (account) => {
 //   const accountMap: Record<string, string> = {
@@ -781,6 +1025,90 @@ const getApprovalStatusLabel = (status) => {
 //   }
 //   return accountMap[account] || account
 // }
+
+// 多选汇总处理
+const handleSelectedSummary = () => {
+  if (selectedRows.value.length === 0) {
+    ElMessage.warning('请先选择要汇总的数据')
+    return
+  }
+
+  // 计算多选数据的统计
+  const stats = selectedRows.value.reduce((acc, item) => {
+    const amount = item.amount || 0
+    if (item.type === 'income') {
+      acc.totalIncome += amount
+      acc.incomeCount += 1
+    } else if (item.type === 'expense') {
+      acc.totalExpense += amount
+      acc.expenseCount += 1
+    }
+    return acc
+  }, {
+    totalIncome: 0,
+    totalExpense: 0,
+    incomeCount: 0,
+    expenseCount: 0
+  })
+
+  selectedSummaryStats.value = {
+    ...stats,
+    netProfit: stats.totalIncome - stats.totalExpense,
+    recordCount: selectedRows.value.length
+  }
+
+  showSelectedSummaryDialog.value = true
+}
+
+// 导出多选汇总数据
+const exportSelectedSummaryData = () => {
+  if (selectedRows.value.length === 0) {
+    ElMessage.warning('暂无选中数据可导出')
+    return
+  }
+
+  try {
+    // 构建导出数据
+    const exportData = [
+      // 汇总统计行
+      {
+        '记录名称': '多选汇总统计',
+        '类型': '汇总',
+        '金额': `收入: ¥${selectedSummaryStats.value.totalIncome.toFixed(2)}, 支出: ¥${selectedSummaryStats.value.totalExpense.toFixed(2)}`,
+        '净利润': `¥${selectedSummaryStats.value.netProfit.toFixed(2)}`,
+        '收入笔数': selectedSummaryStats.value.incomeCount,
+        '支出笔数': selectedSummaryStats.value.expenseCount,
+        '总记录数': selectedSummaryStats.value.recordCount,
+        '统计时间': new Date().toLocaleString()
+      }
+    ]
+
+    // 导出为CSV格式
+    const headers = Object.keys(exportData[0])
+    const csvContent = [
+      headers.join(','),
+      ...exportData.map(row =>
+        headers.map(header => `"${row[header] || ''}"`).join(',')
+      )
+    ].join('\n')
+
+    // 创建下载链接
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `多选收支汇总数据_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+
+    ElMessage.success('多选汇总数据导出成功')
+  } catch (error) {
+    console.error('导出失败:', error)
+    ElMessage.error('导出失败')
+  }
+}
 
 // 新增
 const handleAdd = () => {
@@ -1241,41 +1569,35 @@ onMounted(() => {
 /* 搜索卡片 - 商务简洁风格 */
 .search-card.business-style {
   background: #fff;
-  border-radius: 4px;
-  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  padding: 20px;
   margin-bottom: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-  border: 1px solid #e4e7ed;
 }
 
 .business-search-form {
   display: flex;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  gap: 0;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .search-fields {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
   align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .search-item {
   margin-bottom: 0;
-  margin-right: 8px;
-}
-
-.search-item:last-child {
   margin-right: 0;
 }
 
-.search-item :deep(.el-form-item__label) {
-  font-size: 13px;
+.search-item .el-form-item__label {
   color: #606266;
-  padding-right: 8px;
-  line-height: 28px;
+  font-size: 13px;
+  font-weight: 500;
+  padding-bottom: 4px;
 }
 
 .business-input,
@@ -1295,6 +1617,12 @@ onMounted(() => {
   padding: 6px 12px;
   border-radius: 4px;
   height: 28px;
+}
+
+.search-actions {
+  display: flex;
+  gap: 8px;
+  align-self: flex-start;
 }
 
 @media screen and (max-width: 1200px) {
@@ -1363,16 +1691,47 @@ onMounted(() => {
   gap: 12px;
 }
 
+/* 按钮样式 */
+.action-btn {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.action-btn:hover {
+  transform: translateY(-1px);
+}
+
 .action-btn.primary {
-  background: linear-gradient(135deg, #409eff 0%, #337ecc 100%);
+  background: linear-gradient(135deg, #409eff 0%, #66b3ff 100%);
   border: none;
-  box-shadow: 0 2px 4px rgba(64, 158, 255, 0.3);
+  color: white;
+}
+
+.action-btn.success {
+  background: linear-gradient(135deg, #67c23a 0%, #85ce61 100%);
+  border: none;
+  color: white;
 }
 
 .action-btn.danger {
-  background: linear-gradient(135deg, #f56c6c 0%, #e54545 100%);
+  background: linear-gradient(135deg, #f56c6c 0%, #ff8a8a 100%);
   border: none;
-  box-shadow: 0 2px 4px rgba(245, 108, 108, 0.3);
+  color: white;
+}
+
+.action-btn.warning {
+  background: linear-gradient(135deg, #e6a23c 0%, #f0c78a 100%);
+  border: none;
+  color: white;
+}
+
+.action-btn.info {
+  background: linear-gradient(135deg, #909399 0%, #b1b3b8 100%);
+  border: none;
+  color: white;
 }
 
 .action-btn.danger:disabled {
@@ -1669,13 +2028,7 @@ onMounted(() => {
   box-shadow: 0 4px 8px 0 rgba(31, 35, 41, 0.12);
 }
 
-.action-btn {
-  transition: all 0.3s ease;
-}
 
-.action-btn:hover {
-  transform: translateY(-1px);
-}
 
 /* 输入框聚焦动画 */
 .search-input .el-input__wrapper,
@@ -1853,6 +2206,132 @@ onMounted(() => {
 .no-image {
   color: #c0c4cc;
   font-size: 12px;
+}
+
+/* 多选汇总弹框样式 */
+.selected-summary-container {
+  .summary-stats {
+    margin-bottom: 20px;
+  }
+
+  .selected-details {
+    .table-header {
+      margin-bottom: 16px;
+
+      h4 {
+        margin: 0;
+        color: #374151;
+        font-size: 16px;
+        font-weight: 600;
+      }
+    }
+  }
+}
+
+/* 统计卡片样式 */
+.stats-card {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.stats-card:hover {
+  transform: translateY(-2px);
+}
+
+.stats-content {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+}
+
+.stats-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 16px;
+  font-size: 24px;
+}
+
+.stats-icon.profit {
+  background: linear-gradient(135deg, #67c23a 0%, #85ce61 100%);
+  color: white;
+}
+
+.stats-icon.commission {
+  background: linear-gradient(135deg, #e6a23c 0%, #f0c78a 100%);
+  color: white;
+}
+
+.stats-icon.success {
+  background: linear-gradient(135deg, #409eff 0%, #66b3ff 100%);
+  color: white;
+}
+
+.stats-icon.danger {
+  background: linear-gradient(135deg, #f56c6c 0%, #ff8a8a 100%);
+  color: white;
+}
+
+.stats-icon.warning {
+  background: linear-gradient(135deg, #e6a23c 0%, #f0c78a 100%);
+  color: white;
+}
+
+.stats-icon.income {
+  background: linear-gradient(135deg, #67c23a 0%, #85ce61 100%);
+  color: white;
+}
+
+.stats-icon.expense {
+  background: linear-gradient(135deg, #f56c6c 0%, #ff8a8a 100%);
+  color: white;
+}
+
+.stats-icon.loss {
+  background: linear-gradient(135deg, #f56c6c 0%, #ff8a8a 100%);
+  color: white;
+}
+
+.stats-info {
+  flex: 1;
+}
+
+.stats-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: #303133;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.stats-value.profit {
+  color: #67c23a;
+}
+
+.stats-value.loss {
+  color: #f56c6c;
+}
+
+.stats-value.consumption {
+  color: #e6a23c;
+}
+
+.stats-value.income {
+  color: #67c23a;
+}
+
+.stats-value.expense {
+  color: #f56c6c;
+}
+
+.stats-label {
+  font-size: 14px;
+  color: #909399;
 }
 
 </style>

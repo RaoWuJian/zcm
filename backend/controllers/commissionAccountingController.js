@@ -275,7 +275,35 @@ const getCommissionAccountings = asyncHandler(async (req, res) => {
 
   const total = await CommissionAccounting.countDocuments(query);
 
-  res.status(200).json({
+  // 只在第一页时计算统计信息，提高性能
+  let stats = null;
+  if (pageNum === 1) {
+    const statsAggregation = await CommissionAccounting.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: null,
+          totalNetTransactionData: { $sum: '$netTransactionData' },
+          totalCommissionProfit: { $sum: '$commissionProfit' },
+          totalNetProfit: { $sum: '$netProfit' },
+          totalDailyConsumption: { $sum: '$dailyConsumption' },
+          averageCommission: { $avg: '$commission' },
+          recordCount: { $sum: 1 }
+        }
+      }
+    ]);
+
+    stats = statsAggregation.length > 0 ? statsAggregation[0] : {
+      totalNetTransactionData: 0,
+      totalCommissionProfit: 0,
+      totalNetProfit: 0,
+      totalDailyConsumption: 0,
+      averageCommission: 0,
+      recordCount: 0
+    };
+  }
+
+  const response = {
     success: true,
     data: records,
     pagination: {
@@ -284,7 +312,21 @@ const getCommissionAccountings = asyncHandler(async (req, res) => {
       total,
       pages: Math.ceil(total / limitNum)
     }
-  });
+  };
+
+  // 只在第一页时返回统计数据
+  if (stats) {
+    response.stats = {
+      totalNetTransactionData: stats.totalNetTransactionData || 0,
+      totalCommissionProfit: stats.totalCommissionProfit || 0,
+      totalNetProfit: stats.totalNetProfit || 0,
+      totalDailyConsumption: stats.totalDailyConsumption || 0,
+      averageCommission: stats.averageCommission || 0,
+      recordCount: stats.recordCount || 0
+    };
+  }
+
+  res.status(200).json(response);
 });
 
 // @desc    获取单个核算佣金记录

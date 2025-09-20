@@ -144,9 +144,11 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="部门" width="100">
+        <el-table-column label="部门" width="120">
           <template #default="{ row }">
-            <span v-if="row.departmentPath" class="dept-text">{{ row.departmentPath }}</span>
+            <span v-if="row.departmentPath" class="dept-text" :title="row.departmentPath">
+              {{ getDepartmentName(row.departmentPath) }}
+            </span>
             <span v-else class="text-gray">未分配</span>
           </template>
         </el-table-column>
@@ -225,7 +227,8 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="角色" prop="rolePermission">
-              <el-select v-model="form.rolePermission" :disabled="!hasAnyPermission(['role:create','role:update','role:manage'])" placeholder="请选择角色" style="width: 100%" @focus="getRoleOptions">
+              <!-- <el-select v-model="form.rolePermission" :disabled="!hasAnyPermission(['role:create','role:update','role:manage'])" placeholder="请选择角色" style="width: 100%" @focus="getRoleOptions"> -->
+              <el-select v-model="form.rolePermission" placeholder="请选择角色" style="width: 100%" @focus="getRoleOptions">
                 <el-option
                   v-for="role in roleOptions"
                   :key="role._id"
@@ -243,7 +246,8 @@
         </el-row>
         
         <el-form-item label="部门" prop="departmentPath">
-          <el-select v-model="form.departmentPath" :disabled="!hasAnyPermission(['product:create','product:update','product:manage'])" placeholder="请选择部门" style="width: 100%" clearable>
+          <!-- <el-select v-model="form.departmentPath" :disabled="!hasAnyPermission(['product:create','product:update','product:manage'])" placeholder="请选择部门" style="width: 100%" clearable> -->
+          <el-select v-model="form.departmentPath" placeholder="请选择部门" style="width: 100%" clearable>
             <el-option 
               v-for="dept in departmentOptions" 
               :key="dept._id || 'empty'" 
@@ -333,19 +337,30 @@ const form = reactive({
 // 表单验证规则
 const rules = {
   username: [
-    { required: true, message: '请输入姓名', trigger: 'blur' }
+    { required: true, message: '请输入员工姓名', trigger: 'blur' },
+    { min: 2, message: '员工姓名至少2个字符', trigger: 'blur' },
+    { max: 50, message: '员工姓名最多50个字符', trigger: 'blur' },
+    { pattern: /^[\u4e00-\u9fa5a-zA-Z\s]+$/, message: '员工姓名只能包含中文、英文和空格', trigger: 'blur' }
   ],
   loginAccount: [
-    { required: true, message: '请输入登录账号', trigger: 'blur' }
+    { required: true, message: '请输入登录账号', trigger: 'blur' },
+    { min: 3, message: '登录账号至少3个字符', trigger: 'blur' },
+    { max: 30, message: '登录账号最多30个字符', trigger: 'blur' },
+    { pattern: /^[a-zA-Z0-9_]+$/, message: '登录账号只能包含字母、数字和下划线', trigger: 'blur' }
   ],
   loginPassword: [
-    { required: true, message: '请输入登录密码', trigger: 'blur' }
+    { required: true, message: '请输入登录密码', trigger: 'blur' },
+    { min: 6, message: '登录密码至少6个字符', trigger: 'blur' },
+    { max: 50, message: '登录密码最多50个字符', trigger: 'blur' }
   ],
-  // rolePermission: [
-  //   { message: '请选择角色', trigger: 'change' }
-  // ],
+  rolePermission: [
+    { required: true, message: '请选择员工角色', trigger: 'change' }
+  ],
   departmentPath: [
-    { message: '请选择部门', trigger: 'change' }
+    { required: true, message: '请选择所属部门', trigger: 'change' }
+  ],
+  remark: [
+    { max: 200, message: '备注最多200个字符', trigger: 'blur' }
   ]
 }
 
@@ -528,8 +543,28 @@ const handleSubmit = async () => {
       ElMessage.success(form._id ? '更新成功' : '创建成功')
       dialogVisible.value = false
       getEmployeeList()
+    } else {
+      // 显示后端返回的具体错误信息
+      ElMessage.error(response.message || (form._id ? '更新失败' : '创建失败'))
     }
   } catch (error) {
+    // 处理表单验证错误
+    if (error.fields) {
+      // 表单验证失败，显示第一个验证错误
+      const firstError = Object.values(error.fields)[0][0]
+      ElMessage.error(firstError.message)
+    } else {
+      // 处理后端API错误
+      let errorMessage = form._id ? '更新员工失败' : '创建员工失败'
+
+      if (error.response && error.response.data) {
+        errorMessage = error.response.data.message || errorMessage
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+
+      ElMessage.error(errorMessage)
+    }
   } finally {
     submitLoading.value = false
   }
@@ -555,7 +590,7 @@ const handleExport = async () => {
       '姓名': item.username,
       '登录账号': item.loginAccount,
       '角色': item.rolePermission?.roleName || '普通用户',
-      '部门': item.departmentPath || '未分配',
+      '部门': item.departmentPath ? getDepartmentName(item.departmentPath) : '未分配',
       '状态': item.isActive ? '活跃' : '禁用',
       '备注': item.remark || '',
       '创建时间': new Date(item.createdAt).toLocaleString()
@@ -597,6 +632,15 @@ const getRoleDisplayName = (row) => {
   }
 
   return '普通用户'
+}
+
+// 从部门路径中提取部门名称
+const getDepartmentName = (departmentPath) => {
+  if (!departmentPath) return ''
+
+  // 部门路径格式：A->B->C->D，我们需要最后一个部门名称
+  const parts = departmentPath.split('->')
+  return parts[parts.length - 1].trim()
 }
 
 // 获取角色选项列表

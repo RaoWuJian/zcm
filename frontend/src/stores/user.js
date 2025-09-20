@@ -57,10 +57,19 @@ export const useUserStore = defineStore('user', {
           this.login(result.data.token, result.data.userInfo)
           return { success: true, message: result.message }
         } else {
-          return { success: false, message: result.message }
+          return { success: false, message: result.message || '登录失败' }
         }
       } catch (error) {
-        return { success: false, message: '登录过程中出现错误' }
+        // 提取具体的错误信息
+        let errorMessage = '登录过程中出现错误'
+
+        if (error.response && error.response.data) {
+          errorMessage = error.response.data.message || errorMessage
+        } else if (error.message) {
+          errorMessage = error.message
+        }
+
+        return { success: false, message: errorMessage }
       }
     },
 

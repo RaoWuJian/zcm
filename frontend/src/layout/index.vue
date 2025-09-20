@@ -5,7 +5,7 @@
       <el-aside :width="isCollapsed ? '64px' : '200px'" class="sidebar">
         <div class="logo">
           <el-icon v-if="isCollapsed" size="24"><Setting /></el-icon>
-          <span v-else>后台管理系统</span>
+          <span v-else>招财猫</span>
         </div>
         
         <el-menu
@@ -182,6 +182,7 @@
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item command="profile">个人中心</el-dropdown-item>
+                  <el-dropdown-item command="operation-logs">操作日志</el-dropdown-item>
                   <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -234,6 +235,9 @@ const handleCommand = (command) => {
   switch (command) {
     case 'profile':
       ElMessage.info('个人中心功能待开发')
+      break
+    case 'operation-logs':
+      router.push('/operation-logs')
       break
     case 'logout':
       userStore.logout()

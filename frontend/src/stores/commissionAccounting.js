@@ -13,6 +13,16 @@ export const useCommissionAccountingStore = defineStore('commissionAccounting', 
     count: 0,
     totalRecords: 0
   })
+
+  // 统计数据（基于所有查询结果，不仅仅是当前页）
+  const stats = ref({
+    totalNetTransactionData: 0,
+    totalCommissionProfit: 0,
+    totalNetProfit: 0,
+    totalDailyConsumption: 0,
+    averageCommission: 0,
+    recordCount: 0
+  })
   
   // 计算属性
   const profitableAccountings = computed(() => {
@@ -29,26 +39,25 @@ export const useCommissionAccountingStore = defineStore('commissionAccounting', 
       .slice(0, 10)
   })
   
+  // 基于所有查询数据的统计（从后端获取）
   const averageCommission = computed(() => {
-    if (commissionAccountings.value.length === 0) return 0
-    const total = commissionAccountings.value.reduce((sum, accounting) => sum + accounting.commission, 0)
-    return total / commissionAccountings.value.length
+    return stats.value.averageCommission || 0
   })
-  
+
   const totalCommissionProfit = computed(() => {
-    return commissionAccountings.value.reduce((sum, accounting) => sum + accounting.commissionProfit, 0)
+    return stats.value.totalCommissionProfit || 0
   })
-  
+
   const totalNetProfit = computed(() => {
-    return commissionAccountings.value.reduce((sum, accounting) => sum + accounting.netProfit, 0)
+    return stats.value.totalNetProfit || 0
   })
-  
+
   const totalNetTransactionData = computed(() => {
-    return commissionAccountings.value.reduce((sum, accounting) => sum + accounting.netTransactionData, 0)
+    return stats.value.totalNetTransactionData || 0
   })
 
   const totalDailyConsumption = computed(() => {
-    return commissionAccountings.value.reduce((sum, accounting) => sum + accounting.dailyConsumption, 0)
+    return stats.value.totalDailyConsumption || 0
   })
   
   // 方法
@@ -56,15 +65,29 @@ export const useCommissionAccountingStore = defineStore('commissionAccounting', 
     try {
       loading.value = true
       const response = await commissionAccountingApi.getCommissionAccountings(params)
-      
+
       if (response.success && response.data) {
         commissionAccountings.value = response.data || []
         pagination.value = {
-          current: response.pagination?.current || 1,
+          current: response.pagination?.current || response.pagination?.page || 1,
           total: response.pagination?.total || 0,
           count: response.pagination?.count || 0,
           totalRecords: response.pagination?.totalRecords || 0
         }
+
+        // 更新统计数据（只在第一页时更新，其他页面保持统计数据不变）
+        if (response.stats) {
+          stats.value = {
+            totalNetTransactionData: response.stats.totalNetTransactionData || 0,
+            totalCommissionProfit: response.stats.totalCommissionProfit || 0,
+            totalNetProfit: response.stats.totalNetProfit || 0,
+            totalDailyConsumption: response.stats.totalDailyConsumption || 0,
+            averageCommission: response.stats.averageCommission || 0,
+            recordCount: response.stats.recordCount || 0
+          }
+        }
+        // 如果不是第一页且没有返回stats，保持现有的统计数据不变
+
         return { success: true, data: response.data }
       } else {
         return { success: false, message: response.message || '获取核算佣金列表失败' }
@@ -164,6 +187,15 @@ export const useCommissionAccountingStore = defineStore('commissionAccounting', 
       count: 0,
       totalRecords: 0
     }
+    // 清空统计数据
+    stats.value = {
+      totalNetTransactionData: 0,
+      totalCommissionProfit: 0,
+      totalNetProfit: 0,
+      totalDailyConsumption: 0,
+      averageCommission: 0,
+      recordCount: 0
+    }
   }
   
   // 计算核算佣金数据（用于实时预览）
@@ -248,7 +280,8 @@ export const useCommissionAccountingStore = defineStore('commissionAccounting', 
     commissionAccountings,
     loading,
     pagination,
-    
+    stats,
+
     // 计算属性
     profitableAccountings,
     lossAccountings,
@@ -258,7 +291,7 @@ export const useCommissionAccountingStore = defineStore('commissionAccounting', 
     totalNetProfit,
     totalNetTransactionData,
     totalDailyConsumption,
-    
+
     // 方法
     fetchCommissionAccountings,
     addCommissionAccounting,
