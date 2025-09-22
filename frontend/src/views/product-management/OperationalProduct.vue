@@ -1,13 +1,13 @@
 <template>
-  <div class="commission-accounting">
+  <div class="operational-product">
     <!-- 页面标题 -->
     <div class="page-header">
       <div class="page-title">
         <el-icon class="title-icon"><List /></el-icon>
-        <h2>产品佣金</h2>
+        <h2>运营商品</h2>
       </div>
       <div class="page-description">
-        核算佣金管理，实时计算佣金利润和净利润
+        运营商品管理，实时计算佣金利润和净利润
       </div>
     </div>
     <!-- 搜索栏 -->
@@ -139,7 +139,7 @@
         </el-button>
       </div>
       <div class="action-right">
-        <span class="total-count">共 {{ commissionStore.pagination?.total || 0 }} 条数据</span>
+        <span class="total-count">共 {{ operationalProductStore.pagination?.total || 0 }} 条数据</span>
         <el-tooltip content="刷新数据" placement="top">
           <el-button @click="handleRefresh" :icon="Refresh" circle />
         </el-tooltip>
@@ -167,62 +167,90 @@
         <div v-show="showStatsPanel" class="stats-content-wrapper">
           <div class="stats-cards">
             <el-row :gutter="20">
-              <el-col :span="6">
+              <el-col :span="4">
                 <el-card class="stats-card">
                   <div class="stats-content">
                     <div class="stats-icon commission">
                       <el-icon><Coin /></el-icon>
                     </div>
                     <div class="stats-info">
-                      <div class="stats-value">¥{{ commissionStore.totalNetTransactionData.toFixed(2) }}</div>
+                      <div class="stats-value">¥{{ operationalProductStore.totalNetTransactionData.toFixed(2) }}</div>
                       <div class="stats-label">总净成交</div>
                     </div>
                   </div>
                 </el-card>
               </el-col>
 
-              <el-col :span="6">
+              <el-col :span="4">
                 <el-card class="stats-card">
                   <div class="stats-content">
                     <div class="stats-icon profit">
                       <el-icon><TrendCharts /></el-icon>
                     </div>
                     <div class="stats-info">
-                      <div class="stats-value">¥{{ commissionStore.totalCommissionProfit.toFixed(2) }}</div>
+                      <div class="stats-value">¥{{ operationalProductStore.totalCommissionProfit.toFixed(2) }}</div>
                       <div class="stats-label">总佣金利润</div>
                     </div>
                   </div>
                 </el-card>
               </el-col>
 
-              <el-col :span="6">
+              <el-col :span="4">
                 <el-card class="stats-card">
                   <div class="stats-content">
                     <div class="stats-icon warning">
                       <el-icon><Money /></el-icon>
                     </div>
                     <div class="stats-info">
-                      <div class="stats-value consumption">¥{{ commissionStore.totalDailyConsumption.toFixed(2) }}</div>
+                      <div class="stats-value consumption">¥{{ operationalProductStore.totalDailyConsumption.toFixed(2) }}</div>
                       <div class="stats-label">总消耗</div>
                     </div>
                   </div>
                 </el-card>
               </el-col>
 
-              <el-col :span="6">
+              <el-col :span="4">
                 <el-card class="stats-card">
                   <div class="stats-content">
-                    <div class="stats-icon" :class="commissionStore.totalNetProfit >= 0 ? 'success' : 'danger'">
+                    <div class="stats-icon" :class="operationalProductStore.totalNetProfit >= 0 ? 'success' : 'danger'">
                       <el-icon>
-                        <SuccessFilled v-if="commissionStore.totalNetProfit >= 0" />
+                        <SuccessFilled v-if="operationalProductStore.totalNetProfit >= 0" />
                         <WarningFilled v-else />
                       </el-icon>
                     </div>
                     <div class="stats-info">
-                      <div class="stats-value" :class="commissionStore.totalNetProfit >= 0 ? 'profit' : 'loss'">
-                        ¥{{ commissionStore.totalNetProfit.toFixed(2) }}
+                      <div class="stats-value" :class="operationalProductStore.totalNetProfit >= 0 ? 'profit' : 'loss'">
+                        ¥{{ operationalProductStore.totalNetProfit.toFixed(2) }}
                       </div>
                       <div class="stats-label">总净利润</div>
+                    </div>
+                  </div>
+                </el-card>
+              </el-col>
+
+              <el-col :span="4">
+                <el-card class="stats-card">
+                  <div class="stats-content">
+                    <div class="stats-icon info">
+                      <el-icon><List /></el-icon>
+                    </div>
+                    <div class="stats-info">
+                      <div class="stats-value">{{ operationalProductStore.totalOrderCount || 0 }}</div>
+                      <div class="stats-label">总订单数量</div>
+                    </div>
+                  </div>
+                </el-card>
+              </el-col>
+
+              <el-col :span="4">
+                <el-card class="stats-card">
+                  <div class="stats-content">
+                    <div class="stats-icon primary">
+                      <el-icon><DataAnalysis /></el-icon>
+                    </div>
+                    <div class="stats-info">
+                      <div class="stats-value">{{ operationalProductStore.stats.recordCount || 0 }}</div>
+                      <div class="stats-label">记录总数</div>
                     </div>
                   </div>
                 </el-card>
@@ -233,11 +261,11 @@
       </el-collapse-transition>
     </div>
 
-    <!-- 核算佣金列表 -->
+    <!-- 运营商品列表 -->
     <el-card class="table-card">
       <el-table
-        :data="commissionStore.commissionAccountings"
-        v-loading="commissionStore.loading"
+        :data="operationalProductStore.operationalProducts"
+        v-loading="operationalProductStore.loading"
         @selection-change="handleSelectionChange"
         stripe
         border
@@ -299,6 +327,13 @@
             </span>
           </template>
         </el-table-column>
+
+        <el-table-column prop="orderCount" label="订单数量" width="100" align="right">
+          <template #default="{ row }">
+            <span class="count">{{ row.orderCount || '0' }}</span>
+          </template>
+        </el-table-column>
+
          <el-table-column prop="description" label="备注" align="right">
           <template #default="{ row }">
             <span >{{ row.description || '-' }}</span>
@@ -331,7 +366,7 @@
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
           :page-sizes="[10, 20, 50, 100]"
-          :total="commissionStore.pagination.total"
+          :total="operationalProductStore.pagination.total"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
@@ -342,21 +377,21 @@
     <!-- 新增/编辑对话框 -->
     <el-dialog
       v-model="showAddDialog"
-      :title="editingAccounting ? '编辑核算佣金' : '新增核算佣金'"
+      :title="editingProduct ? '编辑运营商品' : '新增运营商品'"
       width="900px"
       append-to-body
       @close="resetForm"
     >
       <el-form
-        ref="accountingFormRef"
-        :model="accountingForm"
-        :rules="accountingRules"
+        ref="productFormRef"
+        :model="productForm"
+        :rules="productRules"
         label-width="120px"
       >
       
         <el-form-item label="产品名称" prop="name">
           <el-autocomplete
-            v-model="accountingForm.name"
+            v-model="productForm.name"
             :fetch-suggestions="queryProductNameSuggestions"
             placeholder="请输入产品名称"
             maxlength="100"
@@ -368,7 +403,7 @@
 
         <el-form-item label="店铺名称" prop="shopName">
           <el-autocomplete
-            v-model="accountingForm.shopName"
+            v-model="productForm.shopName"
             :fetch-suggestions="queryShopNameSuggestions"
             placeholder="请输入店铺名称（可选）"
             maxlength="100"
@@ -381,7 +416,7 @@
 
         <el-form-item label="平台" prop="platform">
           <el-autocomplete
-            v-model="accountingForm.platform"
+            v-model="productForm.platform"
             :fetch-suggestions="queryPlatformSuggestions"
             placeholder="请输入平台名称（可选）"
             maxlength="50"
@@ -394,7 +429,7 @@
 
         <el-form-item label="团队" prop="team">
           <el-autocomplete
-            v-model="accountingForm.team"
+            v-model="productForm.team"
             :fetch-suggestions="queryTeamSuggestions"
             placeholder="请输入团队名称（可选）"
             maxlength="50"
@@ -409,7 +444,7 @@
           <el-col :span="12">
             <el-form-item label="净成交数据" prop="netTransactionData">
               <el-input
-                v-model="accountingForm.netTransactionData"
+                v-model="productForm.netTransactionData"
                 placeholder="支持负数，如: -500.25"
                 style="width: 100%"
                 @input="(value) => handleNumberInput('netTransactionData', value)"
@@ -420,7 +455,7 @@
           <el-col :span="12">
             <el-form-item label="佣金(%)" prop="commission">
               <el-input
-                v-model="accountingForm.commission"
+                v-model="productForm.commission"
                 placeholder="支持负数，如: -2.5"
                 style="width: 100%"
                 @input="(value) => handleNumberInput('commission', value)"
@@ -432,11 +467,20 @@
 
         <el-form-item label="今日消耗" prop="dailyConsumption">
           <el-input
-            v-model="accountingForm.dailyConsumption"
+            v-model="productForm.dailyConsumption"
             placeholder="支持负数，如: -100.50"
             style="width: 100%"
             @input="(value) => handleNumberInput('dailyConsumption', value)"
             @blur="updateCalculation"
+          />
+        </el-form-item>
+
+        <el-form-item label="订单数量" prop="orderCount">
+          <el-input
+            v-model="productForm.orderCount"
+            placeholder="请输入订单数量，如: 100"
+            style="width: 100%"
+            @input="(value) => handleNumberInput('orderCount', value)"
           />
         </el-form-item>
 
@@ -467,7 +511,7 @@
 
         <el-form-item label="备注" prop="description">
           <el-input
-            v-model="accountingForm.description"
+            v-model="productForm.description"
             type="textarea"
             :rows="3"
             placeholder="请输入备注信息"
@@ -481,7 +525,7 @@
         <span class="dialog-footer">
           <el-button @click="showAddDialog = false">取消</el-button>
           <el-button type="primary" @click="handleSubmit" :loading="submitting">
-            {{ editingAccounting ? '更新' : '创建' }}
+            {{ editingProduct ? '更新' : '创建' }}
           </el-button>
         </span>
       </template>
@@ -490,7 +534,7 @@
     <!-- 批量新增对话框 -->
     <el-dialog
       v-model="showBatchAddDialog"
-      title="批量新增核算佣金"
+      title="批量新增运营商品"
       width="900px"
       append-to-body
       @close="resetBatchForm"
@@ -643,6 +687,16 @@
                         style="width: 100%"
                         @input="(value) => handleDailyConsumptionInput(index, value)"
                         @focus="onDailyConsumptionFocus(index)"
+                      />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="24">
+                    <el-form-item label="订单数量">
+                      <el-input
+                        v-model="record.orderCount"
+                        placeholder="请输入订单数量，如: 100"
+                        style="width: 100%"
+                        @input="(value) => handleBatchNumberInput(index, 'orderCount', value)"
                       />
                     </el-form-item>
                   </el-col>
@@ -1272,7 +1326,7 @@ import {
   ArrowDown,
   InfoFilled,
 } from '@element-plus/icons-vue'
-import { useCommissionAccountingStore } from '@/stores/commissionAccounting'
+import { useOperationalProductStore } from '@/stores/operationalProduct'
 import { formatUtcToLocalDateTime } from '@/utils/dateUtils'
 import { numberValidators } from '@/utils/inputValidation'
 import {
@@ -1287,7 +1341,7 @@ import {
 } from '@/utils/excelUtils'
 
 // Store
-const commissionStore = useCommissionAccountingStore()
+const operationalProductStore = useOperationalProductStore()
 
 // 响应式数据
 const showAddDialog = ref(false)
@@ -1295,7 +1349,7 @@ const showBatchAddDialog = ref(false)
 const showImportDialog = ref(false)
 const showSummaryDialog = ref(false)
 const showSelectedSummaryDialog = ref(false)
-const editingAccounting = ref(null)
+const editingProduct = ref(null)
 const submitting = ref(false)
 const batchSubmitting = ref(false)
 const importSubmitting = ref(false)
@@ -1395,8 +1449,8 @@ const dateShortcuts = [
   }
 ]
 
-// 核算佣金表单
-const accountingForm = reactive({
+// 运营商品表单
+const productForm = reactive({
   name: '',
   shopName: '',
   platform: '',
@@ -1404,6 +1458,7 @@ const accountingForm = reactive({
   netTransactionData: 0,
   commission: 0,
   dailyConsumption: 0,
+  orderCount: 0,
   description: ''
 })
 
@@ -1419,17 +1474,18 @@ const batchForm = reactive({
       team: '',
       netTransactionData: 0,
       commission: 0,
-      dailyConsumption: 0 // 每个平台的今日消耗
+      dailyConsumption: 0, // 每个平台的今日消耗
+      orderCount: 0
     }
   ]
 })
 
 // 表单引用
-const accountingFormRef = ref()
+const productFormRef = ref()
 const batchFormRef = ref()
 
 // 表单验证规则
-const accountingRules = {
+const productRules = {
   name: [
     { required: true, message: '请输入名称', trigger: 'blur' },
     { min: 1, max: 100, message: '名称长度在 1 到 100 个字符', trigger: 'blur' }
@@ -1490,11 +1546,11 @@ const selectedSummaryStats = ref({
 // 实时计算
 const updateCalculation = () => {
   const calculationData = {
-    netTransactionData: parseFloat(accountingForm.netTransactionData) || 0,
-    commission: parseFloat(accountingForm.commission) || 0,
-    dailyConsumption: parseFloat(accountingForm.dailyConsumption) || 0
+    netTransactionData: parseFloat(productForm.netTransactionData) || 0,
+    commission: parseFloat(productForm.commission) || 0,
+    dailyConsumption: parseFloat(productForm.dailyConsumption) || 0
   }
-  calculationResult.value = commissionStore.calculateCommissionAccounting(calculationData)
+  calculationResult.value = operationalProductStore.calculateCommissionAccounting(calculationData)
 }
 
 // 批量新增实时计算
@@ -1505,13 +1561,13 @@ const updateBatchCalculation = () => {
       commission: parseFloat(record.commission) || 0,
       dailyConsumption: parseFloat(record.dailyConsumption) || 0
     }
-    return commissionStore.calculateCommissionAccounting(calculationData)
+    return operationalProductStore.calculateCommissionAccounting(calculationData)
   })
 }
 
 // 监听表单变化，实时计算
 watch(
-  () => [accountingForm.netTransactionData, accountingForm.commission, accountingForm.dailyConsumption],
+  () => [productForm.netTransactionData, productForm.commission, productForm.dailyConsumption],
   () => {
     updateCalculation()
   },
@@ -1527,7 +1583,7 @@ watch(
   { deep: true, immediate: true }
 )
 
-// 获取核算佣金列表
+// 获取运营商品列表
 const fetchAccountings = async () => {
   const params = {
     page: currentPage.value,
@@ -1542,7 +1598,7 @@ const fetchAccountings = async () => {
     }
   })
 
-  await commissionStore.fetchCommissionAccountings(params)
+  await operationalProductStore.fetchOperationalProducts(params)
 }
 
 // 日期范围处理函数
@@ -1560,12 +1616,12 @@ const handleDateRangeChange = (dates) => {
 const handleSearch = () => {
   currentPage.value = 1
   // 清空之前的统计数据，因为搜索条件改变了
-  commissionStore.stats.totalNetTransactionData = 0
-  commissionStore.stats.totalCommissionProfit = 0
-  commissionStore.stats.totalNetProfit = 0
-  commissionStore.stats.totalDailyConsumption = 0
-  commissionStore.stats.averageCommission = 0
-  commissionStore.stats.recordCount = 0
+  operationalProductStore.stats.totalNetTransactionData = 0
+  operationalProductStore.stats.totalCommissionProfit = 0
+  operationalProductStore.stats.totalNetProfit = 0
+  operationalProductStore.stats.totalDailyConsumption = 0
+  operationalProductStore.stats.averageCommission = 0
+  operationalProductStore.stats.recordCount = 0
   fetchAccountings()
 }
 
@@ -1585,12 +1641,12 @@ const handleReset = () => {
   currentPage.value = 1
 
   // 清空统计数据，因为搜索条件重置了
-  commissionStore.stats.totalNetTransactionData = 0
-  commissionStore.stats.totalCommissionProfit = 0
-  commissionStore.stats.totalNetProfit = 0
-  commissionStore.stats.totalDailyConsumption = 0
-  commissionStore.stats.averageCommission = 0
-  commissionStore.stats.recordCount = 0
+  operationalProductStore.stats.totalNetTransactionData = 0
+  operationalProductStore.stats.totalCommissionProfit = 0
+  operationalProductStore.stats.totalNetProfit = 0
+  operationalProductStore.stats.totalDailyConsumption = 0
+  operationalProductStore.stats.averageCommission = 0
+  operationalProductStore.stats.recordCount = 0
 
   // 重置后重新设置默认搜索今天
   initializeDefaultSearch()
@@ -1613,27 +1669,28 @@ const handleSelectionChange = (selection) => {
 }
 
 // 编辑
-const handleEdit = (accounting) => {
-  editingAccounting.value = accounting
-  Object.assign(accountingForm, {
-    name: accounting.name,
-    shopName: accounting.shopName || '',
-    platform: accounting.platform || '',
-    team: accounting.team || '',
-    netTransactionData: accounting.netTransactionData,
-    commission: accounting.commission,
-    dailyConsumption: accounting.dailyConsumption,
-    description: accounting.description || ''
+const handleEdit = (product) => {
+  editingProduct.value = product
+  Object.assign(productForm, {
+    name: product.name,
+    shopName: product.shopName || '',
+    platform: product.platform || '',
+    team: product.team || '',
+    netTransactionData: product.netTransactionData,
+    commission: product.commission,
+    dailyConsumption: product.dailyConsumption,
+    orderCount: product.orderCount || 0,
+    description: product.description || ''
   })
   updateCalculation()
   showAddDialog.value = true
 }
 
 // 删除
-const handleDelete = async (accounting) => {
+const handleDelete = async (product) => {
   try {
     await ElMessageBox.confirm(
-      `确定要删除核算佣金 "${accounting.name}" 吗？`,
+      `确定要删除运营商品 "${product.name}" 吗？`,
       '确认删除',
       {
         confirmButtonText: '确定',
@@ -1642,7 +1699,7 @@ const handleDelete = async (accounting) => {
       }
     )
 
-    const result = await commissionStore.deleteCommissionAccounting(accounting._id)
+    const result = await operationalProductStore.deleteOperationalProduct(product._id)
     if (result.success) {
       ElMessage.success(result.message)
     } else {
@@ -1662,7 +1719,7 @@ const handleBatchDelete = async () => {
 
   try {
     await ElMessageBox.confirm(
-      `确定要删除选中的 ${selectedAccountings.value.length} 条核算佣金记录吗？`,
+      `确定要删除选中的 ${selectedAccountings.value.length} 条运营商品记录吗？`,
       '确认批量删除',
       {
         confirmButtonText: '确定',
@@ -1671,8 +1728,8 @@ const handleBatchDelete = async () => {
       }
     )
 
-    const ids = selectedAccountings.value.map(accounting => accounting._id)
-    const result = await commissionStore.batchDeleteCommissionAccountings(ids)
+    const ids = selectedAccountings.value.map(product => product._id)
+    const result = await operationalProductStore.batchDeleteOperationalProducts(ids)
 
     if (result.success) {
       ElMessage.success(result.message)
@@ -1688,26 +1745,26 @@ const handleBatchDelete = async () => {
 // 提交表单
 const handleSubmit = async () => {
   try {
-    await accountingFormRef.value.validate()
+    await productFormRef.value.validate()
 
     submitting.value = true
 
     // 转换字符串为数字类型再提交
     const submitData = {
-      ...accountingForm,
-      netTransactionData: parseFloat(accountingForm.netTransactionData) || 0,
-      commission: parseFloat(accountingForm.commission) || 0,
-      dailyConsumption: parseFloat(accountingForm.dailyConsumption) || 0
+      ...productForm,
+      netTransactionData: parseFloat(productForm.netTransactionData) || 0,
+      commission: parseFloat(productForm.commission) || 0,
+      dailyConsumption: parseFloat(productForm.dailyConsumption) || 0
     }
 
     let result
 
-    if (editingAccounting.value) {
+    if (editingProduct.value) {
       // 更新
-      result = await commissionStore.updateCommissionAccounting(editingAccounting.value._id, submitData)
+      result = await operationalProductStore.updateOperationalProduct(editingProduct.value._id, submitData)
     } else {
       // 新增
-      result = await commissionStore.addCommissionAccounting(submitData)
+      result = await operationalProductStore.addOperationalProduct(submitData)
     }
 
     if (result.success) {
@@ -1727,8 +1784,8 @@ const handleSubmit = async () => {
 
 // 重置表单
 const resetForm = () => {
-  editingAccounting.value = null
-  Object.assign(accountingForm, {
+  editingProduct.value = null
+  Object.assign(productForm, {
     name: '',
     shopName: '',
     platform: '',
@@ -1736,12 +1793,13 @@ const resetForm = () => {
     netTransactionData: 0,
     commission: 0,
     dailyConsumption: 0,
+    orderCount: 0,
     description: ''
   })
   calculationResult.value = null
 
-  if (accountingFormRef.value) {
-    accountingFormRef.value.resetFields()
+  if (productFormRef.value) {
+    productFormRef.value.resetFields()
   }
 }
 
@@ -1750,12 +1808,12 @@ const handleSizeChange = (size) => {
   pageSize.value = size
   currentPage.value = 1
   // 改变页面大小时回到第一页，清空统计数据以便重新计算
-  commissionStore.stats.totalNetTransactionData = 0
-  commissionStore.stats.totalCommissionProfit = 0
-  commissionStore.stats.totalNetProfit = 0
-  commissionStore.stats.totalDailyConsumption = 0
-  commissionStore.stats.averageCommission = 0
-  commissionStore.stats.recordCount = 0
+  operationalProductStore.stats.totalNetTransactionData = 0
+  operationalProductStore.stats.totalCommissionProfit = 0
+  operationalProductStore.stats.totalNetProfit = 0
+  operationalProductStore.stats.totalDailyConsumption = 0
+  operationalProductStore.stats.averageCommission = 0
+  operationalProductStore.stats.recordCount = 0
   fetchAccountings()
 }
 
@@ -1768,25 +1826,25 @@ const handleCurrentChange = (page) => {
 const loadSuggestions = async () => {
   try {
     // 获取店铺名称建议
-    const shopNameResult = await commissionStore.fetchShopNameSuggestions()
+    const shopNameResult = await operationalProductStore.fetchShopNameSuggestions()
     if (shopNameResult.success) {
       shopNameSuggestions.value = shopNameResult.data.map(name => ({ value: name }))
     }
 
     // 获取平台建议
-    const platformResult = await commissionStore.fetchPlatformSuggestions()
+    const platformResult = await operationalProductStore.fetchPlatformSuggestions()
     if (platformResult.success) {
       platformSuggestions.value = platformResult.data.map(name => ({ value: name }))
     }
 
     // 获取产品名称建议
-    const productNameResult = await commissionStore.fetchProductNameSuggestions()
+    const productNameResult = await operationalProductStore.fetchProductNameSuggestions()
     if (productNameResult.success) {
       productNameSuggestions.value = productNameResult.data.map(name => ({ value: name }))
     }
 
     // 获取团队建议
-    const teamResult = await commissionStore.fetchTeamSuggestions()
+    const teamResult = await operationalProductStore.fetchTeamSuggestions()
     if (teamResult.success) {
       teamSuggestions.value = teamResult.data.map(name => ({ value: name }))
     }
@@ -1837,17 +1895,17 @@ const queryTeamSuggestions = (queryString, callback) => {
 
 // 店铺名称选择处理
 const handleShopNameSelect = (item) => {
-  accountingForm.shopName = item.value
+  productForm.shopName = item.value
 }
 
 // 平台选择处理
 const handlePlatformSelect = (item) => {
-  accountingForm.platform = item.value
+  productForm.platform = item.value
 }
 
 // 团队选择处理
 const handleTeamSelect = (item) => {
-  accountingForm.team = item.value
+  productForm.team = item.value
 }
 
 // 数字输入验证处理器
@@ -1856,7 +1914,7 @@ const handleNumberInput = (field, value) => {
   const validatedValue = numberValidators.signedNumber(value)
 
   // 更新显示值（保持输入框显示验证后的值）
-  accountingForm[field] = validatedValue
+  productForm[field] = validatedValue
 
   // 如果需要数值计算，在其他地方转换
   return validatedValue
@@ -2025,7 +2083,7 @@ const handleImportConfirm = async () => {
     importSubmitting.value = true
 
     // 使用批量创建接口
-    const result = await commissionStore.batchAddCommissionAccounting(importData.value)
+    const result = await operationalProductStore.batchAddOperationalProducts(importData.value)
 
     if (result.success) {
       ElMessage.success(result.message)
@@ -2074,13 +2132,13 @@ const fetchProductSummary = async () => {
 
     // 简化版本：直接从当前已加载的数据中筛选
     // 如果主列表没有数据，先加载一次
-    if (commissionStore.commissionAccountings.length === 0) {
+    if (operationalProductStore.operationalProducts.length === 0) {
       await loadAccountings()
     }
 
     // 从当前数据中筛选匹配的产品
     const searchTerm = summaryForm.productName.trim().toLowerCase()
-    const allData = commissionStore.commissionAccountings.filter(item =>
+    const allData = operationalProductStore.operationalProducts.filter(item =>
       item.name && item.name.toLowerCase().includes(searchTerm)
     )
 
@@ -2388,7 +2446,8 @@ const addBatchRecord = () => {
     team: '',
     netTransactionData: 0,
     commission: 0,
-    dailyConsumption: suggestedConsumption
+    dailyConsumption: suggestedConsumption,
+    orderCount: 0
   })
 
   // 如果添加了新记录且有总消耗，重新计算平摊
@@ -2455,7 +2514,7 @@ const handleBatchSubmit = async () => {
       description: batchForm.description || ''
     }))
 
-    const result = await commissionStore.batchAddCommissionAccounting(recordsToSubmit)
+    const result = await operationalProductStore.batchAddOperationalProducts(recordsToSubmit)
 
     if (result.success) {
       ElMessage.success(result.message)
@@ -2490,7 +2549,8 @@ const resetBatchForm = () => {
         team: '',
         netTransactionData: 0,
         commission: 0,
-        dailyConsumption: 0 // 确保每个平台的今日消耗也被重置
+        dailyConsumption: 0, // 确保每个平台的今日消耗也被重置
+        orderCount: 0
       }
     ]
   })
@@ -2507,7 +2567,7 @@ const resetBatchForm = () => {
 const handleExport = async () => {
   try {
     // 优先导出勾选的数据，如果没有勾选则导出所有数据
-    const exportData = selectedAccountings.value.length > 0 ? selectedAccountings.value : commissionStore.commissionAccountings
+    const exportData = selectedAccountings.value.length > 0 ? selectedAccountings.value : operationalProductStore.operationalProducts
 
     if (exportData.length === 0) {
       ElMessage.warning('暂无数据可导出')
@@ -2534,11 +2594,11 @@ const handleExport = async () => {
     // 使用 Excel 格式导出
     const headers = Object.keys(data[0])
     const exportType = selectedAccountings.value.length > 0 ? `勾选${selectedAccountings.value.length}条` : '全部'
-    const filename = `核算佣金数据_${exportType}_${new Date().toLocaleDateString().replace(/\//g, '-')}`
+    const filename = `运营商品数据_${exportType}_${new Date().toLocaleDateString().replace(/\//g, '-')}`
 
     try {
       // 尝试导出为 Excel 格式
-      exportToExcel(data, headers, filename, '核算佣金数据')
+      exportToExcel(data, headers, filename, '运营商品数据')
       const exportTypeMsg = selectedAccountings.value.length > 0 ? `勾选的${selectedAccountings.value.length}条数据` : '全部数据'
       ElMessage.success(`导出${exportTypeMsg}成功（Excel格式）`)
     } catch (excelError) {
@@ -2587,7 +2647,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.commission-accounting {
+.commission-product {
   padding: 20px;
   background-color: #f5f5f5;
   min-height: calc(100vh - 60px);
@@ -3176,7 +3236,7 @@ onMounted(() => {
 
 /* 响应式设计 */
 @media (max-width: 768px) {
-  .commission-accounting {
+  .commission-product {
     padding: 10px;
   }
 

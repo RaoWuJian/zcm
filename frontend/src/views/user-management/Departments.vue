@@ -57,7 +57,6 @@
             @node-click="handleNodeClick"
             v-loading="treeLoading"
             :default-expanded-keys="defaultExpandedKeys"
-            :filter-node-method="filterNode"
           >
             <template #default="{ node, data }">
               <div class="tree-node">
@@ -653,7 +652,7 @@ const rules = {
   ]
 }
 
-// 将扁平的部门数组构建成树形结构（保持后端排序）
+// 将扁平的部门数组构建成树形结构
 const buildDepartmentTree = (flatData) => {
   // 先适配数据格式
   const adaptedData = flatData.map(dept => ({
@@ -664,17 +663,16 @@ const buildDepartmentTree = (flatData) => {
     createTime: dept.createdAt, // 添加createTime字段兼容性
     children: []
   }))
-
+  
   // 创建映射表，便于快速查找
   const departmentMap = new Map()
   adaptedData.forEach(dept => {
     departmentMap.set(dept._id, dept)
   })
-
-  // 构建树形结构，保持后端的排序顺序
+  
+  // 构建树形结构
   const tree = []
-
-  // 由于后端已经按时间排序，我们按顺序处理数据，保持排序
+  
   adaptedData.forEach(dept => {
     if (dept.parentId && departmentMap.has(dept.parentId)) {
       // 有父部门，添加到父部门的children中
@@ -685,8 +683,21 @@ const buildDepartmentTree = (flatData) => {
       tree.push(dept)
     }
   })
-
-  // 不需要重新排序，保持后端已经排好的顺序
+  
+  // 对每个部门的children按level排序，确保层级正确显示
+  const sortChildren = (departments) => {
+    departments.forEach(dept => {
+      if (dept.children && dept.children.length > 0) {
+        dept.children.sort((a, b) => a.level - b.level || a.departmentName.localeCompare(b.departmentName))
+        sortChildren(dept.children)
+      }
+    })
+  }
+  
+  // 对根节点排序并递归排序子节点
+  tree.sort((a, b) => a.level - b.level || a.departmentName.localeCompare(b.departmentName))
+  sortChildren(tree)
+  
   return tree
 }
 
@@ -706,14 +717,10 @@ const adaptApiDataToPageFormat = (apiData) => {
 // 获取部门树形数据
 const getDepartmentTree = async () => {
   treeLoading.value = true
-
+  
   try {
-    // 尝试从API获取数据，按创建时间排序
-    const response = await departmentApi.getDepartmentTree({
-      isActive: true,
-      sortBy: 'createdAt',
-      sortOrder: 'asc'  // 最早创建的部门在前（倒序）
-    })
+    // 尝试从API获取数据
+    const response = await departmentApi.getDepartmentTree({ isActive: true })
     
     if (response.success && response.data && Array.isArray(response.data)) {
       // 检查数据是否已经是树形结构（有children字段且不为空）
@@ -847,13 +854,6 @@ const filterTree = () => {
   if (treeRef.value) {
     treeRef.value.filter(searchForm.name)
   }
-}
-
-// 树节点过滤方法
-const filterNode = (value, data) => {
-  if (!value) return true
-  const departmentName = data.departmentName || data.name || ''
-  return departmentName.toLowerCase().includes(value.toLowerCase())
 }
 
 // 员工搜索（静态搜索）

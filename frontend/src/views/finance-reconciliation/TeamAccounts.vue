@@ -24,7 +24,18 @@
           刷新数据
         </el-button>
       </div>
-
+      <!-- <div class="action-center">
+        <el-radio-group v-model="viewMode" size="small" class="view-mode-switch">
+          <el-radio-button label="card">
+            <el-icon><Grid /></el-icon>
+            卡片视图
+          </el-radio-button>
+          <el-radio-button label="table">
+            <el-icon><List /></el-icon>
+            表格视图
+          </el-radio-button>
+        </el-radio-group>
+      </div> -->
       <div class="action-right">
         <span class="total-count">共 {{ accounts.length }} 个账户</span>
         <!-- <el-tooltip content="账户设置" placement="top">
@@ -33,8 +44,129 @@
       </div>
     </div>
 
+    <!-- 账户卡片列表 -->
+    <div class="accounts-container" v-if="viewMode === 'card'">
+      <div class="account-cards" v-loading="loading">
+        <div class="account-card" v-for="account in paginatedAccounts" :key="account._id">
+          <div class="card-header">
+            <div class="account-info">
+              <div class="account-name">
+                <el-icon class="account-icon"><CreditCard /></el-icon>
+                <h3>{{ account.name }}</h3>
+              </div>
+              <el-tag 
+                :type="getDepartmentColor(account)" 
+                size="small" 
+                class="account-type-tag"
+              >
+                {{ getDepartmentDisplayName(account) }}
+              </el-tag>
+            </div>
+            <div class="account-actions">
+              <el-dropdown @command="handleAccountAction" trigger="click">
+                <el-button type="text" :icon="MoreFilled" class="more-btn" />
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item :command="{action: 'edit', data: account}" v-if="hasAnyPermission(['finance:team_manage'])">
+                      <el-icon><Edit /></el-icon>
+                      编辑
+                    </el-dropdown-item>
+                    <!-- <el-dropdown-item :command="{action: 'recharge', data: account}" v-if="hasAnyPermission(['finance:team_manage'])">
+                      <el-icon><Money /></el-icon>
+                      充值
+                    </el-dropdown-item> -->
+                    <el-dropdown-item :command="{action: 'detail', data: account}">
+                      <el-icon><View /></el-icon>
+                      详情
+                    </el-dropdown-item>
+                    <!-- <el-dropdown-item :command="{action: 'transfer', data: account}" v-if="hasAnyPermission(['finance:team_manage'])">
+                      <el-icon><Sort /></el-icon>
+                      转账
+                    </el-dropdown-item> -->
+                    <el-dropdown-item :command="{action: 'delete', data: account}" divided v-if="hasAnyPermission(['finance:team_manage'])">
+                      <el-icon><Delete /></el-icon>
+                      删除
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
+          </div>
+          
+          <div class="card-content">
+            <div class="balance-section">
+              <div class="balance-main">
+                <span class="balance-label">金额</span>
+                <div class="balance-amount" :class="account.amount >= 0 ? 'positive' : 'negative'">
+                  ¥{{ account.amount.toLocaleString() }}
+                </div>
+              </div>
+              <div class="account-number">
+                <span class="number-label">部门</span>
+                <span class="number-value">{{ getDepartmentDisplayName(account) }}</span>
+              </div>
+            </div>
+            
+            <div class="stats-section">
+              <div class="stat-item income">
+                <div class="stat-icon">
+                  <el-icon><TrendCharts /></el-icon>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-label">本月收入</div>
+                  <div class="stat-value">+¥{{ (account.monthlyIncome || 0).toLocaleString() }}</div>
+                </div>
+              </div>
+              <div class="stat-item expense">
+                <div class="stat-icon">
+                  <el-icon><Minus /></el-icon>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-label">本月支出</div>
+                  <div class="stat-value">-¥{{ (account.monthlyExpense || 0).toLocaleString() }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="card-footer">
+            <div class="update-info">
+              <el-icon class="time-icon"><Clock /></el-icon>
+              <span class="update-time">更新时间：{{ account.updateTime }}</span>
+            </div>
+            <el-tag 
+              size="small" 
+              :type="account.status === 'active' ? 'success' : 'danger'"
+              class="status-tag"
+            >
+              {{ account.status === 'active' ? '正常' : '冻结' }}
+            </el-tag>
+          </div>
+        </div>
+        
+        <!-- 空状态 -->
+        <div v-if="!loading && paginatedAccounts.length === 0" class="empty-state">
+          <el-empty description="暂无账户数据" />
+        </div>
+      </div>
+      
+      <!-- 卡片视图分页 -->
+      <div class="pagination-wrapper" v-if="pagination.total > pagination.pageSize">
+        <el-pagination
+          v-model:current-page="pagination.currentPage"
+          v-model:page-size="pagination.pageSize"
+          :page-sizes="[8, 12, 16, 24]"
+          :total="pagination.total"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+          class="custom-pagination"
+        />
+      </div>
+    </div>
+
     <!-- 账户表格列表 -->
-    <div class="table-container">
+    <div class="table-container" v-if="viewMode === 'table'">
       <el-table
         :data="accounts"
         v-loading="loading"
@@ -53,7 +185,7 @@
         </el-table-column>
         <el-table-column label="部门" width="120">
           <template #default="{ row }">
-            <el-tag
+            <el-tag 
               :type="getDepartmentColor(row)" 
               size="small"
             >
@@ -61,21 +193,21 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="金额" width="150">
-          <template #default="{ row }">
-            <div class="amount-cell" :class="row.amount >= 0 ? 'positive' : 'negative'">
-              ¥{{ row.amount.toLocaleString() }}
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="本月收入" width="120">
+        <el-table-column label="收入" width="120">
           <template #default="{ row }">
             <span class="income-text">+¥{{ (row.monthlyIncome || 0).toLocaleString() }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="本月支出" width="120">
+        <el-table-column label="支出" width="120">
           <template #default="{ row }">
             <span class="expense-text">-¥{{ (row.monthlyExpense || 0).toLocaleString() }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="余额" width="150">
+          <template #default="{ row }">
+            <div class="amount-cell" :class="row.amount >= 0 ? 'positive' : 'negative'">
+              ¥{{ row.amount.toLocaleString() }}
+            </div>
           </template>
         </el-table-column>
         <el-table-column label="状态" width="80">
@@ -131,7 +263,7 @@
         <el-form-item label="名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入名称" />
         </el-form-item>
-        <el-form-item label="部门" prop="departmentId">
+        <el-form-item label="公司部门" prop="departmentId">
           <el-select 
             v-model="form.departmentId" 
             placeholder="请选择部门" 
@@ -440,17 +572,21 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import hasAnyPermission from '@/utils/checkPermissions'
-import {
-  Plus,
-  MoreFilled,
-  Refresh,
+import { 
+  Plus, 
+  MoreFilled, 
+  Refresh, 
   Setting,
   CreditCard,
   Edit,
   Sort,
   Delete,
+  TrendCharts,
+  Minus,
   Clock,
   Wallet,
+  Grid,
+  List,
   Money,
   View,
   Search,
@@ -474,12 +610,18 @@ const formRef = ref()
 const transferFormRef = ref()
 const rechargeFormRef = ref()
 const selectedAccount = ref(null)
+const viewMode = ref('table') // 视图模式
 
 // 交易记录相关数据
 const transactionRecords = ref([])
 const filteredRecords = ref([])
 
-
+// 分页信息
+const pagination = reactive({
+  currentPage: 1,
+  pageSize: 12, // 卡片视图默认每页显示12个
+  total: 0
+})
 
 // 交易记录分页信息
 const recordPagination = reactive({
@@ -548,7 +690,12 @@ const availableAccounts = computed(() => {
   return accounts.value.filter((account) => account._id !== selectedAccount.value?._id)
 })
 
-
+// 分页后的账户数据
+const paginatedAccounts = computed(() => {
+  const start = (pagination.currentPage - 1) * pagination.pageSize
+  const end = start + pagination.pageSize
+  return accounts.value.slice(start, end)
+})
 
 // 分页后的记录数据
 const paginatedRecords = computed(() => {
@@ -608,6 +755,9 @@ const getTeamAccounts = async () => {
         status: account.isActive ? 'active' : 'inactive',
         updateTime: new Date(account.updatedAt).toLocaleString()
       }))
+
+      // 更新分页信息
+      pagination.total = accounts.value.length
     } else {
       ElMessage.error('获取团队账户失败：' + (response?.message || '未知错误'))
     }
@@ -957,7 +1107,15 @@ const handleTransferDialogClose = () => {
   selectedAccount.value = null
 }
 
+// 分页相关方法
+const handleSizeChange = (size) => {
+  pagination.pageSize = size
+  pagination.currentPage = 1 // 重置到第一页
+}
 
+const handleCurrentChange = (page) => {
+  pagination.currentPage = page
+}
 
 // 交易记录相关方法
 // 加载账户交易记录
@@ -1217,7 +1375,34 @@ onMounted(async () => {
   gap: 12px;
 }
 
+.action-center {
+  display: flex;
+  align-items: center;
+}
 
+.view-mode-switch {
+  background: #f5f7fa;
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.view-mode-switch .el-radio-button__inner {
+  border: none;
+  background: transparent;
+  color: #86909c;
+  padding: 8px 16px;
+  border-radius: 4px;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.view-mode-switch .el-radio-button__orig-radio:checked + .el-radio-button__inner {
+  background: #409eff;
+  color: white;
+  box-shadow: 0 2px 4px rgba(64, 158, 255, 0.3);
+}
 
 .action-btn.primary {
   background: linear-gradient(135deg, #409eff 0%, #337ecc 100%);
@@ -1330,17 +1515,287 @@ onMounted(async () => {
   margin: 0 2px;
 }
 
+/* 账户卡片容器 */
+.accounts-container {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 2px 0 rgba(31, 35, 41, 0.08);
+  border: 1px solid #e4e7ed;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
 
+.account-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 20px;
+  min-height: 300px;
+  align-content: start;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
 
+/* 账户卡片 */
+.account-card {
+  background: linear-gradient(135deg, #fff 0%, #fafbfc 100%);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #e4e7ed;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  height: fit-content;
+  min-height: 260px;
+  max-height: 380px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
 
+.account-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #409eff 0%, #67c23a 100%);
+}
 
+.account-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(31, 35, 41, 0.12);
+  border-color: #409eff;
+}
 
+/* 卡片头部 */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
 
+.account-info {
+  flex: 1;
+}
 
+.account-name {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
 
+.account-icon {
+  font-size: 20px;
+  color: #409eff;
+  margin-right: 8px;
+}
 
+.account-name h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2329;
+}
 
+.account-type-tag {
+  font-size: 12px;
+  border-radius: 6px;
+}
 
+.account-actions {
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+}
+
+.account-card:hover .account-actions {
+  opacity: 1;
+}
+
+.more-btn {
+  color: #86909c;
+  font-size: 16px;
+  padding: 8px;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.more-btn:hover {
+  background-color: #f2f3f5;
+  color: #409eff;
+}
+
+/* 卡片内容 */
+.card-content {
+  margin-bottom: 20px;
+  flex: 1; /* 占据剩余空间 */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.balance-section {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 8px;
+}
+
+.balance-main {
+  margin-bottom: 12px;
+}
+
+.balance-label {
+  display: block;
+  color: #86909c;
+  font-size: 12px;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.balance-amount {
+  font-size: 28px;
+  font-weight: 700;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+.balance-amount.positive {
+  color: #00b42a;
+}
+
+.balance-amount.negative {
+  color: #f53f3f;
+}
+
+.account-number {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.number-label {
+  color: #86909c;
+  font-size: 12px;
+}
+
+.number-value {
+  color: #1f2329;
+  font-family: monospace;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* 统计区域 */
+.stats-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.stat-item.income {
+  background: linear-gradient(135deg, #e6f7e6 0%, #d4edda 100%);
+}
+
+.stat-item.expense {
+  background: linear-gradient(135deg, #fef0f0 0%, #fde2e2 100%);
+}
+
+.stat-item:hover {
+  transform: scale(1.02);
+}
+
+.stat-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  font-size: 16px;
+}
+
+.stat-item.income .stat-icon {
+  background: #00b42a;
+  color: white;
+}
+
+.stat-item.expense .stat-icon {
+  background: #f53f3f;
+  color: white;
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-label {
+  color: #86909c;
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.stat-value {
+  font-weight: 600;
+  font-size: 14px;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+.stat-item.income .stat-value {
+  color: #00b42a;
+}
+
+.stat-item.expense .stat-value {
+  color: #f53f3f;
+}
+
+/* 卡片底部 */
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.update-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.time-icon {
+  color: #86909c;
+  font-size: 14px;
+}
+
+.update-time {
+  color: #86909c;
+  font-size: 12px;
+}
+
+.status-tag {
+  border-radius: 6px;
+  font-weight: 500;
+}
 
 /* 对话框脚注 */
 .dialog-footer {
@@ -1351,7 +1806,14 @@ onMounted(async () => {
   border-top: 1px solid #f0f0f0;
 }
 
-
+/* 空状态 */
+.empty-state {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+}
 
 /* 分页样式 */
 .pagination-wrapper {
@@ -1392,9 +1854,21 @@ onMounted(async () => {
 }
 
 /* 响应式设计 */
+@media (max-width: 1400px) {
+  .account-cards {
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 16px;
+  }
+}
+
 @media (max-width: 1200px) {
   .team-accounts {
     padding: 16px;
+  }
+  
+  .account-cards {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
   }
 }
 
@@ -1402,38 +1876,84 @@ onMounted(async () => {
   .team-accounts {
     padding: 12px;
   }
-
+  
+  .account-cards {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    min-height: 200px;
+  }
+  
+  .account-card {
+    min-height: 220px;
+    max-height: 300px;
+    padding: 16px;
+  }
+  
   .action-card {
     flex-direction: column;
     gap: 16px;
     align-items: stretch;
   }
-
+  
   .action-left,
+  .action-center,
   .action-right {
     justify-content: center;
   }
-
+  
+  .view-mode-switch {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .stats-section {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  
   .table-container {
     padding: 12px;
     overflow-x: auto;
   }
-
+  
   .table-container .el-table {
     min-width: 800px;
   }
-
+  
   .pagination-wrapper {
     margin-top: 16px;
     padding: 16px 0;
   }
-
+  
   .custom-pagination {
     --el-pagination-font-size: 12px;
   }
 }
 
 @media (max-width: 480px) {
+  .account-card {
+    padding: 16px;
+    min-height: 220px;
+    max-height: 300px;
+  }
+  
+  .balance-amount {
+    font-size: 24px;
+  }
+  
+  .card-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .account-actions {
+    align-self: flex-end;
+  }
+  
+  .account-cards {
+    gap: 12px;
+  }
+  
   .pagination-wrapper {
     margin-top: 12px;
     padding: 12px 0;
@@ -1441,11 +1961,13 @@ onMounted(async () => {
 }
 
 /* 动画效果 */
-.action-card {
+.action-card,
+.accounts-container {
   transition: all 0.3s ease;
 }
 
-.action-card:hover {
+.action-card:hover,
+.accounts-container:hover {
   box-shadow: 0 4px 8px 0 rgba(31, 35, 41, 0.12);
 }
 

@@ -73,12 +73,6 @@ const routes = [
             component: () => import('../views/finance-reconciliation/TeamAccounts.vue'),
             meta: { title: '团队账户', icon: 'UserFilled' }
           },
-          {
-            path: 'record-type-settings',
-            name: 'RecordTypeSettings',
-            component: () => import('../views/finance-reconciliation/RecordTypeSettings.vue'),
-            meta: { title: '类型设置', icon: 'Setting' }
-          },
           // {
           //   path: 'income-expense-stats',
           //   name: 'IncomeExpenseStats',
@@ -111,6 +105,12 @@ const routes = [
             name: 'CommissionAccounting',
             component: () => import('../views/product-management/CommissionAccounting.vue'),
             meta: { title: '产品佣金', icon: 'Money' }
+          },
+          {
+            path: 'operational-product',
+            name: 'OperationalProduct',
+            component: () => import('../views/product-management/OperationalProduct.vue'),
+            meta: { title: '运营商品', icon: 'Money' }
           }
           // {
           //   path: 'product-stats',
@@ -119,6 +119,12 @@ const routes = [
           //   meta: { title: '商品统计', icon: 'DataAnalysis' }
           // }
         ]
+      },
+      {
+        path: 'inventory',
+        name: 'Inventory',
+        component: () => import('../views/product-management/InventoryManagement.vue'),
+        meta: { title: '库存管理', icon: 'Box' }
       },
       {
         path: 'operation-logs',

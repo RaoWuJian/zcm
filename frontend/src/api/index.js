@@ -142,8 +142,8 @@ export const departmentApi = {
   },
   
   // 获取部门树形结构
-  getDepartmentTree: (params) => {
-    return api.get('/departments/tree', { params })
+  getDepartmentTree: () => {
+    return api.get('/departments/tree')
   },
   
   // 获取部门员工
@@ -456,45 +456,134 @@ export const commissionAccountingApi = {
   }
 }
 
-// 记录类型管理API
-export const recordTypeApi = {
-  // 获取所有记录类型
-  getRecordTypes: () => {
-    return api.get('/record-types')
+// 运营商品管理API
+export const operationalProductApi = {
+  // 获取运营商品列表
+  getOperationalProducts: (params) => {
+    return api.get('/operational-products', { params })
   },
 
-  // 创建记录类型
-  createRecordType: (data) => {
-    return api.post('/record-types', data)
+  // 创建运营商品记录
+  createOperationalProduct: (data) => {
+    return api.post('/operational-products', data)
   },
 
-  // 更新记录类型
-  updateRecordType: (id, data) => {
-    return api.put(`/record-types/${id}`, data)
+  // 批量创建运营商品记录
+  batchCreateOperationalProducts: (records) => {
+    return api.post('/operational-products/batch', { records })
   },
 
-  // 删除记录类型
-  deleteRecordType: (id) => {
-    return api.delete(`/record-types/${id}`)
+  // 获取运营商品详情
+  getOperationalProduct: (id) => {
+    return api.get(`/operational-products/${id}`)
   },
 
-  // 获取指定大类的小类
-  getSubCategories: (categoryId) => {
-    return api.get(`/record-types/${categoryId}/subcategories`)
+  // 更新运营商品记录
+  updateOperationalProduct: (id, data) => {
+    return api.put(`/operational-products/${id}`, data)
   },
 
-  // 添加小类
-  addSubCategory: (categoryId, data) => {
-    return api.post(`/record-types/${categoryId}/subcategories`, data)
+  // 删除运营商品记录
+  deleteOperationalProduct: (id) => {
+    return api.delete(`/operational-products/${id}`)
   },
 
-  // 更新小类
-  updateSubCategory: (categoryId, subCategoryId, data) => {
-    return api.put(`/record-types/${categoryId}/subcategories/${subCategoryId}`, data)
+  // 批量删除运营商品记录
+  batchDeleteOperationalProducts: (ids) => {
+    return api.delete('/operational-products/batch', { data: { ids } })
   },
 
-  // 删除小类
-  deleteSubCategory: (categoryId, subCategoryId) => {
-    return api.delete(`/record-types/${categoryId}/subcategories/${subCategoryId}`)
+  // 获取店铺名称建议
+  getShopNameSuggestions: () => {
+    return api.get('/operational-products/suggestions/shop-names')
+  },
+
+  // 获取平台建议
+  getPlatformSuggestions: () => {
+    return api.get('/operational-products/suggestions/platforms')
+  },
+
+  // 获取产品名称建议
+  getProductNameSuggestions: () => {
+    return api.get('/operational-products/suggestions/product-names')
+  },
+
+  // 获取团队建议
+  getTeamSuggestions: () => {
+    return api.get('/operational-products/suggestions/teams')
+  }
+}
+
+// 库存管理API
+export const inventoryApi = {
+  // 获取库存列表
+  getInventories: (params) => {
+    return api.get('/inventory', { params })
+  },
+
+  // 创建库存记录
+  createInventory: (data) => {
+    return api.post('/inventory', data)
+  },
+
+  // 创建库存记录（带图片）
+  createInventoryWithImage: (formData) => {
+    return api.post('/inventory', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+  },
+
+  // 获取库存详情
+  getInventory: (id) => {
+    return api.get(`/inventory/${id}`)
+  },
+
+  // 更新库存记录
+  updateInventory: (id, data) => {
+    return api.put(`/inventory/${id}`, data)
+  },
+
+  // 更新库存记录（带图片）
+  updateInventoryWithImage: (id, formData) => {
+    return api.put(`/inventory/${id}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+  },
+
+  // 删除库存记录
+  deleteInventory: (id) => {
+    return api.delete(`/inventory/${id}`)
+  },
+
+  // 入库操作
+  inventoryIn: (id, data) => {
+    return api.post(`/inventory/${id}/in`, data)
+  },
+
+  // 出库操作
+  inventoryOut: (id, data) => {
+    return api.post(`/inventory/${id}/out`, data)
+  },
+
+  // 获取库存统计
+  getInventoryStats: (params) => {
+    return api.get('/inventory/stats', { params })
+  },
+
+  // 获取特定库存的操作记录
+  getInventoryRecords: (id, params) => {
+    return api.get(`/inventory/${id}/records`, { params })
+  }
+}
+
+// 库存操作记录API
+export const inventoryRecordApi = {
+  // 获取所有操作记录
+  getRecords: (params) => {
+    return api.get('/inventory-records', { params })
   }
 }

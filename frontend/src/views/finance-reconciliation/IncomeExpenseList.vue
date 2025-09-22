@@ -283,8 +283,8 @@
       <el-form :model="form" :rules="rules" ref="formRef" label-width="120px">
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="团队账户" prop="teamId">
-              <el-select v-model="form.teamId" placeholder="请选择团队账户" filterable>
+            <el-form-item label="公司账户" prop="teamId">
+              <el-select v-model="form.teamId" placeholder="请选择公司账户" filterable>
                 <el-option 
                   v-for="account in teamAccounts" 
                   :key="account._id" 
@@ -336,47 +336,6 @@
               >
                 <template #prefix>¥</template>
               </el-input-number>
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="记录大类" prop="categoryId">
-              <el-select
-                v-model="form.categoryId"
-                placeholder="请选择记录大类（可选）"
-                filterable
-                clearable
-                @change="handleCategoryChange"
-                style="width: 100%"
-              >
-                <el-option
-                  v-for="category in recordTypes"
-                  :key="category._id"
-                  :label="category.name"
-                  :value="category._id"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="记录小类" prop="subCategoryId">
-              <el-select
-                v-model="form.subCategoryId"
-                placeholder="请选择记录小类（可选）"
-                filterable
-                clearable
-                :disabled="!form.categoryId"
-                style="width: 100%"
-              >
-                <el-option
-                  v-for="subCategory in subCategories"
-                  :key="subCategory._id"
-                  :label="subCategory.name"
-                  :value="subCategory._id"
-                />
-              </el-select>
             </el-form-item>
           </el-col>
         </el-row>
@@ -648,7 +607,7 @@ import {
   Minus,
   Search
 } from '@element-plus/icons-vue'
-import { financeApi, teamAccountApi, fileApi, recordTypeApi } from '@/api/index'
+import { financeApi, teamAccountApi, fileApi } from '@/api/index';
 import hasAnyPermission from '@/utils/checkPermissions'
 import { formatUtcToLocalDate } from '@/utils/dateUtils'
 
@@ -681,39 +640,7 @@ const selectedSummaryStats = ref({
   recordCount: 0
 })
 
-// 记录类型和小类数据
-const recordTypes = ref([])
-const subCategories = ref([])
-
-// 加载记录类型
-const loadRecordTypes = async () => {
-  try {
-    const response = await recordTypeApi.getRecordTypes()
-    if (response.success) {
-      recordTypes.value = response.data || []
-    }
-  } catch (error) {
-    console.error('加载记录类型失败:', error)
-  }
-}
-
-// 处理大类变化
-const handleCategoryChange = async (categoryId) => {
-  form.subCategoryId = null
-  subCategories.value = []
-  
-  if (categoryId) {
-    try {
-      const response = await recordTypeApi.getSubCategories(categoryId)
-      if (response.success) {
-        subCategories.value = response.data || []
-      }
-    } catch (error) {
-      console.error('加载小类失败:', error)
-    }
-  }
-}
-
+// 搜索表单
 // 搜索表单
 const searchForm = reactive({
   recordName: '',
@@ -820,14 +747,6 @@ const form = reactive({
   account: '', // 收款/付款账号
   description: '', // 说明/备注
   images: [], // 关联的图片
-  categoryId: null,
-  subCategoryId: null,
-  recordType: {
-    categoryId: null,
-    categoryName: '',
-    subCategoryId: null,
-    subCategoryName: ''
-  }
 })
 
 // 记录要删除的已保存图片ID
@@ -1509,19 +1428,6 @@ const handleSubmit = async () => {
           }
         }
 
-        // 设置记录类型信息
-        if (form.categoryId) {
-          const category = recordTypes.value.find(c => c._id === form.categoryId)
-          form.recordType.categoryId = form.categoryId
-          form.recordType.categoryName = category?.name || ''
-        }
-        
-        if (form.subCategoryId) {
-          const subCategory = subCategories.value.find(s => s._id === form.subCategoryId)
-          form.recordType.subCategoryId = form.subCategoryId
-          form.recordType.subCategoryName = subCategory?.name || ''
-        }
-
         const submitData = {
           teamId: form.teamId,
           name: form.name,
@@ -1532,8 +1438,7 @@ const handleSubmit = async () => {
           paymentName: form.paymentName,
           account: form.account,
           description: form.description,
-          images: imageIds,
-          recordType: form.recordType
+          images: imageIds
         }
 
         let response
@@ -1592,14 +1497,6 @@ const resetForm = () => {
   form.account = ''
   form.description = ''
   form.images = []
-  form.categoryId = null
-  form.subCategoryId = null
-  form.recordType = {
-    categoryId: null,
-    categoryName: '',
-    subCategoryId: null,
-    subCategoryName: ''
-  }
 
   // 清空删除列表
   deletedImageIds.value = []
@@ -1629,7 +1526,6 @@ const handleCurrentChange = async (page) => {
 onMounted(() => {
   initTeamAccounts()
   initData()
-  loadRecordTypes()
 })
 </script>
 
