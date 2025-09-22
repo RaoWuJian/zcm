@@ -8,7 +8,7 @@
         <h2>库存管理</h2>
       </div>
       <div class="page-description">
-        库存管理出库、入库等
+        库存管理，实时出库、入库等
       </div>
     </div>
 
@@ -897,7 +897,18 @@ const inventoryRules = {
   ],
   currentQuantity: [
     { required: true, message: '请输入当前库存数量', trigger: 'blur' },
-    { type: 'number', min: 0, message: '数量不能为负数', trigger: 'blur' }
+    {
+      validator: (rule, value, callback) => {
+        if (value === null || value === undefined || value === '') {
+          callback(new Error('请输入当前库存数量'))
+        } else if (isNaN(value) || value < 0) {
+          callback(new Error('数量不能为负数'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
   ]
 }
 
@@ -1280,6 +1291,7 @@ const handleSubmit = async () => {
 
     const submitData = {
       ...inventoryForm,
+      currentQuantity: Number(inventoryForm.currentQuantity) || 0,
       images: imageIds
     }
 

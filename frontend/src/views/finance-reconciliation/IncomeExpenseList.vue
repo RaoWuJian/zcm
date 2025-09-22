@@ -55,6 +55,53 @@
               </el-option>
             </el-select>
           </el-form-item>
+          <el-form-item label="公司账户" class="search-item">
+            <el-select
+              v-model="searchForm.companyAccountId"
+              placeholder="全部公司账户"
+              clearable
+              class="business-select"
+            >
+              <el-option
+                v-for="account in teamAccounts"
+                :key="account._id"
+                :label="account.name"
+                :value="account._id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="记录大类" class="search-item">
+            <el-select
+              v-model="searchForm.categoryId"
+              placeholder="全部大类"
+              clearable
+              class="business-select"
+              @change="handleSearchCategoryChange"
+            >
+              <el-option
+                v-for="category in recordTypes"
+                :key="category._id"
+                :label="category.name"
+                :value="category._id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="记录小类" class="search-item">
+            <el-select
+              v-model="searchForm.subCategoryId"
+              placeholder="全部小类"
+              clearable
+              class="business-select"
+              :disabled="!searchForm.categoryId"
+            >
+              <el-option
+                v-for="subCategory in searchSubCategories"
+                :key="subCategory._id"
+                :label="subCategory.name"
+                :value="subCategory._id"
+              />
+            </el-select>
+          </el-form-item>
           <el-form-item label="审批状态" class="search-item">
             <el-select
               v-model="searchForm.approvalStatus"
@@ -151,6 +198,16 @@
         border
       >
         <el-table-column type="selection" width="50" />
+        <el-table-column label="公司账户" width="120">
+          <template #default="{ row }">
+            <span class="account-text">{{ row.teamAccountName }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="团队账户" width="120">
+          <template #default="{ row }">
+            <span class="company-account-text">{{ row.companyAccountId?.name || '-' }}</span>
+          </template>
+        </el-table-column>
         <el-table-column label="记录名称" min-width="140">
           <template #default="{ row }">
             <div class="record-name">
@@ -179,9 +236,15 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="团队账户" width="120">
+        
+        <el-table-column label="记录大类" width="100">
           <template #default="{ row }">
-            <span class="account-text">{{ row.teamAccountName }}</span>
+            <span class="category-text">{{ row.recordType?.categoryName || '-' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="记录小类" width="100">
+          <template #default="{ row }">
+            <span class="subcategory-text">{{ row.recordType?.subCategoryName || '-' }}</span>
           </template>
         </el-table-column>
         <el-table-column label="发生时间" width="150">
@@ -189,22 +252,9 @@
             <span class="time-text">{{ formatUtcToLocalDate(row.transactionTime) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="收款/付款方" width="120">
-          <template #default="{ row }">
-            <span class="payer-text">{{ row.payerName }}</span>
-          </template>
-        </el-table-column>
         <el-table-column label="说明" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">
             <span class="description-text">{{ row.description || '-' }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作人" width="100">
-          <template #default="{ row }">
-            <div class="operator-info">
-              <el-icon class="operator-icon"><User /></el-icon>
-              <span class="operator-name">{{ row.operatorName || row.operator || '未知' }}</span>
-            </div>
           </template>
         </el-table-column>
         <el-table-column label="凭证" width="120" align="center">
@@ -221,6 +271,14 @@
               </span>
             </div>
             <span v-else class="no-image">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作人" width="100">
+          <template #default="{ row }">
+            <div class="operator-info">
+              <el-icon class="operator-icon"><User /></el-icon>
+              <span class="operator-name">{{ row.operatorName || row.operator || '未知' }}</span>
+            </div>
           </template>
         </el-table-column>
         <el-table-column label="审批状态" width="100">
@@ -300,13 +358,25 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="记录名称" prop="name">
-              <el-input v-model="form.name" placeholder="请输入记录名称" />
+            <el-form-item label="团队账户" prop="companyAccountId">
+              <el-select v-model="form.companyAccountId" placeholder="请选择团队账户" filterable clearable>
+                <el-option
+                  v-for="account in teamAccounts"
+                  :key="account._id"
+                  :label="account.name"
+                  :value="account._id"
+                />
+              </el-select>
             </el-form-item>
           </el-col>
         </el-row>
 
         <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="记录名称" prop="name">
+              <el-input v-model="form.name" placeholder="请输入记录名称" />
+            </el-form-item>
+          </el-col>
           <el-col :span="12">
             <el-form-item label="收支类型" prop="type">
               <el-radio-group v-model="form.type">
@@ -325,7 +395,10 @@
               </el-radio-group>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+        </el-row>
+
+        <el-row :gutter="20">
+           <el-col :span="12">
             <el-form-item label="金额" prop="amount">
               <el-input-number
                 v-model="form.amount"
@@ -338,9 +411,6 @@
               </el-input-number>
             </el-form-item>
           </el-col>
-        </el-row>
-
-        <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="收支时间" prop="occurredAt">
               <el-date-picker
@@ -354,16 +424,44 @@
               />
             </el-form-item>
           </el-col>
+        </el-row>
+
+        <el-row :gutter="20">
+         <el-col :span="12">
+            <el-form-item label="记录大类" prop="categoryId">
+              <el-select
+                v-model="form.categoryId"
+                placeholder="请选择记录大类"
+                filterable
+                clearable
+                @change="handleCategoryChange"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="category in recordTypes"
+                  :key="category._id"
+                  :label="category.name"
+                  :value="category._id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
           <el-col :span="12">
-            <el-form-item :label="form.type === 'income' ? '收款方式' : '支付方式'" prop="paymentMethod">
-              <el-select v-model="form.paymentMethod" placeholder="请选择方式">
-                <el-option label="银行转账" value="bank_transfer" />
-                <el-option label="现金" value="cash" />
-                <el-option label="支付宝" value="alipay" />
-                <el-option label="微信支付" value="wechat_pay" />
-                <el-option label="刷卡" value="card" />
-                <el-option label="支票" value="check" />
-                <el-option label="其他" value="other" />
+            <el-form-item label="记录小类" prop="subCategoryId">
+              <el-select
+                v-model="form.subCategoryId"
+                placeholder="请选择记录小类"
+                filterable
+                clearable
+                :disabled="!form.categoryId"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="subCategory in subCategories"
+                  :key="subCategory._id"
+                  :label="subCategory.name"
+                  :value="subCategory._id"
+                />
               </el-select>
             </el-form-item>
           </el-col>
@@ -607,7 +705,7 @@ import {
   Minus,
   Search
 } from '@element-plus/icons-vue'
-import { financeApi, teamAccountApi, fileApi } from '@/api/index';
+import { financeApi, teamAccountApi, fileApi, recordTypeApi } from '@/api/index';
 import hasAnyPermission from '@/utils/checkPermissions'
 import { formatUtcToLocalDate } from '@/utils/dateUtils'
 
@@ -640,6 +738,57 @@ const selectedSummaryStats = ref({
   recordCount: 0
 })
 
+// 记录类型和小类数据
+const recordTypes = ref([])
+const subCategories = ref([])
+const searchSubCategories = ref([]) // 搜索用的小类数据
+
+// 加载记录类型
+const loadRecordTypes = async () => {
+  try {
+    const response = await recordTypeApi.getRecordTypes()
+    if (response.success) {
+      recordTypes.value = response.data || []
+    }
+  } catch (error) {
+    console.error('加载记录类型失败:', error)
+  }
+}
+
+// 处理大类变化
+const handleCategoryChange = async (categoryId) => {
+  form.subCategoryId = null
+  subCategories.value = []
+
+  if (categoryId) {
+    try {
+      const response = await recordTypeApi.getSubCategories(categoryId)
+      if (response.success) {
+        subCategories.value = response.data || []
+      }
+    } catch (error) {
+      console.error('加载小类失败:', error)
+    }
+  }
+}
+
+// 处理搜索大类变化
+const handleSearchCategoryChange = async (categoryId) => {
+  searchForm.subCategoryId = ''
+  searchSubCategories.value = []
+
+  if (categoryId) {
+    try {
+      const response = await recordTypeApi.getSubCategories(categoryId)
+      if (response.success) {
+        searchSubCategories.value = response.data || []
+      }
+    } catch (error) {
+      console.error('加载搜索小类失败:', error)
+    }
+  }
+}
+
 // 搜索表单
 // 搜索表单
 const searchForm = reactive({
@@ -650,7 +799,10 @@ const searchForm = reactive({
   approvalStatus: '',
   amountRange: '',
   dateRange: [],
-  keyword: ''
+  keyword: '',
+  categoryId: '', // 记录大类
+  subCategoryId: '', // 记录小类
+  companyAccountId: '' // 公司账户
 })
 
 // 分页信息
@@ -742,11 +894,19 @@ const form = reactive({
   type: 'income' | 'expense', // 类型：income/expense
   amount: 0, // 金额
   occurredAt: '', // 发生时间
-  paymentMethod: '', // 收款方式/支付方式
+  companyAccountId: null, // 公司账户ID（仅标签作用）
   paymentName: '', // 收款/付款方名称
   account: '', // 收款/付款账号
   description: '', // 说明/备注
   images: [], // 关联的图片
+  categoryId: null,
+  subCategoryId: null,
+  recordType: {
+    categoryId: null,
+    categoryName: '',
+    subCategoryId: null,
+    subCategoryName: ''
+  }
 })
 
 // 记录要删除的已保存图片ID
@@ -762,7 +922,6 @@ const rules = {
     { type: 'number', min: 0.01, message: '金额必须大于0', trigger: 'blur' }
   ],
   occurredAt: [{ required: true, message: '请选择收支日期', trigger: 'change' }],
-  paymentName: [{ required: true, message: '请输入收款/付款方名称', trigger: 'blur' }]
 }
 
 // 初始化团队账户数据
@@ -793,6 +952,9 @@ const initData = async () => {
     if (searchForm.account) params.teamId = searchForm.account
     if (searchForm.approvalStatus) params.approvalStatus = searchForm.approvalStatus
     if (searchForm.keyword) params.search = searchForm.keyword
+    if (searchForm.companyAccountId) params.companyAccountId = searchForm.companyAccountId
+    if (searchForm.categoryId) params.categoryId = searchForm.categoryId
+    if (searchForm.subCategoryId) params.subCategoryId = searchForm.subCategoryId
     if (searchForm.dateRange && searchForm.dateRange.length === 2) {
       params.startDate = searchForm.dateRange[0]
       params.endDate = searchForm.dateRange[1]
@@ -881,6 +1043,10 @@ const handleReset = () => {
   searchForm.amountRange = ''
   searchForm.dateRange = []
   searchForm.keyword = ''
+  searchForm.categoryId = ''
+  searchForm.subCategoryId = ''
+  searchForm.companyAccountId = ''
+  searchSubCategories.value = [] // 清空搜索小类数据
   handleSearch()
 }
 
@@ -1118,7 +1284,7 @@ const handleAdd = () => {
 }
 
 // 编辑
-const handleEdit = (row) => {
+const handleEdit = async (row) => {
   dialogTitle.value = '编辑收支记录'
   Object.assign(form, row)
 
@@ -1140,6 +1306,26 @@ const handleEdit = (row) => {
   } else {
     form.images = []
   }
+
+  // 处理记录类型数据
+  if (row.recordType) {
+    form.categoryId = row.recordType.categoryId || null
+    form.subCategoryId = row.recordType.subCategoryId || null
+    form.recordType = {
+      categoryId: row.recordType.categoryId || null,
+      categoryName: row.recordType.categoryName || '',
+      subCategoryId: row.recordType.subCategoryId || null,
+      subCategoryName: row.recordType.subCategoryName || ''
+    }
+
+    // 如果有大类，加载对应的小类
+    if (form.categoryId) {
+      await handleCategoryChange(form.categoryId)
+    }
+  }
+
+  // 确保companyAccountId字段正确设置
+  form.companyAccountId = row.companyAccountId || null
 
   dialogVisible.value = true
 }
@@ -1428,17 +1614,31 @@ const handleSubmit = async () => {
           }
         }
 
+        // 设置记录类型信息
+        if (form.categoryId) {
+          const category = recordTypes.value.find(c => c._id === form.categoryId)
+          form.recordType.categoryId = form.categoryId
+          form.recordType.categoryName = category?.name || ''
+        }
+
+        if (form.subCategoryId) {
+          const subCategory = subCategories.value.find(s => s._id === form.subCategoryId)
+          form.recordType.subCategoryId = form.subCategoryId
+          form.recordType.subCategoryName = subCategory?.name || ''
+        }
+
         const submitData = {
           teamId: form.teamId,
           name: form.name,
           type: form.type,
           amount: form.amount,
           occurredAt: form.occurredAt,
-          paymentMethod: form.paymentMethod,
+          companyAccountId: form.companyAccountId,
           paymentName: form.paymentName,
           account: form.account,
           description: form.description,
-          images: imageIds
+          images: imageIds,
+          recordType: form.recordType
         }
 
         let response
@@ -1492,11 +1692,19 @@ const resetForm = () => {
   form.type = 'income'
   form.amount = 0
   form.occurredAt = ''
-  form.paymentMethod = ''
+  form.companyAccountId = null
   form.paymentName = ''
   form.account = ''
   form.description = ''
   form.images = []
+  form.categoryId = null
+  form.subCategoryId = null
+  form.recordType = {
+    categoryId: null,
+    categoryName: '',
+    subCategoryId: null,
+    subCategoryName: ''
+  }
 
   // 清空删除列表
   deletedImageIds.value = []
@@ -1526,6 +1734,7 @@ const handleCurrentChange = async (page) => {
 onMounted(() => {
   initTeamAccounts()
   initData()
+  loadRecordTypes()
 })
 </script>
 

@@ -45,6 +45,7 @@ const createCommissionAccounting = asyncHandler(async (req, res) => {
     netTransactionData,
     commission,
     dailyConsumption,
+    productTime,
     description
   } = req.body;
 
@@ -56,6 +57,7 @@ const createCommissionAccounting = asyncHandler(async (req, res) => {
     netTransactionData,
     commission,
     dailyConsumption,
+    productTime,
     description,
     createdBy: req.user.id
   });
@@ -184,6 +186,8 @@ const getCommissionAccountings = asyncHandler(async (req, res) => {
     team,
     startDate,
     endDate,
+    productStartDate,
+    productEndDate,
     minProfit,
     maxProfit,
     search
@@ -235,7 +239,7 @@ const getCommissionAccountings = asyncHandler(async (req, res) => {
     if (maxProfit) query.netProfit.$lte = Number(maxProfit);
   }
 
-  // 日期范围查询
+  // 创建时间日期范围查询
   if (startDate || endDate) {
     query.createdAt = {};
 
@@ -251,6 +255,25 @@ const getCommissionAccountings = asyncHandler(async (req, res) => {
       const end = new Date(endDate);
       end.setHours(23, 59, 59, 999);
       query.createdAt.$lte = end;
+    }
+  }
+
+  // 产品日期范围查询
+  if (productStartDate || productEndDate) {
+    query.productTime = {};
+
+    if (productStartDate) {
+      // 开始日期设置为当天的 00:00:00
+      const start = new Date(productStartDate);
+      start.setHours(0, 0, 0, 0);
+      query.productTime.$gte = start;
+    }
+
+    if (productEndDate) {
+      // 结束日期设置为当天的 23:59:59.999
+      const end = new Date(productEndDate);
+      end.setHours(23, 59, 59, 999);
+      query.productTime.$lte = end;
     }
   }
 

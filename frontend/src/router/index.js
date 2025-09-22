@@ -73,6 +73,12 @@ const routes = [
             component: () => import('../views/finance-reconciliation/TeamAccounts.vue'),
             meta: { title: '团队账户', icon: 'UserFilled' }
           },
+          {
+            path: 'record-type-settings',
+            name: 'RecordTypeSettings',
+            component: () => import('../views/finance-reconciliation/RecordTypeSettings.vue'),
+            meta: { title: '类型设置', icon: 'Setting' }
+          },
           // {
           //   path: 'income-expense-stats',
           //   name: 'IncomeExpenseStats',

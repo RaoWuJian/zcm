@@ -63,6 +63,12 @@ const commissionAccountingSchema = new mongoose.Schema({
         default: 0
     },
 
+    // 产品时间（可选）
+    productTime: {
+        type: Date,
+        required: false
+    },
+
     // 备注
     description: {
         type: String,

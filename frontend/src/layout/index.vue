@@ -80,6 +80,7 @@
             'finance:update',       // 编辑收支记录
             'finance:delete',       // 删除收支记录
             'finance:approve',      // 收支记录审批
+            'finance:typeSetting',  // 收支类型设置
             'finance:manage',       // 收支管理
             
             // 团队财务账户权限
@@ -101,6 +102,13 @@
               <el-icon><UserFilled /></el-icon>
               <template #title>团队账户</template>
             </el-menu-item>
+            <el-menu-item index="/finance-reconciliation/record-type-settings" v-if="hasAnyPermission([
+              'finance:manage',       // 财务管理
+              'finance:typeSetting',  // 收支类型设置
+            ])">
+              <el-icon><Setting /></el-icon>
+              <template #title>类型设置</template>
+            </el-menu-item>
             <!-- <el-menu-item index="/finance-reconciliation/income-expense-stats">
               <el-icon><DataAnalysis /></el-icon>
               <template #title>收支统计</template>
@@ -115,15 +123,6 @@
               'product:budget',      // 财务测算
               'product:commission',  // 产品佣金
               'product:manage',      // 管理商品
-              'inventory:read',      // 查看库存信息
-              'inventory:create',    // 创建库存记录
-              'inventory:update',    // 编辑库存信息
-              'inventory:delete',    // 删除库存记录
-              'inventory:in',        // 入库操作
-              'inventory:out',       // 出库操作
-              'inventory:records',   // 查看操作记录
-              'inventory:stats',     // 查看库存统计
-              'inventory:manage',    // 管理库存
             ])">
             <template #title>
               <el-icon><Box /></el-icon>
@@ -158,7 +157,7 @@
               <template #title>产品佣金</template>
             </el-menu-item>
             <el-menu-item index="/product-management/operational-product" v-if="hasAnyPermission([
-              'product:commission',
+              'product:operation',
               'product:manage',      // 管理商品
             ])">
               <el-icon><Money /></el-icon>
@@ -169,11 +168,15 @@
 
           <!-- 库存管理菜单 -->
           <el-menu-item index="/inventory" v-if="hasAnyPermission([
-              'inventory:create',     // 添加库存
-              'inventory:update',     // 编辑库存
-              'inventory:in',         // 入库操作
-              'inventory:out',        // 出库操作
-              'inventory:delete',     // 删除库存
+              'inventory:read',      // 查看库存信息
+              'inventory:create',    // 创建库存记录
+              'inventory:update',    // 编辑库存信息
+              'inventory:delete',    // 删除库存记录
+              'inventory:in',        // 入库操作
+              'inventory:out',       // 出库操作
+              'inventory:records',   // 查看操作记录
+              'inventory:stats',     // 查看库存统计
+              'inventory:manage',    // 管理库存
             ])">
             <el-icon><Box /></el-icon>
             <template #title>库存管理</template>

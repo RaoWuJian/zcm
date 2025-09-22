@@ -399,6 +399,7 @@ const getAvailablePermissions = asyncHandler(async (req, res) => {
     'product:manage',      // 管理商品
     'product:budget',      // 财务测算
     'product:commission',  // 产品佣金
+    'product:operation',   // 商品运营
 
     // 库存管理权限
     'inventory:create',    // 添加库存
@@ -413,6 +414,7 @@ const getAvailablePermissions = asyncHandler(async (req, res) => {
     'finance:update',       // 编辑收支记录
     'finance:delete',       // 删除收支记录
     'finance:approve',      // 收支记录审批
+    'finance:typeSetting',  // 收支类型设置
     'finance:manage',       // 收支管理
 
     // 团队财务账户权限
@@ -450,6 +452,7 @@ const getAvailablePermissions = asyncHandler(async (req, res) => {
     'product:delete': { label: '删除商品', category: '商品管理' },
     'product:budget': { label: '财务测算', category: '商品管理' },
     'product:commission': { label: '产品佣金', category: '商品管理' },
+    'product:operation': { label: '商品运营', category: '商品管理' },
     'product:manage': { label: '管理商品', category: '商品管理' },
 
     // 库存管理权限
@@ -465,6 +468,7 @@ const getAvailablePermissions = asyncHandler(async (req, res) => {
     'finance:update': { label: '编辑财务记录', category: '财务管理' },
     'finance:delete': { label: '删除财务记录', category: '财务管理' },
     'finance:approve': { label: '审批财务记录', category: '财务管理' },
+    'finance:typeSetting': { label: '收支类型设置', category: '财务管理' },
     'finance:manage': { label: '管理财务', category: '财务管理' },
     'finance:team_read': { label: '查看团队账户', category: '财务管理' },
     'finance:team_manage': { label: '管理团队账户', category: '财务管理' }

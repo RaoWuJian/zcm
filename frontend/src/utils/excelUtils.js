@@ -199,6 +199,10 @@ export function validateImportHeaders(headers) {
     '产品名称': 'name',
     '名称': 'name',
     'name': 'name',
+    '产品时间': 'productTime',
+    '时间': 'productTime',
+    'time': 'productTime',
+    'productTime': 'productTime',
     '店铺名称': 'shopName',
     '店铺': 'shopName',
     'shop': 'shopName',
@@ -266,6 +270,7 @@ export function transformImportData(data, fieldMapping) {
     const transformedRow = {
       _rowIndex: index + 1, // 添加行号用于错误提示
       name: '',
+      productTime: '',
       shopName: '',
       platform: '',
       netTransactionData: 0,
@@ -283,6 +288,19 @@ export function transformImportData(data, fieldMapping) {
           // 数字字段处理
           const numValue = parseFloat(String(value).replace(/[^\d.-]/g, ''))
           transformedRow[mappedField] = isNaN(numValue) ? 0 : numValue
+        } else if (mappedField === 'productTime') {
+          // 日期字段处理（只保留日期部分）
+          const timeValue = String(value).trim()
+          if (timeValue) {
+            // 尝试解析日期格式
+            const date = new Date(timeValue)
+            if (!isNaN(date.getTime())) {
+              // 只保留日期部分，格式为 YYYY-MM-DD
+              transformedRow[mappedField] = date.toISOString().slice(0, 10)
+            } else {
+              transformedRow[mappedField] = timeValue // 保留原始值，让后端验证
+            }
+          }
         } else {
           // 文本字段处理
           transformedRow[mappedField] = String(value).trim()
@@ -371,10 +389,11 @@ export function validateImportData(data) {
  * @returns {Object} 模板数据
  */
 export function generateImportTemplate() {
-  const headers = ['产品名称', '店铺名称', '平台', '净成交数据', '佣金(%)', '今日消耗', '备注']
+  const headers = ['产品名称', '产品时间', '店铺名称', '平台', '净成交数据', '佣金(%)', '今日消耗', '备注']
   const sampleData = [
     {
       '产品名称': 'iPhone 14',
+      '产品时间': '2024-01-01',
       '店铺名称': '苹果官方旗舰店',
       '平台': '天猫',
       '净成交数据': '5000',
@@ -384,6 +403,7 @@ export function generateImportTemplate() {
     },
     {
       '产品名称': 'iPhone 14',
+      '产品时间': '2024-01-02',
       '店铺名称': '苹果专卖店',
       '平台': '京东',
       '净成交数据': '4500',

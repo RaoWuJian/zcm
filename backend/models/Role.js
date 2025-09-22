@@ -44,6 +44,7 @@ const roleSchema = new mongoose.Schema({
       'product:delete',      // 删除商品信息
       'product:budget',      // 财务测算
       'product:commission',  // 产品佣金
+      'product:operation',   // 商品运营
       'product:manage',      // 管理商品
 
       // 库存管理权限
@@ -59,6 +60,7 @@ const roleSchema = new mongoose.Schema({
       'finance:update',       // 编辑收支记录
       'finance:delete',       // 删除收支记录
       'finance:approve',      // 收支记录审批
+      'finance:typeSetting',  // 收支类型设置
       'finance:manage',       // 收支管理
       
       // 团队财务账户权限

@@ -11,14 +11,14 @@ const teamSchema = new mongoose.Schema({
     // 账户金额
     amount: {
         type: Number,
-        required: true,
+        required: true
     },
 
      // 每一个账号绑定一个部门（唯一）
     departmentId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Department',
-        required: [true, '请选择关联部门'],
+        required: [true, '请选择关联部门']
     },
 
     description: {

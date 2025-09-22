@@ -58,7 +58,21 @@
                 style="width: 100%"
               />
           </el-form-item>
-          <el-form-item label="时间筛选" class="search-item">
+          <el-form-item label="产品日期" class="search-item">
+            <el-date-picker
+              v-model="productDateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              format="YYYY-MM-DD"
+              value-format="YYYY-MM-DD"
+              style="width: 350px;"
+              :shortcuts="dateShortcuts"
+              @change="handleProductDateRangeChange"
+            />
+          </el-form-item>
+          <el-form-item label="创建时间" class="search-item">
             <el-date-picker
               v-model="dateRange"
               type="daterange"
@@ -248,6 +262,12 @@
         
         <el-table-column prop="name" label="产品名称" min-width="150" show-overflow-tooltip />
 
+        <el-table-column prop="productTime" label="产品时间" width="120" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span>{{ row.productTime ? formatDateOnly(row.productTime) : '-' }}</span>
+          </template>
+        </el-table-column>
+
         <el-table-column prop="shopName" label="店铺名称" width="120" show-overflow-tooltip>
           <template #default="{ row }">
             <span>{{ row.shopName || '-' }}</span>
@@ -299,7 +319,7 @@
             </span>
           </template>
         </el-table-column>
-         <el-table-column prop="description" label="备注" align="right">
+         <el-table-column prop="description" label="备注" width="200">
           <template #default="{ row }">
             <span >{{ row.description || '-' }}</span>
           </template>
@@ -363,6 +383,18 @@
             show-word-limit
             clearable
             style="width: 100%"
+          />
+        </el-form-item>
+
+        <el-form-item label="产品日期">
+          <el-date-picker
+            v-model="accountingForm.productTime"
+            type="date"
+            placeholder="请选择产品日期"
+            format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"
+            style="width: 100%"
+            clearable
           />
         </el-form-item>
 
@@ -784,7 +816,8 @@
             <ul>
               <li>支持 Excel (.xlsx, .xls) 和 CSV 文件格式</li>
               <li>必填字段：产品名称、净成交数据、佣金</li>
-              <li>可选字段：店铺名称、平台、今日消耗、备注</li>
+              <li>可选字段：产品时间、店铺名称、平台、今日消耗、备注</li>
+              <li>产品时间格式：YYYY-MM-DD（如：2024-01-01）</li>
               <li>数字字段支持负数和小数</li>
               <li>建议先下载模板，按格式填写数据</li>
             </ul>
@@ -834,6 +867,11 @@
           >
             <el-table-column type="index" label="序号" width="60" />
             <el-table-column prop="name" label="产品名称" min-width="120" />
+            <el-table-column prop="productTime" label="产品时间" width="120">
+              <template #default="{ row }">
+                <span>{{ row.productTime ? formatDateOnly(row.productTime) : '-' }}</span>
+              </template>
+            </el-table-column>
             <el-table-column prop="shopName" label="店铺名称" min-width="120" />
             <el-table-column prop="platform" label="平台" width="80" />
             <el-table-column prop="netTransactionData" label="净成交数据" width="120">
@@ -1190,6 +1228,11 @@
             height="400"
           >
             <el-table-column prop="name" label="产品名称" min-width="150" show-overflow-tooltip />
+            <el-table-column prop="productTime" label="产品时间" width="120" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span>{{ row.productTime ? formatDateOnly(row.productTime) : '-' }}</span>
+              </template>
+            </el-table-column>
             <el-table-column prop="shopName" label="店铺名称" width="120" show-overflow-tooltip>
               <template #default="{ row }">
                 <span>{{ row.shopName || '-' }}</span>
@@ -1274,6 +1317,22 @@ import {
 } from '@element-plus/icons-vue'
 import { useCommissionAccountingStore } from '@/stores/commissionAccounting'
 import { formatUtcToLocalDateTime } from '@/utils/dateUtils'
+
+// 格式化日期（只显示日期部分）
+const formatDateOnly = (dateString) => {
+  if (!dateString) return '-'
+  try {
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return '-'
+    return date.toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).replace(/\//g, '-')
+  } catch (error) {
+    return '-'
+  }
+}
 import { numberValidators } from '@/utils/inputValidation'
 import {
   readExcelFile,
@@ -1315,11 +1374,16 @@ const searchForm = reactive({
   minProfit: null,
   maxProfit: null,
   startDate: '',
-  endDate: ''
+  endDate: '',
+  productStartDate: '',
+  productEndDate: ''
 })
 
-// 日期范围
+// 创建时间日期范围
 const dateRange = ref([])
+
+// 产品日期范围
+const productDateRange = ref([])
 
 // 日期快捷选项
 const dateShortcuts = [
@@ -1404,6 +1468,7 @@ const accountingForm = reactive({
   netTransactionData: 0,
   commission: 0,
   dailyConsumption: 0,
+  productTime: '',
   description: ''
 })
 
@@ -1545,7 +1610,7 @@ const fetchAccountings = async () => {
   await commissionStore.fetchCommissionAccountings(params)
 }
 
-// 日期范围处理函数
+// 创建时间日期范围处理函数
 const handleDateRangeChange = (dates) => {
   if (dates && dates.length === 2) {
     searchForm.startDate = dates[0]
@@ -1553,6 +1618,17 @@ const handleDateRangeChange = (dates) => {
   } else {
     searchForm.startDate = ''
     searchForm.endDate = ''
+  }
+}
+
+// 产品日期范围处理函数
+const handleProductDateRangeChange = (dates) => {
+  if (dates && dates.length === 2) {
+    searchForm.productStartDate = dates[0]
+    searchForm.productEndDate = dates[1]
+  } else {
+    searchForm.productStartDate = ''
+    searchForm.productEndDate = ''
   }
 }
 
@@ -1579,9 +1655,12 @@ const handleReset = () => {
     minProfit: null,
     maxProfit: null,
     startDate: '',
-    endDate: ''
+    endDate: '',
+    productStartDate: '',
+    productEndDate: ''
   })
   dateRange.value = []
+  productDateRange.value = []
   currentPage.value = 1
 
   // 清空统计数据，因为搜索条件重置了
@@ -1623,6 +1702,7 @@ const handleEdit = (accounting) => {
     netTransactionData: accounting.netTransactionData,
     commission: accounting.commission,
     dailyConsumption: accounting.dailyConsumption,
+    productTime: accounting.productTime || '',
     description: accounting.description || ''
   })
   updateCalculation()
@@ -1736,6 +1816,7 @@ const resetForm = () => {
     netTransactionData: 0,
     commission: 0,
     dailyConsumption: 0,
+    productTime: '',
     description: ''
   })
   calculationResult.value = null
@@ -2329,6 +2410,7 @@ const exportSummaryData = () => {
       // 详细数据
       ...summaryAllData.value.map((item, index) => ({
         '产品名称': item.name || '',
+        '产品时间': item.productTime ? formatDateOnly(item.productTime) : '',
         '店铺名称': item.shopName || '',
         '平台': item.platform || '',
         '团队': item.team || '',
@@ -2516,6 +2598,7 @@ const handleExport = async () => {
 
     const data = exportData.map(item => ({
       '名称': item.name || '',
+      '产品时间': item.productTime ? formatDateOnly(item.productTime) : '',
       '店铺名称': item.shopName || '',
       '平台': item.platform || '',
       '团队': item.team || '',

@@ -83,6 +83,7 @@ const roleRoutes = require('./routes/roles');
 const operationLogRoutes = require('./routes/operationLogs');
 const inventoryRoutes = require('./routes/inventory');
 const inventoryRecordRoutes = require('./routes/inventoryRecords');
+const recordTypeRoutes = require('./routes/recordType');
 
 // 根路由
 app.get('/', (req, res) => {
@@ -123,6 +124,7 @@ app.use('/api/roles', roleRoutes);
 app.use('/api/operation-logs', operationLogRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/inventory-records', inventoryRecordRoutes);
+app.use('/api/record-types', recordTypeRoutes);
 
 // 健康检查端点
 app.get('/health', (req, res) => {

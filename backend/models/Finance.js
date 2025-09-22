@@ -35,10 +35,10 @@ const financeSchema = new mongoose.Schema({
     required: true
   },
 
-  // 收款方式/支付方式
-  paymentMethod: {
-    type: String,
-    trim: true,
+  // 公司账户ID（仅标签作用，不影响余额）
+  companyAccountId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'TeamAccount'
   },
 
   // 收款/付款名
@@ -60,6 +60,25 @@ const financeSchema = new mongoose.Schema({
     type: String,
     trim: true,
     maxlength: [200, '说明最多200个字符']
+  },
+
+  // 记录类型信息
+  recordType: {
+    categoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'RecordType'
+    },
+    categoryName: {
+      type: String,
+      trim: true
+    },
+    subCategoryId: {
+      type: mongoose.Schema.Types.ObjectId
+    },
+    subCategoryName: {
+      type: String,
+      trim: true
+    }
   },
 
   // 关联的图片文件

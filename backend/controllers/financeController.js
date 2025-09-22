@@ -45,11 +45,12 @@ const createFinance = asyncHandler(async (req, res) => {
     type,
     amount,
     occurredAt,
-    paymentMethod,
+    companyAccountId,
     paymentName,
     account,
     description,
-    images
+    images,
+    recordType
   } = req.body;
 
   // 验证团队账户是否存在且激活
@@ -84,17 +85,19 @@ const createFinance = asyncHandler(async (req, res) => {
       type,
       amount,
       occurredAt,
-      paymentMethod,
+      companyAccountId,
       paymentName,
       account,
       description,
       images: images || [],
+      recordType: recordType || {},
       createdBy: req.user.id
     });
 
     // 返回创建的财务记录
     const populatedFinance = await Finance.findById(finance._id)
       .populate('teamId', 'name amount')
+      .populate('companyAccountId', 'name')
       .populate('createdBy', 'username loginAccount')
       .populate('updatedBy', 'username loginAccount')
       .populate('approvedBy', 'username loginAccount')
@@ -127,7 +130,10 @@ const getFinances = asyncHandler(async (req, res) => {
     endDate,
     paymentMethod,
     search,
-    name
+    name,
+    companyAccountId,
+    categoryId,
+    subCategoryId
   } = req.query;
   const user = req.user;
 
@@ -137,6 +143,9 @@ const getFinances = asyncHandler(async (req, res) => {
   if (type) query.type = type;
   if (approvalStatus) query.approvalStatus = approvalStatus;
   if (paymentMethod) query.paymentMethod = paymentMethod;
+  if (companyAccountId) query.companyAccountId = companyAccountId;
+  if (categoryId) query['recordType.categoryId'] = categoryId;
+  if (subCategoryId) query['recordType.subCategoryId'] = subCategoryId;
 
   // 获取用户有权限查看的财务记录（基于创建者权限）
   if (!user.isAdmin) {
@@ -209,6 +218,7 @@ const getFinances = asyncHandler(async (req, res) => {
 
   const finances = await Finance.find(query)
     .populate('teamId', 'name')
+    .populate('companyAccountId', 'name')
     .populate('createdBy', 'username loginAccount departmentPath')
     .populate('updatedBy', 'username loginAccount departmentPath')
     .populate('approvedBy', 'username loginAccount departmentPath')
@@ -241,6 +251,7 @@ const getFinances = asyncHandler(async (req, res) => {
 const getFinance = asyncHandler(async (req, res) => {
   const finance = await Finance.findById(req.params.id)
     .populate('teamId', 'name')
+    .populate('companyAccountId', 'name')
     .populate('createdBy', 'username loginAccount')
     .populate('updatedBy', 'username loginAccount')
     .populate('approvedBy', 'username loginAccount')
@@ -355,6 +366,7 @@ const updateFinance = asyncHandler(async (req, res) => {
         runValidators: true
       }
     ).populate('teamId', 'name amount')
+     .populate('companyAccountId', 'name')
      .populate('createdBy', 'username loginAccount')
      .populate('updatedBy', 'username loginAccount')
      .populate('approvedBy', 'username loginAccount')
@@ -633,6 +645,7 @@ const approveFinance = asyncHandler(async (req, res) => {
       runValidators: true
     }
   ).populate('teamId', 'name amount')
+   .populate('companyAccountId', 'name')
    .populate('createdBy', 'username loginAccount')
    .populate('updatedBy', 'username loginAccount')
    .populate('approvedBy', 'username loginAccount');

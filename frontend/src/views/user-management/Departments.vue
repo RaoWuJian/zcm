@@ -57,6 +57,7 @@
             @node-click="handleNodeClick"
             v-loading="treeLoading"
             :default-expanded-keys="defaultExpandedKeys"
+            :filter-node-method="filterNode"
           >
             <template #default="{ node, data }">
               <div class="tree-node">
@@ -684,19 +685,28 @@ const buildDepartmentTree = (flatData) => {
     }
   })
   
-  // 对每个部门的children按level排序，确保层级正确显示
-  const sortChildren = (departments) => {
-    departments.forEach(dept => {
-      if (dept.children && dept.children.length > 0) {
-        dept.children.sort((a, b) => a.level - b.level || a.departmentName.localeCompare(b.departmentName))
-        sortChildren(dept.children)
-      }
-    })
-  }
-  
-  // 对根节点排序并递归排序子节点
-  tree.sort((a, b) => a.level - b.level || a.departmentName.localeCompare(b.departmentName))
-  sortChildren(tree)
+  // 对每个部门的children按创建时间倒序排序
+  // const sortChildren = (departments) => {
+  //   departments.forEach(dept => {
+  //     if (dept.children && dept.children.length > 0) {
+  //       // 按创建时间倒序排序，如果创建时间相同则按部门名称排序
+  //       dept.children.sort((a, b) => {
+  //         const timeA = new Date(a.createdAt || a.createTime || 0)
+  //         const timeB = new Date(b.createdAt || b.createTime || 0)
+  //         return timeB - timeA || a.departmentName.localeCompare(b.departmentName)
+  //       })
+  //       sortChildren(dept.children)
+  //     }
+  //   })
+  // }
+
+  // 对根节点按创建时间倒序排序并递归排序子节点
+  tree.sort((a, b) => {
+    const timeA = new Date(a.createdAt || a.createTime || 0)
+    const timeB = new Date(b.createdAt || b.createTime || 0)
+    return timeB - timeA || a.departmentName.localeCompare(b.departmentName)
+  })
+  // sortChildren(tree)
   
   return tree
 }
@@ -714,13 +724,42 @@ const adaptApiDataToPageFormat = (apiData) => {
   }))
 }
 
+// 对树形数据进行倒序排序
+const sortTreeDataDesc = (treeData) => {
+  const sortedData = [...treeData]
+
+  // 递归排序函数
+  const sortRecursive = (departments) => {
+    // 按创建时间倒序排序
+    departments.sort((a, b) => {
+      const timeA = new Date(a.createdAt || a.createTime || 0)
+      const timeB = new Date(b.createdAt || b.createTime || 0)
+      return timeB - timeA || a.departmentName.localeCompare(b.departmentName)
+    })
+
+    // 递归排序子部门
+    departments.forEach(dept => {
+      if (dept.children && dept.children.length > 0) {
+        sortRecursive(dept.children)
+      }
+    })
+  }
+
+  sortRecursive(sortedData)
+  return sortedData
+}
+
 // 获取部门树形数据
 const getDepartmentTree = async () => {
   treeLoading.value = true
   
   try {
-    // 尝试从API获取数据
-    const response = await departmentApi.getDepartmentTree({ isActive: true })
+    // 尝试从API获取数据，添加倒序排序参数
+    const response = await departmentApi.getDepartmentTree({
+      isActive: true,
+      sortBy: 'createdAt',
+      sortOrder: 'desc'
+    })
     
     if (response.success && response.data && Array.isArray(response.data)) {
       // 检查数据是否已经是树形结构（有children字段且不为空）
@@ -731,13 +770,13 @@ const getDepartmentTree = async () => {
       let processedData
       
       if (hasTreeStructure) {
-        // 数据已经是树形结构，直接使用
-        processedData = response.data
+        // 数据已经是树形结构，对其进行倒序排序
+        processedData = sortTreeDataDesc(response.data)
       } else {
-        // 数据是扁平结构，需要构建树形结构
+        // 数据是扁平结构，需要构建树形结构（buildDepartmentTree内部已经包含倒序排序）
         processedData = buildDepartmentTree(response.data)
       }
-      
+
       // 保存处理后的树形数据
       treeData.value = processedData
       
@@ -854,6 +893,15 @@ const filterTree = () => {
   if (treeRef.value) {
     treeRef.value.filter(searchForm.name)
   }
+}
+
+// 树节点过滤方法
+const filterNode = (value, data) => {
+  if (!value) return true
+  // 过滤公司根节点，始终显示
+  if (data.id === -1) return true
+  // 根据部门名称进行过滤
+  return data.departmentName && data.departmentName.toLowerCase().includes(value.toLowerCase())
 }
 
 // 员工搜索（静态搜索）

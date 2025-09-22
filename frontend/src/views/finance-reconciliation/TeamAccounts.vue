@@ -11,17 +11,53 @@
       </div>
     </div>
 
+    <!-- 搜索栏 -->
+    <div class="search-card business-style">
+      <el-form :model="searchForm" :inline="true" class="business-search-form">
+        <div class="search-fields">
+          <el-form-item label="账户名称" class="search-item">
+            <el-input
+              v-model="searchForm.name"
+              placeholder="请输入账户名称"
+              clearable
+              class="business-input"
+            />
+          </el-form-item>
+          <el-form-item label="说明" class="search-item">
+            <el-input
+              v-model="searchForm.description"
+              placeholder="请输入说明内容"
+              clearable
+              class="business-input"
+            />
+          </el-form-item>
+        </div>
+
+        <div class="search-actions">
+          <el-button type="primary" @click="handleSearch" :icon="Search" size="small">查询</el-button>
+          <el-button @click="handleReset" size="small">重置</el-button>
+        </div>
+      </el-form>
+    </div>
+
     <!-- 操作栏 -->
     <div class="action-card">
       <div class="action-left">
         <el-button type="primary" @click="handleAdd" :icon="Plus" class="action-btn primary" v-if="hasAnyPermission(['finance:team_manage'])">
           新增账户
         </el-button>
-        <!-- <el-button type="success" @click="handleRecharge" :icon="Money" class="action-btn success" v-if="hasAnyPermission(['finance:team_manage'])">
-          账户充值
-        </el-button> -->
-        <el-button @click="handleRefresh" :icon="Refresh" class="action-btn">
-          刷新数据
+        <el-button
+          @click="handleShowSummary"
+          :icon="TrendCharts"
+          class="action-btn"
+          :disabled="!selectedAccounts.length"
+        >
+          查看汇总
+          <span v-if="selectedAccounts.length">({{ selectedAccounts.length }}条)</span>
+        </el-button>
+        <el-button @click="handleExport" :icon="Download" class="action-btn">
+          导出数据
+          <span v-if="selectedAccounts.length">({{ selectedAccounts.length }}条)</span>
         </el-button>
       </div>
       <!-- <div class="action-center">
@@ -37,131 +73,15 @@
         </el-radio-group>
       </div> -->
       <div class="action-right">
-        <span class="total-count">共 {{ accounts.length }} 个账户</span>
+        <span class="total-count">
+          共 {{ pagination.total }} 个账户
+          <span v-if="searchForm.name || searchForm.description" class="filter-hint">
+            (已过滤)
+          </span>
+        </span>
         <!-- <el-tooltip content="账户设置" placement="top">
           <el-button :icon="Setting" circle />
         </el-tooltip> -->
-      </div>
-    </div>
-
-    <!-- 账户卡片列表 -->
-    <div class="accounts-container" v-if="viewMode === 'card'">
-      <div class="account-cards" v-loading="loading">
-        <div class="account-card" v-for="account in paginatedAccounts" :key="account._id">
-          <div class="card-header">
-            <div class="account-info">
-              <div class="account-name">
-                <el-icon class="account-icon"><CreditCard /></el-icon>
-                <h3>{{ account.name }}</h3>
-              </div>
-              <el-tag 
-                :type="getDepartmentColor(account)" 
-                size="small" 
-                class="account-type-tag"
-              >
-                {{ getDepartmentDisplayName(account) }}
-              </el-tag>
-            </div>
-            <div class="account-actions">
-              <el-dropdown @command="handleAccountAction" trigger="click">
-                <el-button type="text" :icon="MoreFilled" class="more-btn" />
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item :command="{action: 'edit', data: account}" v-if="hasAnyPermission(['finance:team_manage'])">
-                      <el-icon><Edit /></el-icon>
-                      编辑
-                    </el-dropdown-item>
-                    <!-- <el-dropdown-item :command="{action: 'recharge', data: account}" v-if="hasAnyPermission(['finance:team_manage'])">
-                      <el-icon><Money /></el-icon>
-                      充值
-                    </el-dropdown-item> -->
-                    <el-dropdown-item :command="{action: 'detail', data: account}">
-                      <el-icon><View /></el-icon>
-                      详情
-                    </el-dropdown-item>
-                    <!-- <el-dropdown-item :command="{action: 'transfer', data: account}" v-if="hasAnyPermission(['finance:team_manage'])">
-                      <el-icon><Sort /></el-icon>
-                      转账
-                    </el-dropdown-item> -->
-                    <el-dropdown-item :command="{action: 'delete', data: account}" divided v-if="hasAnyPermission(['finance:team_manage'])">
-                      <el-icon><Delete /></el-icon>
-                      删除
-                    </el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-            </div>
-          </div>
-          
-          <div class="card-content">
-            <div class="balance-section">
-              <div class="balance-main">
-                <span class="balance-label">金额</span>
-                <div class="balance-amount" :class="account.amount >= 0 ? 'positive' : 'negative'">
-                  ¥{{ account.amount.toLocaleString() }}
-                </div>
-              </div>
-              <div class="account-number">
-                <span class="number-label">部门</span>
-                <span class="number-value">{{ getDepartmentDisplayName(account) }}</span>
-              </div>
-            </div>
-            
-            <div class="stats-section">
-              <div class="stat-item income">
-                <div class="stat-icon">
-                  <el-icon><TrendCharts /></el-icon>
-                </div>
-                <div class="stat-content">
-                  <div class="stat-label">本月收入</div>
-                  <div class="stat-value">+¥{{ (account.monthlyIncome || 0).toLocaleString() }}</div>
-                </div>
-              </div>
-              <div class="stat-item expense">
-                <div class="stat-icon">
-                  <el-icon><Minus /></el-icon>
-                </div>
-                <div class="stat-content">
-                  <div class="stat-label">本月支出</div>
-                  <div class="stat-value">-¥{{ (account.monthlyExpense || 0).toLocaleString() }}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div class="card-footer">
-            <div class="update-info">
-              <el-icon class="time-icon"><Clock /></el-icon>
-              <span class="update-time">更新时间：{{ account.updateTime }}</span>
-            </div>
-            <el-tag 
-              size="small" 
-              :type="account.status === 'active' ? 'success' : 'danger'"
-              class="status-tag"
-            >
-              {{ account.status === 'active' ? '正常' : '冻结' }}
-            </el-tag>
-          </div>
-        </div>
-        
-        <!-- 空状态 -->
-        <div v-if="!loading && paginatedAccounts.length === 0" class="empty-state">
-          <el-empty description="暂无账户数据" />
-        </div>
-      </div>
-      
-      <!-- 卡片视图分页 -->
-      <div class="pagination-wrapper" v-if="pagination.total > pagination.pageSize">
-        <el-pagination
-          v-model:current-page="pagination.currentPage"
-          v-model:page-size="pagination.pageSize"
-          :page-sizes="[8, 12, 16, 24]"
-          :total="pagination.total"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
-          class="custom-pagination"
-        />
       </div>
     </div>
 
@@ -174,7 +94,9 @@
         border
         style="width: 100%"
         :header-cell-style="{ background: '#fafbfc', color: '#1f2329', fontWeight: '600' }"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column type="selection" width="50" />
         <el-table-column label="名称" min-width="150">
           <template #default="{ row }">
             <div class="name-cell">
@@ -250,6 +172,20 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- 表格视图分页 -->
+      <div class="pagination-wrapper" v-if="pagination.total > pagination.pageSize">
+        <el-pagination
+          v-model:current-page="pagination.currentPage"
+          v-model:page-size="pagination.pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="pagination.total"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+          class="custom-pagination"
+        />
+      </div>
     </div>
     <!-- 新增/编辑账户对话框 -->
     <el-dialog
@@ -565,6 +501,122 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 多选汇总对话框 -->
+    <el-dialog
+      v-model="showSelectedSummaryDialog"
+      title="团队账户汇总"
+      width="70vw"
+      append-to-body
+      @close="handleSummaryDialogClose"
+    >
+      <div class="selected-summary-container">
+        <!-- 汇总统计卡片 -->
+        <div class="summary-stats">
+          <el-row :gutter="16" style="margin-bottom: 20px;">
+            <el-col :span="8" :xs="24" :sm="12" :md="8" :lg="8">
+              <el-card class="stats-card">
+                <div class="stats-content">
+                  <div class="stats-icon income">
+                    <el-icon><TrendCharts /></el-icon>
+                  </div>
+                  <div class="stats-info">
+                    <div class="stats-value income">¥{{ selectedSummaryStats.totalIncome.toLocaleString() }}</div>
+                    <div class="stats-label">总收入</div>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+
+            <el-col :span="8" :xs="24" :sm="12" :md="8" :lg="8">
+              <el-card class="stats-card">
+                <div class="stats-content">
+                  <div class="stats-icon expense">
+                    <el-icon><Minus /></el-icon>
+                  </div>
+                  <div class="stats-info">
+                    <div class="stats-value expense">¥{{ selectedSummaryStats.totalExpense.toLocaleString() }}</div>
+                    <div class="stats-label">总支出</div>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+
+            <el-col :span="8" :xs="24" :sm="12" :md="8" :lg="8">
+              <el-card class="stats-card">
+                <div class="stats-content">
+                  <div class="stats-icon" :class="selectedSummaryStats.currentBalance >= 0 ? 'balance-positive' : 'balance-negative'">
+                    <el-icon><Wallet /></el-icon>
+                  </div>
+                  <div class="stats-info">
+                    <div class="stats-value" :class="selectedSummaryStats.currentBalance >= 0 ? 'balance-positive' : 'balance-negative'">
+                      ¥{{ selectedSummaryStats.currentBalance.toLocaleString() }}
+                    </div>
+                    <div class="stats-label">当前余额</div>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+          </el-row>
+        </div>
+
+        <!-- 选中数据详情 -->
+        <div class="selected-details">
+          <div class="table-header">
+            <h4>选中账户明细 (共{{ selectedSummaryStats.accountCount }}个)</h4>
+          </div>
+
+          <el-table
+            :data="selectedAccounts"
+            border
+            stripe
+            height="400"
+          >
+            <el-table-column prop="name" label="账户名称" min-width="150" show-overflow-tooltip />
+            <el-table-column label="部门" width="120" show-overflow-tooltip>
+              <template #default="{ row }">
+                <el-tag :type="getDepartmentColor(row)" size="small">
+                  {{ getDepartmentDisplayName(row) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="amount" label="金额" width="120" align="right">
+              <template #default="{ row }">
+                <span class="amount-text" :class="row.amount >= 0 ? 'positive' : 'negative'">
+                  ¥{{ row.amount?.toLocaleString() || '0' }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="description" label="说明" min-width="200" show-overflow-tooltip />
+            <el-table-column label="状态" width="80" align="center">
+              <template #default="{ row }">
+                <el-tag :type="row.isActive ? 'success' : 'danger'" size="small">
+                  {{ row.isActive ? '启用' : '禁用' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="createdAt" label="创建时间" width="150">
+              <template #default="{ row }">
+                <span class="time-text">{{ new Date(row.createdAt).toLocaleString() }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </div>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showSelectedSummaryDialog = false">关闭</el-button>
+          <el-button
+            type="primary"
+            @click="exportSelectedSummaryData"
+            :icon="Download"
+          >
+            导出汇总数据
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -592,7 +644,8 @@ import {
   Search,
   Download
 } from '@element-plus/icons-vue'
-import { departmentApi, teamAccountApi} from '@/api/index'
+import { departmentApi, teamAccountApi, financeApi } from '@/api/index'
+import { exportToExcel, exportToCSV } from '@/utils/excelUtils'
 
 // 响应式数据
 const dialogVisible = ref(false)
@@ -611,6 +664,22 @@ const transferFormRef = ref()
 const rechargeFormRef = ref()
 const selectedAccount = ref(null)
 const viewMode = ref('table') // 视图模式
+const selectedAccounts = ref([]) // 多选的账户
+const showSelectedSummaryDialog = ref(false) // 汇总弹框显示状态
+
+// 搜索表单
+const searchForm = reactive({
+  name: '',
+  description: ''
+})
+
+// 汇总统计数据
+const selectedSummaryStats = reactive({
+  totalIncome: 0,
+  totalExpense: 0,
+  currentBalance: 0,
+  accountCount: 0
+})
 
 // 交易记录相关数据
 const transactionRecords = ref([])
@@ -690,14 +759,7 @@ const availableAccounts = computed(() => {
   return accounts.value.filter((account) => account._id !== selectedAccount.value?._id)
 })
 
-// 分页后的账户数据
-const paginatedAccounts = computed(() => {
-  const start = (pagination.currentPage - 1) * pagination.pageSize
-  const end = start + pagination.pageSize
-  return accounts.value.slice(start, end)
-})
-
-// 分页后的记录数据
+// 分页后的记录数据（交易记录使用）
 const paginatedRecords = computed(() => {
   const start = (recordPagination.currentPage - 1) * recordPagination.pageSize
   const end = start + recordPagination.pageSize
@@ -739,9 +801,28 @@ const getDepartments = async () => {
 const getTeamAccounts = async () => {
   try {
     loading.value = true
-    const response = await teamAccountApi.getTeamAccounts()
+
+    // 构建查询参数
+    const params = {
+      page: pagination.currentPage,
+      limit: pagination.pageSize
+    }
+
+    // 添加搜索条件
+    const searchKeywords = []
+    if (searchForm.name) {
+      searchKeywords.push(searchForm.name)
+    }
+    if (searchForm.description) {
+      searchKeywords.push(searchForm.description)
+    }
+    if (searchKeywords.length > 0) {
+      params.search = searchKeywords.join(' ')
+    }
+
+    const response = await teamAccountApi.getTeamAccounts(params)
     if (response.success && response.data) {
-      const rawData = response.data.data || response.data || []
+      const rawData = response.data || []
 
       accounts.value = rawData.map((account) => ({
         ...account,
@@ -756,8 +837,13 @@ const getTeamAccounts = async () => {
         updateTime: new Date(account.updatedAt).toLocaleString()
       }))
 
-      // 更新分页信息
-      pagination.total = accounts.value.length
+      // 更新分页信息（使用服务端返回的分页数据）
+      if (response.pagination) {
+        pagination.total = response.pagination.totalAccounts || 0
+        pagination.currentPage = response.pagination.currentPage || 1
+      } else {
+        pagination.total = accounts.value.length
+      }
     } else {
       ElMessage.error('获取团队账户失败：' + (response?.message || '未知错误'))
     }
@@ -844,6 +930,275 @@ const getDepartmentColor = (account) => {
 const handleRefresh = async () => {
   await initData()
   ElMessage.success('数据刷新成功')
+}
+
+// 搜索功能
+const handleSearch = async () => {
+  // 重置到第一页并重新请求数据
+  pagination.currentPage = 1
+  await getTeamAccounts()
+  ElMessage.success('搜索完成')
+}
+
+// 重置搜索
+const handleReset = async () => {
+  searchForm.name = ''
+  searchForm.description = ''
+  // 重置到第一页并重新请求数据
+  pagination.currentPage = 1
+  await getTeamAccounts()
+  ElMessage.success('搜索条件已重置')
+}
+
+// 多选变化处理
+const handleSelectionChange = (selection) => {
+  selectedAccounts.value = selection
+}
+
+// 导出数据
+const handleExport = async () => {
+  try {
+    // 优先导出勾选的数据，如果没有勾选则导出当前页面的数据
+    const dataToExport = selectedAccounts.value.length > 0 ? selectedAccounts.value : accounts.value
+
+    if (dataToExport.length === 0) {
+      ElMessage.warning('暂无数据可导出')
+      return
+    }
+
+    // 构建导出数据
+    const exportData = dataToExport.map((account, index) => ({
+      '序号': index + 1,
+      '账户名称': account.name || '',
+      '部门': getDepartmentDisplayName(account),
+      '金额': account.amount || 0,
+      '说明': account.description || '',
+      '状态': account.isActive ? '启用' : '禁用',
+      '创建人': account.createdBy?.username || '',
+      '创建时间': account.createdAt ? new Date(account.createdAt).toLocaleString() : '',
+      '更新时间': account.updatedAt ? new Date(account.updatedAt).toLocaleString() : ''
+    }))
+
+    // 生成文件名
+    const headers = Object.keys(exportData[0])
+    const exportType = selectedAccounts.value.length > 0 ? '选中' : '全部'
+    const filename = `团队账户数据_${exportType}_${new Date().toLocaleDateString().replace(/\//g, '-')}`
+
+    try {
+      // 尝试导出为 Excel 格式
+      exportToExcel(exportData, headers, filename, '团队账户数据')
+      const exportTypeMsg = selectedAccounts.value.length > 0 ? `勾选的${selectedAccounts.value.length}条数据` : `全部${exportData.length}条数据`
+      ElMessage.success(`导出${exportTypeMsg}成功（Excel格式）`)
+    } catch (excelError) {
+      // 如果 Excel 导出失败，降级到 CSV
+      console.warn('Excel导出失败，使用CSV格式：', excelError.message)
+
+      const csvContent = exportToCSV(exportData, headers)
+
+      // 添加BOM以支持Excel正确显示中文
+      const bom = '\uFEFF'
+      const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${filename}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      const exportTypeMsg = selectedAccounts.value.length > 0 ? `勾选的${selectedAccounts.value.length}条数据` : `全部${exportData.length}条数据`
+      ElMessage.success(`导出${exportTypeMsg}成功（CSV格式）`)
+    }
+  } catch (error) {
+    console.error('导出失败:', error)
+    ElMessage.error('导出失败')
+  }
+}
+
+// 显示汇总弹框
+const handleShowSummary = async () => {
+  if (selectedAccounts.value.length === 0) {
+    ElMessage.warning('请先选择账户')
+    return
+  }
+
+  try {
+    // 计算汇总统计数据
+    const stats = await calculateSummaryStats(selectedAccounts.value)
+    Object.assign(selectedSummaryStats, stats)
+
+    showSelectedSummaryDialog.value = true
+  } catch (error) {
+    console.error('计算汇总统计失败:', error)
+    ElMessage.error('获取汇总数据失败')
+  }
+}
+
+// 计算汇总统计数据
+const calculateSummaryStats = async (accounts) => {
+  const accountCount = accounts.length
+  let totalIncome = 0
+  let totalExpense = 0
+  let currentBalance = 0
+
+  try {
+    // 获取选中账户的财务记录统计
+    const promises = accounts.map(async (account) => {
+      try {
+        const response = await financeApi.getRecords({
+          teamId: account._id,
+          limit: 1000 // 获取足够多的记录
+        })
+
+        if (response && response.data) {
+          const records = Array.isArray(response.data) ? response.data : response.data.records || []
+
+          let accountIncome = 0
+          let accountExpense = 0
+
+          records.forEach(record => {
+            if (record.approvalStatus === 'approved') { // 只统计已审批的记录
+              const amount = record.amount || 0
+              if (record.type === 'income' || record.type === 'recharge') {
+                accountIncome += amount
+              } else if (record.type === 'expense') {
+                accountExpense += amount
+              }
+            }
+          })
+
+          return {
+            accountIncome,
+            accountExpense,
+            accountBalance: account.amount || 0
+          }
+        }
+        return { accountIncome: 0, accountExpense: 0, accountBalance: account.amount || 0 }
+      } catch (error) {
+        console.error(`获取账户 ${account.name} 的财务数据失败:`, error)
+        return { accountIncome: 0, accountExpense: 0, accountBalance: account.amount || 0 }
+      }
+    })
+
+    const results = await Promise.all(promises)
+
+    // 汇总所有账户的数据
+    results.forEach(result => {
+      totalIncome += result.accountIncome
+      totalExpense += result.accountExpense
+      currentBalance += result.accountBalance
+    })
+
+  } catch (error) {
+    console.error('计算汇总统计失败:', error)
+  }
+
+  return {
+    totalIncome,
+    totalExpense,
+    currentBalance,
+    accountCount
+  }
+}
+
+// 导出汇总数据
+const exportSelectedSummaryData = async () => {
+  if (selectedAccounts.value.length === 0) {
+    ElMessage.warning('暂无选中数据可导出')
+    return
+  }
+
+  try {
+    // 构建导出数据
+    const exportData = [
+      // 汇总统计行
+      {
+        '数据类型': '汇总统计',
+        '账户名称': '多选汇总',
+        '部门': '全部',
+        '金额': selectedSummaryStats.currentBalance,
+        '总收入': selectedSummaryStats.totalIncome,
+        '总支出': selectedSummaryStats.totalExpense,
+        '当前余额': selectedSummaryStats.currentBalance,
+        '账户数量': selectedSummaryStats.accountCount,
+        '说明': `包含${selectedSummaryStats.accountCount}个账户的汇总数据`,
+        '状态': '汇总',
+        '创建时间': new Date().toLocaleString()
+      },
+      // 空行分隔
+      {
+        '数据类型': '',
+        '账户名称': '',
+        '部门': '',
+        '金额': '',
+        '总收入': '',
+        '总支出': '',
+        '当前余额': '',
+        '账户数量': '',
+        '说明': '',
+        '状态': '',
+        '创建时间': ''
+      },
+      // 明细数据
+      ...selectedAccounts.value.map((account, index) => ({
+        '数据类型': '明细数据',
+        '账户名称': account.name || '',
+        '部门': getDepartmentDisplayName(account),
+        '金额': account.amount || 0,
+        '总收入': '', // 明细行不显示汇总字段
+        '总支出': '',
+        '当前余额': '',
+        '账户数量': '',
+        '说明': account.description || '',
+        '状态': account.isActive ? '启用' : '禁用',
+        '创建时间': account.createdAt ? new Date(account.createdAt).toLocaleString() : ''
+      }))
+    ]
+
+    // 使用 Excel 格式导出汇总数据
+    const headers = Object.keys(exportData[0])
+    const filename = `团队账户汇总数据_${new Date().toLocaleDateString().replace(/\//g, '-')}`
+
+    try {
+      // 尝试导出为 Excel 格式
+      exportToExcel(exportData, headers, filename, '团队账户汇总')
+      ElMessage.success('汇总数据导出成功（Excel格式）')
+    } catch (excelError) {
+      // 如果 Excel 导出失败，降级到 CSV
+      console.warn('Excel导出失败，使用CSV格式：', excelError.message)
+
+      const csvContent = exportToCSV(exportData, headers)
+
+      // 添加BOM以支持Excel正确显示中文
+      const bom = '\uFEFF'
+      const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${filename}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      ElMessage.success('汇总数据导出成功（CSV格式）')
+    }
+  } catch (error) {
+    console.error('导出失败:', error)
+    ElMessage.error('导出失败')
+  }
+}
+
+// 关闭汇总弹框
+const handleSummaryDialogClose = () => {
+  // 清空汇总数据
+  Object.assign(selectedSummaryStats, {
+    totalIncome: 0,
+    totalExpense: 0,
+    currentBalance: 0,
+    accountCount: 0
+  })
 }
 
 // 账户操作
@@ -1108,13 +1463,15 @@ const handleTransferDialogClose = () => {
 }
 
 // 分页相关方法
-const handleSizeChange = (size) => {
+const handleSizeChange = async (size) => {
   pagination.pageSize = size
   pagination.currentPage = 1 // 重置到第一页
+  await getTeamAccounts() // 重新请求数据
 }
 
-const handleCurrentChange = (page) => {
+const handleCurrentChange = async (page) => {
   pagination.currentPage = page
+  await getTeamAccounts() // 重新请求数据
 }
 
 // 交易记录相关方法
@@ -1323,6 +1680,265 @@ onMounted(async () => {
   position: relative;
 }
 
+/* 搜索卡片 - 商务简洁风格 */
+.search-card.business-style {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  margin-bottom: 16px;
+  transition: all 0.3s ease;
+}
+
+.search-card.business-style:hover {
+  box-shadow: 0 4px 12px 0 rgba(31, 35, 41, 0.15);
+  transform: translateY(-2px);
+}
+
+.business-search-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.search-fields {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.search-item {
+  margin-bottom: 0;
+  margin-right: 0;
+}
+
+.search-item .el-form-item__label {
+  color: #606266;
+  font-size: 13px;
+  font-weight: 500;
+  padding-bottom: 4px;
+}
+
+.business-input,
+.business-select {
+  width: 150px;
+  font-size: 13px;
+}
+
+.business-input :deep(.el-input__wrapper),
+.business-select :deep(.el-input__wrapper) {
+  border-radius: 4px;
+  min-height: 28px;
+}
+
+.business-btn {
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  height: 28px;
+}
+
+.search-actions {
+  display: flex;
+  gap: 8px;
+  align-self: flex-start;
+}
+
+@media screen and (max-width: 1200px) {
+  .business-search-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-fields {
+    margin-bottom: 12px;
+  }
+
+  .search-actions {
+    margin-left: 0 !important;
+    margin-top: 0;
+    text-align: right;
+  }
+
+  .business-input,
+  .business-select {
+    width: 140px;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .search-card.business-style {
+    padding: 12px;
+  }
+
+  .search-fields {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .search-item {
+    width: 100%;
+  }
+
+  .business-input,
+  .business-select {
+    width: 100%;
+  }
+
+  .search-actions {
+    justify-content: center;
+    margin-top: 8px;
+  }
+}
+
+/* 汇总信息样式 */
+.action-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.summary-info {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 8px 16px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+}
+
+.summary-label {
+  color: #0369a1;
+  font-weight: 500;
+}
+
+.summary-amount {
+  color: #059669;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+/* 多选汇总弹框样式 */
+.selected-summary-container {
+  .summary-stats {
+    margin-bottom: 20px;
+  }
+
+  .stats-card {
+    border-radius: 8px;
+    border: 1px solid #e4e7ed;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+  }
+
+  .stats-card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+  }
+
+  .stats-content {
+    display: flex;
+    align-items: center;
+    padding: 16px;
+  }
+
+  .stats-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 16px;
+    font-size: 24px;
+  }
+
+  .stats-icon.income {
+    background: linear-gradient(135deg, #67c23a 0%, #85ce61 100%);
+    color: white;
+  }
+
+  .stats-icon.expense {
+    background: linear-gradient(135deg, #f56c6c 0%, #f78989 100%);
+    color: white;
+  }
+
+  .stats-icon.balance-positive {
+    background: linear-gradient(135deg, #409eff 0%, #66b1ff 100%);
+    color: white;
+  }
+
+  .stats-icon.balance-negative {
+    background: linear-gradient(135deg, #e6a23c 0%, #ebb563 100%);
+    color: white;
+  }
+
+  .stats-info {
+    flex: 1;
+  }
+
+  .stats-value {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: #1f2329;
+  }
+
+  .stats-value.income {
+    color: #67c23a;
+  }
+
+  .stats-value.expense {
+    color: #f56c6c;
+  }
+
+  .stats-value.balance-positive {
+    color: #409eff;
+  }
+
+  .stats-value.balance-negative {
+    color: #e6a23c;
+  }
+
+  .stats-label {
+    font-size: 14px;
+    color: #86909c;
+  }
+
+  .selected-details {
+    .table-header {
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e4e7ed;
+    }
+
+    .table-header h4 {
+      margin: 0;
+      color: #1f2329;
+      font-size: 16px;
+      font-weight: 600;
+    }
+  }
+
+  .amount-text.positive {
+    color: #67c23a;
+    font-weight: 600;
+  }
+
+  .amount-text.negative {
+    color: #f56c6c;
+    font-weight: 600;
+  }
+
+  .time-text {
+    color: #86909c;
+    font-size: 12px;
+  }
+}
+
 /* 页面标题 */
 .page-header {
   margin-bottom: 24px;
@@ -1425,6 +2041,12 @@ onMounted(async () => {
 .total-count {
   color: #86909c;
   font-size: 14px;
+}
+
+.filter-hint {
+  color: #409eff;
+  font-size: 12px;
+  margin-left: 4px;
 }
 
 /* 表格容器 */

@@ -55,13 +55,37 @@ const createInventory = asyncHandler(async (req, res) => {
     externalCode,
     productionDate,
     bulkDate,
-    initialQuantity,
+    currentQuantity,
     specification,
     manufacturer,
     productName,
     remark,
     images
   } = req.body;
+
+  // 验证必填字段
+  if (currentQuantity === undefined || currentQuantity === null || currentQuantity === '') {
+    return res.status(400).json({
+      success: false,
+      message: '当前库存数量不能为空'
+    });
+  }
+
+  // 转换为数字并验证
+  const quantity = Number(currentQuantity);
+  if (isNaN(quantity)) {
+    return res.status(400).json({
+      success: false,
+      message: '当前库存数量必须是有效数字'
+    });
+  }
+
+  if (quantity < 0) {
+    return res.status(400).json({
+      success: false,
+      message: '当前库存数量不能为负数'
+    });
+  }
 
   // 生成内部编码
   const internalCode = await Inventory.generateInternalCode();
@@ -71,8 +95,7 @@ const createInventory = asyncHandler(async (req, res) => {
     internalCode,
     productionDate,
     bulkDate,
-    currentQuantity: initialQuantity,
-    initialQuantity,
+    currentQuantity: quantity,
     specification,
     manufacturer,
     productName,
@@ -85,9 +108,9 @@ const createInventory = asyncHandler(async (req, res) => {
   await InventoryRecord.create({
     inventoryId: inventory._id,
     operationType: 'create',
-    quantity: initialQuantity,
+    quantity: quantity,
     quantityBefore: 0,
-    quantityAfter: initialQuantity,
+    quantityAfter: quantity,
     reason: '初始创建库存记录',
     externalCode,
     internalCode,
