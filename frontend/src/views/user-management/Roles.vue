@@ -91,7 +91,7 @@
             <span class="time-text">{{ formatDate(row.createdAt || row.createTime) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="100" fixed="right">
+        <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <el-button size="small" type="primary" @click="handleEdit(row)" link v-if="hasAnyPermission(['role:update','role:manage'])">
               编辑
@@ -138,25 +138,9 @@
         >
           <div class="form-section">
             <h4 class="section-title">基本信息</h4>
-            <div class="form-row">
-              <el-form-item label="角色名称" prop="roleName" class="form-item-half">
-                <el-input v-model="form.roleName" placeholder="请输入角色名称" />
-              </el-form-item>
-              <el-form-item label="角色编码" class="form-item-half">
-                <el-input
-                  :value="form.code"
-                  placeholder="系统自动生成"
-                  readonly
-                  :disabled="!!form._id"
-                />
-                <template v-if="form._id" #label>
-                  <span>角色编码</span>
-                  <el-tooltip content="角色编码创建后不可修改" placement="top">
-                    <el-icon class="ml-1"><QuestionFilled /></el-icon>
-                  </el-tooltip>
-                </template>
-              </el-form-item>
-            </div>
+            <el-form-item label="角色名称" prop="roleName" class="form-item-half">
+              <el-input v-model="form.roleName" placeholder="请输入角色名称" />
+            </el-form-item>
             <el-form-item label="角色描述">
               <el-input
                 v-model="form.description"

@@ -142,8 +142,8 @@ export const departmentApi = {
   },
   
   // 获取部门树形结构
-  getDepartmentTree: () => {
-    return api.get('/departments/tree')
+  getDepartmentTree: (params) => {
+    return api.get('/departments/tree', { params })
   },
   
   // 获取部门员工
