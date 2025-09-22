@@ -88,7 +88,7 @@
         </el-table-column>
         <el-table-column label="创建时间" width="120">
           <template #default="{ row }">
-            <span class="time-text">{{ formatDate(row.createdAt || row.createTime) }}</span>
+            <span class="time-text">{{ formatUtcToLocalDate(row.createdAt || row.createTime)}}</span>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="150" fixed="right">
@@ -122,7 +122,7 @@
     <el-dialog
       :title="dialogTitle"
       v-model="dialogVisible"
-      width="650px"
+      width="800px"
       :before-close="handleDialogClose"
       append-to-body
       class="role-dialog"
@@ -138,10 +138,10 @@
         >
           <div class="form-section">
             <h4 class="section-title">基本信息</h4>
-            <div class="form-row">
-              <el-form-item label="角色名称" prop="roleName" class="form-item-half">
+            <el-form-item label="角色名称" prop="roleName" class="form-item-half">
                 <el-input v-model="form.roleName" placeholder="请输入角色名称" />
               </el-form-item>
+            <!-- <div class="form-row">
               <el-form-item label="角色编码" class="form-item-half">
                 <el-input
                   :value="form.code"
@@ -156,7 +156,7 @@
                   </el-tooltip>
                 </template>
               </el-form-item>
-            </div>
+            </div> -->
             <el-form-item label="角色描述">
               <el-input
                 v-model="form.description"
@@ -204,6 +204,7 @@ import {Plus, UserFilled, QuestionFilled, Refresh, Setting} from '@element-plus/
 import { roleApi } from '@/api/index'
 import RolePermissionsManager from '@/components/RolePermissionsManager.vue'
 import hasAnyPermission from '@/utils/checkPermissions'
+import { formatUtcToLocalDate } from '@/utils/dateUtils'
 
 // 组件状态
 const loading = ref(false)

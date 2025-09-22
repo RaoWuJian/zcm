@@ -1,16 +1,24 @@
 <template>
   <div class="role-permissions-manager">
+    <!-- 操作栏 -->
     <div class="permissions-header">
-      <h3>权限配置</h3>
-      <div class="permissions-actions">
-        <el-button size="small" @click="selectAll">全选</el-button>
-        <el-button size="small" @click="clearAll">清空</el-button>
-        <el-button size="small" @click="toggleExpand">
-          {{ isExpanded ? '收起' : '展开' }}
+      <div class="header-left">
+        <span class="header-title">权限配置</span>
+        <el-tag type="info" size="small">
+          已选择 {{ selectedPermissions.length }} 个权限
+        </el-tag>
+      </div>
+      <div class="header-actions">
+        <el-button size="small" @click="selectAll" type="primary">
+          {{ isAllPermissionsSelected ? '反选' : '全选' }}
+        </el-button>
+        <el-button size="small" @click="toggleExpandAll">
+          {{ isAllExpanded ? '全部收起' : '全部展开' }}
         </el-button>
       </div>
     </div>
 
+    <!-- 权限配置内容 -->
     <div class="permissions-content" v-loading="loading">
       <div v-if="!loading && categories.length === 0" class="empty-state">
         <el-empty description="暂无权限数据" />
@@ -20,25 +28,21 @@
         v-for="category in categories"
         :key="category.name"
         class="permission-category"
-        :class="{ expanded: isExpanded }"
       >
         <div class="category-header" @click="toggleCategory(category.name)">
-          <el-checkbox
-            :indeterminate="isIndeterminate(category)"
-            :model-value="isAllSelected(category)"
-            @change="handleCategoryChange(category, $event)"
-            @click.stop
-          >
-            <strong>{{ category.name }}</strong>
-          </el-checkbox>
-          <div class="category-info">
-            <span class="permission-count">
-              {{ getSelectedCount(category) }}/{{ category.permissions.length }}
-            </span>
-            <el-icon class="expand-icon" :class="{ expanded: expandedCategories.has(category.name) }">
-              <CaretRight />
-            </el-icon>
+          <div class="category-left">
+            <el-checkbox
+              :indeterminate="isIndeterminate(category)"
+              :model-value="isAllSelected(category)"
+              @change="handleCategoryChange(category, $event)"
+              @click.stop
+            />
+            <span class="category-name">{{ category.name }}</span>
+            <el-tag size="small" type="info">{{ getSelectedCount(category) }}/{{ category.permissions.length }}</el-tag>
           </div>
+          <el-icon class="expand-icon" :class="{ expanded: expandedCategories.has(category.name) }">
+            <CaretRight />
+          </el-icon>
         </div>
 
         <el-collapse-transition>
@@ -47,28 +51,20 @@
             class="category-permissions"
           >
             <el-checkbox-group v-model="selectedPermissions">
-              <div class="permissions-grid">
+              <div class="permissions-list">
                 <el-checkbox
                   v-for="permission in category.permissions"
                   :key="permission.key"
                   :label="permission.key"
                   class="permission-item"
                 >
-                  <span class="permission-label">{{ permission.label }}</span>
-                  <span class="permission-key">{{ permission.key }}</span>
+                  {{ permission.label }}
                 </el-checkbox>
               </div>
             </el-checkbox-group>
           </div>
         </el-collapse-transition>
       </div>
-    </div>
-
-    <!-- 权限统计 -->
-    <div class="permissions-summary">
-      <el-tag type="info">
-        已选择 {{ selectedPermissions.length }} 个权限
-      </el-tag>
     </div>
   </div>
 </template>
@@ -90,8 +86,8 @@ const emit = defineEmits(['update:modelValue'])
 
 // 组件状态
 const loading = ref(false)
-const isExpanded = ref(false)
 const expandedCategories = reactive(new Set())
+const isAllExpanded = ref(false)
 
 // 权限数据
 const allPermissions = ref([])
@@ -106,6 +102,13 @@ const selectedPermissions = computed({
   set(value) {
     emit('update:modelValue', Array.isArray(value) ? value : [])
   }
+})
+
+// 检查是否所有权限都被选中
+const isAllPermissionsSelected = computed(() => {
+  if (allPermissions.value.length === 0) return false
+  const allKeys = allPermissions.value.map(p => p.key).filter(Boolean)
+  return allKeys.length > 0 && allKeys.every(key => selectedPermissions.value.includes(key))
 })
 
 // 获取权限列表
@@ -136,10 +139,9 @@ const getPermissions = async () => {
         permissions
       }))
 
-      // 默认展开第一个分类
-      if (categories.value.length > 0) {
-        expandedCategories.add(categories.value[0].name)
-      }
+      // 默认收起所有分类
+      expandedCategories.clear()
+      isAllExpanded.value = false
     } else {
     }
   } catch (error) {
@@ -193,35 +195,40 @@ const toggleCategory = (categoryName) => {
   }
 }
 
-const toggleExpand = () => {
-  isExpanded.value = !isExpanded.value
-  if (isExpanded.value) {
-    // 展开所有分类
-    categories.value.forEach(category => {
-      expandedCategories.add(category.name)
-    })
-  } else {
-    // 收起所有分类
-    expandedCategories.clear()
-  }
-}
-
-// 全选/清空
+// 全选/取消全选权限
 const selectAll = () => {
   if (allPermissions.value.length === 0) {
     getPermissions()
     return
   }
 
-  const allKeys = allPermissions.value.map(p => p.key).filter(Boolean)
-
-  // 直接通过 emit 更新父组件的值
-  emit('update:modelValue', [...allKeys])
+  if (isAllPermissionsSelected.value) {
+    // 如果已经全选，则取消全选
+    emit('update:modelValue', [])
+  } else {
+    // 否则全选所有权限
+    const allKeys = allPermissions.value.map(p => p.key).filter(Boolean)
+    emit('update:modelValue', [...allKeys])
+  }
 }
 
 const clearAll = () => {
-  // 直接通过 emit 更新父组件的值
   emit('update:modelValue', [])
+}
+
+// 展开/收起所有分类
+const toggleExpandAll = () => {
+  if (isAllExpanded.value) {
+    // 收起所有
+    expandedCategories.clear()
+    isAllExpanded.value = false
+  } else {
+    // 展开所有
+    categories.value.forEach(category => {
+      expandedCategories.add(category.name)
+    })
+    isAllExpanded.value = true
+  }
 }
 
 
@@ -234,35 +241,42 @@ onMounted(() => {
 
 <style scoped>
 .role-permissions-manager {
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
   background: #fff;
   width: 100%;
 }
 
+/* 操作栏 */
 .permissions-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  border-bottom: 1px solid #ebeef5;
-  background: #fafafa;
+  border-bottom: 1px solid #e4e7ed;
+  background: #fafbfc;
 }
 
-.permissions-header h3 {
-  margin: 0;
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-title {
   font-size: 14px;
   font-weight: 500;
   color: #303133;
 }
 
-.permissions-actions {
+.header-actions {
   display: flex;
   gap: 8px;
 }
 
+/* 权限配置内容 */
 .permissions-content {
-  max-height: 250px;
+  max-height: 350px;
   overflow-y: auto;
 }
 
@@ -272,7 +286,7 @@ onMounted(() => {
 }
 
 .permission-category {
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid #f0f2f5;
 }
 
 .permission-category:last-child {
@@ -292,20 +306,22 @@ onMounted(() => {
   background-color: #f5f7fa;
 }
 
-.category-info {
+.category-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
-.permission-count {
-  font-size: 12px;
-  color: #909399;
+.category-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
 }
 
 .expand-icon {
   transition: transform 0.2s;
   color: #c0c4cc;
+  font-size: 14px;
 }
 
 .expand-icon.expanded {
@@ -313,115 +329,58 @@ onMounted(() => {
 }
 
 .category-permissions {
-  padding: 12px;
+  padding: 8px 16px 16px 16px;
   background: #fafbfc;
 }
 
-.permissions-grid {
-  display: grid;
+.permissions-list {
+  /* display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 6px;
+  gap: 8px 16px; */
+  display: flex;
 }
 
 .permission-item {
-  display: block !important;
   margin: 0 !important;
-  padding: 4px 8px;
-  border: 1px solid #e4e7ed;
-  border-radius: 4px;
-  background: #fff;
-  transition: all 0.2s;
-  width: 100% !important;
-  height: auto !important;
-}
-
-.permission-item:hover {
-  border-color: #409eff;
-  background: #f0f8ff;
-}
-
-.permission-label {
+  padding: 6px 30px;
   font-size: 13px;
-  color: #303133;
-  font-weight: 500;
-  display: block;
-  margin-bottom: 2px;
-}
-
-.permission-key {
-  font-size: 11px;
-  color: #909399;
-  display: block;
-}
-
-.permissions-summary {
-  padding: 12px 16px;
-  border-top: 1px solid #ebeef5;
-  background: #fafafa;
-}
-
-/* 重要：修复 checkbox 样式 */
-:deep(.el-checkbox) {
-  width: 100% !important;
-  height: auto !important;
-  margin: 0 !important;
-}
-
-:deep(.el-checkbox__input) {
-  vertical-align: top !important;
-  margin-top: 2px !important;
-}
-
-:deep(.el-checkbox__label) {
-  display: block !important;
-  width: 100% !important;
-  padding-left: 8px !important;
-  line-height: 1.4 !important;
-}
-
-:deep(.category-header .el-checkbox) {
-  display: flex !important;
-  align-items: center !important;
-  width: auto !important;
-}
-
-:deep(.category-header .el-checkbox__label) {
-  display: inline !important;
-  width: auto !important;
-  padding-left: 8px !important;
-  line-height: 1 !important;
-}
-
-:deep(.category-header .el-checkbox__input) {
-  margin-top: 0 !important;
+  line-height: 1.5;
 }
 
 /* 响应式适配 */
 @media (max-width: 768px) {
-  .permissions-grid {
+  .permissions-list {
     grid-template-columns: 1fr;
   }
 
   .permissions-header {
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
     align-items: flex-start;
   }
 
-  .permissions-actions {
+  .header-actions {
     width: 100%;
     justify-content: flex-end;
   }
 }
 
 @media (max-width: 480px) {
-  .permissions-actions {
+  .header-actions {
     flex-direction: column;
     width: 100%;
   }
 
-  .permissions-actions .el-button {
+  .header-actions .el-button {
     width: 100%;
+  }
+
+  .category-left {
+    gap: 8px;
+  }
+
+  .category-name {
+    font-size: 13px;
   }
 }
 </style>
