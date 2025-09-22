@@ -77,10 +77,12 @@ const teamAccountRoutes = require('./routes/teamAccounts');
 const productRoutes = require('./routes/products');
 const budgetRoutes = require('./routes/budget');
 const commissionAccountingRoutes = require('./routes/commissionAccounting');
+const operationalProductRoutes = require('./routes/operationalProduct');
 const fileRoutes = require('./routes/files');
 const roleRoutes = require('./routes/roles');
 const operationLogRoutes = require('./routes/operationLogs');
-const recordTypeRoutes = require('./routes/recordType');
+const inventoryRoutes = require('./routes/inventory');
+const inventoryRecordRoutes = require('./routes/inventoryRecords');
 
 // 根路由
 app.get('/', (req, res) => {
@@ -97,9 +99,12 @@ app.get('/', (req, res) => {
       products: '/api/products',
       budget: '/api/budget',
       commissionAccounting: '/api/commission-accounting',
+      operationalProducts: '/api/operational-products',
       files: '/api/files',
       roles: '/api/roles',
-      operationLogs: '/api/operation-logs'
+      operationLogs: '/api/operation-logs',
+      inventory: '/api/inventory',
+      inventoryRecords: '/api/inventory-records'
     }
   });
 });
@@ -112,10 +117,12 @@ app.use('/api/team-accounts', teamAccountRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/budget', budgetRoutes);
 app.use('/api/commission-accounting', commissionAccountingRoutes);
+app.use('/api/operational-products', operationalProductRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/operation-logs', operationLogRoutes);
-app.use('/api/record-types', recordTypeRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/inventory-records', inventoryRecordRoutes);
 
 // 健康检查端点
 app.get('/health', (req, res) => {

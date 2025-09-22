@@ -288,6 +288,45 @@ const updateFinance = asyncHandler(async (req, res) => {
   const oldAmount = finance.amount;
 
   try {
+    // 处理图片更新和删除
+    if (req.body.images !== undefined) {
+      const oldImages = finance.images || [];
+      const newImages = req.body.images || [];
+
+      // 找出被删除的图片
+      const deletedImages = oldImages.filter(oldImageId =>
+        !newImages.includes(oldImageId.toString())
+      );
+
+      // 删除被移除的图片文件
+      if (deletedImages.length > 0) {
+        const FileInfo = require('../models/FileInfo');
+        const mongoose = require('mongoose');
+        const { GridFSBucket } = require('mongodb');
+
+        // 获取GridFS bucket
+        const gfsBucket = new GridFSBucket(mongoose.connection.db, {
+          bucketName: 'uploads'
+        });
+
+        for (const imageId of deletedImages) {
+          try {
+            // 从FileInfo中获取文件信息
+            const fileInfo = await FileInfo.findById(imageId);
+            if (fileInfo && fileInfo.gridfsId) {
+              // 从GridFS中删除文件
+              await gfsBucket.delete(fileInfo.gridfsId);
+            }
+            // 删除FileInfo记录
+            await FileInfo.findByIdAndDelete(imageId);
+          } catch (fileError) {
+            console.error(`删除财务记录图片文件失败 ${imageId}:`, fileError);
+            // 继续删除其他文件，不中断整个更新过程
+          }
+        }
+      }
+    }
+
     // 更新财务记录
     const updateData = { ...req.body };
     updateData.updatedBy = req.user.id;
@@ -441,12 +480,40 @@ const deleteFinance = asyncHandler(async (req, res) => {
     }
     // 如果未审批，不需要处理账户记录（因为未审批的记录没有创建账户记录）
 
+    // 删除相关的图片文件
+    if (finance.images && finance.images.length > 0) {
+      const FileInfo = require('../models/FileInfo');
+      const mongoose = require('mongoose');
+      const { GridFSBucket } = require('mongodb');
+
+      // 获取GridFS bucket
+      const gfsBucket = new GridFSBucket(mongoose.connection.db, {
+        bucketName: 'uploads'
+      });
+
+      for (const imageId of finance.images) {
+        try {
+          // 从FileInfo中获取文件信息
+          const fileInfo = await FileInfo.findById(imageId);
+          if (fileInfo && fileInfo.gridfsId) {
+            // 从GridFS中删除文件
+            await gfsBucket.delete(fileInfo.gridfsId);
+          }
+          // 删除FileInfo记录
+          await FileInfo.findByIdAndDelete(imageId);
+        } catch (fileError) {
+          console.error(`删除财务记录图片文件失败 ${imageId}:`, fileError);
+          // 继续删除其他文件，不中断整个删除过程
+        }
+      }
+    }
+
     // 删除财务记录
     await Finance.findByIdAndDelete(req.params.id);
 
     res.status(200).json({
       success: true,
-      message: '财务记录删除成功'
+      message: '财务记录及相关资源删除成功'
     });
   } catch (error) {
     res.status(500).json({
@@ -737,13 +804,43 @@ const batchDeleteFinance = asyncHandler(async (req, res) => {
     }
   }
 
+  // 删除相关的图片文件
+  const FileInfo = require('../models/FileInfo');
+  const mongoose = require('mongoose');
+  const { GridFSBucket } = require('mongodb');
+
+  // 获取GridFS bucket
+  const gfsBucket = new GridFSBucket(mongoose.connection.db, {
+    bucketName: 'uploads'
+  });
+
+  for (const record of recordsToDelete) {
+    if (record.images && record.images.length > 0) {
+      for (const imageId of record.images) {
+        try {
+          // 从FileInfo中获取文件信息
+          const fileInfo = await FileInfo.findById(imageId);
+          if (fileInfo && fileInfo.gridfsId) {
+            // 从GridFS中删除文件
+            await gfsBucket.delete(fileInfo.gridfsId);
+          }
+          // 删除FileInfo记录
+          await FileInfo.findByIdAndDelete(imageId);
+        } catch (fileError) {
+          console.error(`批量删除财务记录图片文件失败 ${imageId}:`, fileError);
+          // 继续删除其他文件，不中断整个删除过程
+        }
+      }
+    }
+  }
+
   const result = await Finance.deleteMany({
     _id: { $in: ids }
   });
 
   res.status(200).json({
     success: true,
-    message: `成功删除 ${result.deletedCount} 条记录${approvedRecords.length > 0 ? `，其中 ${approvedRecords.length} 条已审批记录已恢复账户余额` : ''}`
+    message: `成功删除 ${result.deletedCount} 条记录及相关资源${approvedRecords.length > 0 ? `，其中 ${approvedRecords.length} 条已审批记录已恢复账户余额` : ''}`
   });
 });
 

@@ -62,25 +62,6 @@ const financeSchema = new mongoose.Schema({
     maxlength: [200, '说明最多200个字符']
   },
 
-  // 记录类型信息
-  recordType: {
-    categoryId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'RecordType'
-    },
-    categoryName: {
-      type: String,
-      trim: true
-    },
-    subCategoryId: {
-      type: mongoose.Schema.Types.ObjectId
-    },
-    subCategoryName: {
-      type: String,
-      trim: true
-    }
-  },
-
   // 关联的图片文件
   images: [{
     type: mongoose.Schema.Types.ObjectId,

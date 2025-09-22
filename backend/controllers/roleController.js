@@ -400,6 +400,13 @@ const getAvailablePermissions = asyncHandler(async (req, res) => {
     'product:budget',      // 财务测算
     'product:commission',  // 产品佣金
 
+    // 库存管理权限
+    'inventory:create',    // 添加库存
+    'inventory:update',    // 编辑库存
+    'inventory:in',        // 入库操作
+    'inventory:out',       // 出库操作
+    'inventory:delete',    // 删除库存
+
     // 财务管理权限
     'finance:read',         // 查看财务信息
     'finance:create',       // 创建收支记录
@@ -444,6 +451,13 @@ const getAvailablePermissions = asyncHandler(async (req, res) => {
     'product:budget': { label: '财务测算', category: '商品管理' },
     'product:commission': { label: '产品佣金', category: '商品管理' },
     'product:manage': { label: '管理商品', category: '商品管理' },
+
+    // 库存管理权限
+    'inventory:create': { label: '添加库存', category: '库存管理' },
+    'inventory:update': { label: '编辑库存', category: '库存管理' },
+    'inventory:in': { label: '入库', category: '库存管理' },
+    'inventory:out': { label: '出库', category: '库存管理' },
+    'inventory:delete': { label: '删除', category: '库存管理' },
 
     // 财务管理权限
     'finance:read': { label: '查看财务', category: '财务管理' },

@@ -46,6 +46,13 @@ const roleSchema = new mongoose.Schema({
       'product:commission',  // 产品佣金
       'product:manage',      // 管理商品
 
+      // 库存管理权限
+      'inventory:create',     // 添加库存
+      'inventory:update',     // 编辑库存
+      'inventory:in',         // 入库操作
+      'inventory:out',        // 出库操作
+      'inventory:delete',     // 删除库存
+
       // 财务管理权限
       'finance:read',         // 查看财务信息
       'finance:create',       // 创建收支记录

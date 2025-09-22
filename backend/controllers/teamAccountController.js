@@ -478,12 +478,64 @@ const deleteTeamAccount = asyncHandler(async (req, res) => {
     });
   }
 
-  await TeamAccount.findByIdAndDelete(req.params.id);
+  try {
+    // 1. 删除相关的账户记录
+    const AccountRecord = require('../models/AccountRecord');
+    await AccountRecord.deleteMany({ teamAccountId: req.params.id });
 
-  res.status(200).json({
-    success: true,
-    message: '团队账户删除成功'
-  });
+    // 2. 查找并删除相关的财务记录及其图片
+    const Finance = require('../models/Finance');
+    const relatedFinanceRecords = await Finance.find({ teamId: req.params.id });
+
+    if (relatedFinanceRecords.length > 0) {
+      const FileInfo = require('../models/FileInfo');
+      const mongoose = require('mongoose');
+      const { GridFSBucket } = require('mongodb');
+
+      // 获取GridFS bucket
+      const gfsBucket = new GridFSBucket(mongoose.connection.db, {
+        bucketName: 'uploads'
+      });
+
+      // 删除财务记录的图片文件
+      for (const financeRecord of relatedFinanceRecords) {
+        if (financeRecord.images && financeRecord.images.length > 0) {
+          for (const imageId of financeRecord.images) {
+            try {
+              // 从FileInfo中获取文件信息
+              const fileInfo = await FileInfo.findById(imageId);
+              if (fileInfo && fileInfo.gridfsId) {
+                // 从GridFS中删除文件
+                await gfsBucket.delete(fileInfo.gridfsId);
+              }
+              // 删除FileInfo记录
+              await FileInfo.findByIdAndDelete(imageId);
+            } catch (fileError) {
+              console.error(`删除团队账户相关财务记录图片文件失败 ${imageId}:`, fileError);
+              // 继续删除其他文件，不中断整个删除过程
+            }
+          }
+        }
+      }
+
+      // 删除财务记录
+      await Finance.deleteMany({ teamId: req.params.id });
+    }
+
+    // 3. 删除团队账户
+    await TeamAccount.findByIdAndDelete(req.params.id);
+
+    res.status(200).json({
+      success: true,
+      message: `团队账户及相关数据删除成功${relatedFinanceRecords.length > 0 ? `（包含 ${relatedFinanceRecords.length} 条财务记录）` : ''}`
+    });
+  } catch (error) {
+    console.error('删除团队账户时发生错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '删除团队账户时发生错误'
+    });
+  }
 });
 
 // @desc    团队账户充值

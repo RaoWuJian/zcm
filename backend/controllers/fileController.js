@@ -153,12 +153,15 @@ const uploadFile = asyncHandler(async (req, res) => {
       size: file.size,
       gridfsId: gridfsId,
       dimensions: dimensions,
-      url: `/api/files/${gridfsId}`,
       status: 'completed',
       tags: tags ? tags.split(',').map(tag => tag.trim()) : [],
       isPublic: isPublic === 'true',
       createdBy: req.user ? req.user.id : null
     });
+
+    // 设置正确的URL
+    fileInfo.url = `/api/files/${fileInfo._id}`;
+    await fileInfo.save();
 
     // 重新查询以获取完整的populate信息
     const fullFileInfo = await FileInfo.findById(fileInfo._id)
