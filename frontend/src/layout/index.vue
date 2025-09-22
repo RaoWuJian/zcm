@@ -101,6 +101,14 @@
               <el-icon><UserFilled /></el-icon>
               <template #title>团队账户</template>
             </el-menu-item>
+            <el-menu-item index="/finance-reconciliation/record-type-settings" v-if="hasAnyPermission([
+              'finance:manage',       // 财务管理
+              'finance:create',       // 创建收支记录
+              'finance:update',       // 编辑收支记录
+            ])">
+              <el-icon><Setting /></el-icon>
+              <template #title>类型设置</template>
+            </el-menu-item>
             <!-- <el-menu-item index="/finance-reconciliation/income-expense-stats">
               <el-icon><DataAnalysis /></el-icon>
               <template #title>收支统计</template>

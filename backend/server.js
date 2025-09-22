@@ -80,6 +80,7 @@ const commissionAccountingRoutes = require('./routes/commissionAccounting');
 const fileRoutes = require('./routes/files');
 const roleRoutes = require('./routes/roles');
 const operationLogRoutes = require('./routes/operationLogs');
+const recordTypeRoutes = require('./routes/recordType');
 
 // 根路由
 app.get('/', (req, res) => {
@@ -114,6 +115,7 @@ app.use('/api/commission-accounting', commissionAccountingRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/operation-logs', operationLogRoutes);
+app.use('/api/record-types', recordTypeRoutes);
 
 // 健康检查端点
 app.get('/health', (req, res) => {

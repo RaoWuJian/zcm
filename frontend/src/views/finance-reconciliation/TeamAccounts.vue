@@ -53,7 +53,7 @@
         </el-table-column>
         <el-table-column label="部门" width="120">
           <template #default="{ row }">
-            <el-tag 
+            <el-tag
               :type="getDepartmentColor(row)" 
               size="small"
             >

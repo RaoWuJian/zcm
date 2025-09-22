@@ -455,3 +455,46 @@ export const commissionAccountingApi = {
     return api.get('/commission-accounting/suggestions/teams')
   }
 }
+
+// 记录类型管理API
+export const recordTypeApi = {
+  // 获取所有记录类型
+  getRecordTypes: () => {
+    return api.get('/record-types')
+  },
+
+  // 创建记录类型
+  createRecordType: (data) => {
+    return api.post('/record-types', data)
+  },
+
+  // 更新记录类型
+  updateRecordType: (id, data) => {
+    return api.put(`/record-types/${id}`, data)
+  },
+
+  // 删除记录类型
+  deleteRecordType: (id) => {
+    return api.delete(`/record-types/${id}`)
+  },
+
+  // 获取指定大类的小类
+  getSubCategories: (categoryId) => {
+    return api.get(`/record-types/${categoryId}/subcategories`)
+  },
+
+  // 添加小类
+  addSubCategory: (categoryId, data) => {
+    return api.post(`/record-types/${categoryId}/subcategories`, data)
+  },
+
+  // 更新小类
+  updateSubCategory: (categoryId, subCategoryId, data) => {
+    return api.put(`/record-types/${categoryId}/subcategories/${subCategoryId}`, data)
+  },
+
+  // 删除小类
+  deleteSubCategory: (categoryId, subCategoryId) => {
+    return api.delete(`/record-types/${categoryId}/subcategories/${subCategoryId}`)
+  }
+}
