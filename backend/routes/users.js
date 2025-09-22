@@ -67,13 +67,14 @@ router.put('/password',
 );
 
 // 用户统计信息（仅管理员）
-router.get('/stats',   getUserStats);
+router.get('/stats', authorize('admin'), getUserStats);
 
-// 创建和获取所有用户（仅管理员）
+// 创建和获取所有用户
 router
   .route('/')
-  .get(getUsers)
+  .get(getUsers)  // 查看用户列表不需要特殊权限
   .post(
+    authorize('user:create'),
     logOperation({
       operationType: 'CREATE',
       module: 'USER',
@@ -82,10 +83,11 @@ router
     }),
     createUser
   );
-router.get('/getNoDepartmentUser', getNoDepartmentUser)
+router.get('/getNoDepartmentUser', authorize('department:manageEmployee'), getNoDepartmentUser)
 
-// 批量添加用户到部门（仅管理员）
+// 批量添加用户到部门
 router.put('/add-to-department',
+  authorize('department:manageEmployee'),
   logOperation({
     operationType: 'UPDATE',
     module: 'USER',
@@ -97,8 +99,9 @@ router.put('/add-to-department',
 // 获取、更新、删除特定用户
 router
   .route('/:id')
-  .get(getUser)
+  .get(getUser)  // 查看单个用户不需要特殊权限
   .put(
+    authorize('user:update'),
     saveOriginalData(User),
     logOperation({
       operationType: 'UPDATE',
@@ -109,6 +112,7 @@ router
     updateUser
   )
   .delete(
+    authorize('user:delete'),
     saveOriginalData(User),
     logOperation({
       operationType: 'DELETE',

@@ -56,10 +56,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/uploads', express.static('uploads'));
 
 // MongoDB连接
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/zcm_db', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/zcm_db');
 
 mongoose.connection.on('connected', () => {
   // MongoDB 连接成功

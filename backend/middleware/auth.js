@@ -16,8 +16,10 @@ const protect = async (req, res, next) => {
       // 验证token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      // 获取用户信息并添加到请求对象
-      req.user = await User.findById(decoded.id).select('-password');
+      // 获取用户信息并添加到请求对象，同时预加载角色权限信息
+      req.user = await User.findById(decoded.id)
+        .select('-password')
+        .populate('rolePermission', 'permissions roleName');
       
       if (!req.user) {
         return res.status(401).json({
@@ -61,9 +63,9 @@ const protect = async (req, res, next) => {
   }
 };
 
-// 验证管理员权限
-const authorize = (...roles) => {
-  return (req, res, next) => {
+// 验证权限 - 传入权限数组，有任意一个权限或者管理员即可通过
+const authorize = (...permissions) => {
+  return async (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({
         success: false,
@@ -71,19 +73,37 @@ const authorize = (...roles) => {
       });
     }
 
-    // 检查是否为管理员
-    if (roles.includes('admin') && !req.user.isAdmin) {
+    // 管理员拥有所有权限
+    if (req.user.isAdmin) {
+      return next();
+    }
+
+    // 如果传入的是 'admin'，则只允许管理员访问
+    if (permissions.includes('admin')) {
       return res.status(403).json({
         success: false,
         message: '权限不足，需要管理员权限'
       });
     }
 
-    // 检查角色权限
-    if (!roles.includes('admin') && !roles.includes(req.user.rolePermission)) {
+    // 检查用户角色权限信息
+    const userRole = req.user.rolePermission;
+    if (!userRole || !userRole.permissions) {
       return res.status(403).json({
         success: false,
-        message: '权限不足'
+        message: '用户角色权限不存在'
+      });
+    }
+
+    // 检查是否有任一所需权限
+    const hasRequiredPermission = permissions.some(permission =>
+      userRole.permissions.includes(permission)
+    );
+
+    if (!hasRequiredPermission) {
+      return res.status(403).json({
+        success: false,
+        message: '权限不足，缺少必要权限'
       });
     }
 

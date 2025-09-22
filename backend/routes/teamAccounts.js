@@ -10,23 +10,23 @@ const {
   getTeamAccountRecords
 } = require('../controllers/teamAccountController');
 
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 
 router.use(protect);
 
 router.route('/')
-  .get(getTeamAccounts)
-  .post(createTeamAccount);
+  .get(getTeamAccounts)  // 查看团队账户列表不需要特殊权限
+  .post(authorize('finance:team_create'), createTeamAccount);  // 创建团队账户需要权限
 
 // 充值路由（需要放在 /:id 路由之前）
-router.post('/:id/recharge', rechargeTeamAccount);
+router.post('/:id/recharge', authorize('finance:team_update'), rechargeTeamAccount);  // 充值需要权限
 
-// 获取账户记录路由（需要放在 /:id 路由之前）
+// 获取账户记录路由（需要放在 /:id 路由之前）- 不需要特殊权限
 router.get('/:id/records', getTeamAccountRecords);
 
 router.route('/:id')
-  .get(getTeamAccount)
-  .put(updateTeamAccount)
-  .delete(deleteTeamAccount);
+  .get(getTeamAccount)  // 查看单个团队账户不需要特殊权限
+  .put(authorize('finance:team_update'), updateTeamAccount)  // 更新团队账户需要权限
+  .delete(authorize('finance:team_delete'), deleteTeamAccount);  // 删除团队账户需要权限
 
 module.exports = router;

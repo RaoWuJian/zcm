@@ -64,10 +64,7 @@ async function testPlatformField() {
 // 如果直接运行此文件，执行测试
 if (require.main === module) {
   // 连接数据库（需要根据实际配置调整）
-  mongoose.connect('mongodb://localhost:27017/manekiNeko', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-  }).then(() => {
+  mongoose.connect('mongodb://localhost:27017/manekiNeko').then(() => {
     console.log('数据库连接成功');
     return testPlatformField();
   }).then(() => {

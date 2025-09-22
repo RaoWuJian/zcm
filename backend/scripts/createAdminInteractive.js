@@ -165,10 +165,7 @@ async function main() {
     const uri = process.env.MONGODB_URI || DEFAULT_URI;
     colorLog('blue', `连接数据库: ${uri}`);
     
-    await mongoose.connect(uri, { 
-      useNewUrlParser: true, 
-      useUnifiedTopology: true 
-    });
+    await mongoose.connect(uri);
     colorLog('green', '数据库连接成功');
     console.log('');
 

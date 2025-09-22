@@ -173,10 +173,7 @@ async function main() {
   colorLog('blue', `连接数据库: ${uri}`);
   
   try {
-    await mongoose.connect(uri, { 
-      useNewUrlParser: true, 
-      useUnifiedTopology: true 
-    });
+    await mongoose.connect(uri);
     colorLog('green', '数据库连接成功');
   } catch (error) {
     colorLog('red', `数据库连接失败: ${error.message}`);

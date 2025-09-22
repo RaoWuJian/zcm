@@ -69,7 +69,7 @@ const recordTypeSchema = new mongoose.Schema({
 });
 
 // 索引
-recordTypeSchema.index({ name: 1 });
+// name字段已通过unique: true自动创建索引，不需要重复创建
 recordTypeSchema.index({ sort: 1 });
 recordTypeSchema.index({ isActive: 1 });
 recordTypeSchema.index({ createdBy: 1 });

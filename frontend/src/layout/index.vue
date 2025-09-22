@@ -22,52 +22,42 @@
           </el-menu-item>
           
           <el-sub-menu index="/user-management" v-if="hasAnyPermission([
-              'user:read',            // 查看员工信息
               'user:create',          // 创建员工账号
               'user:update',          // 编辑员工信息
               'user:delete',          // 删除员工账号
-              'user:manage',          // 管理员工
-              'department:read',          // 查看部门信息
               'department:create',        // 创建部门
               'department:update',        // 编辑部门信息
               'department:delete',        // 删除部门
-              'department:manage',        // 管理部门
-              'role:read',           // 查看角色信息
+              'department:manageEmployee',// 为部门分配员工
               'role:create',         // 创建角色
               'role:update',         // 编辑角色权限
               'role:delete',         // 删除角色
-              'role:manage',         // 角色管理
             ])">
             <template #title>
               <el-icon><User /></el-icon>
               <span>用户管理</span>
             </template>
             <el-menu-item index="/user-management/employees" v-if="hasAnyPermission([
-              'user:read',            // 查看员工信息
               'user:create',          // 创建员工账号
               'user:update',          // 编辑员工信息
               'user:delete',          // 删除员工账号
-              'user:manage',          // 管理员工
             ])">
               <el-icon><UserFilled /></el-icon>
               <template #title>员工管理</template>
             </el-menu-item>
             <el-menu-item index="/user-management/roles" v-if="hasAnyPermission([
-              'role:read',           // 查看角色信息
               'role:create',         // 创建角色
               'role:update',         // 编辑角色权限
               'role:delete',         // 删除角色
-              'role:manage',         // 角色管理
             ])">
               <el-icon><Avatar /></el-icon>
               <template #title>角色管理</template>
             </el-menu-item>
             <el-menu-item index="/user-management/departments" v-if="hasAnyPermission([
-              'department:read',          // 查看部门信息
               'department:create',        // 创建部门
               'department:update',        // 编辑部门信息
               'department:delete',        // 删除部门
-              'department:manage',        // 管理部门
+              'department:manageEmployee',// 部门分配员工
             ])">
               <el-icon><OfficeBuilding /></el-icon>
               <template #title>部门管理</template>
@@ -75,36 +65,39 @@
           </el-sub-menu>
           
           <el-sub-menu index="/finance-reconciliation" v-if="hasAnyPermission([
-            'finance:read',         // 查看财务信息
             'finance:create',       // 创建收支记录
             'finance:update',       // 编辑收支记录
             'finance:delete',       // 删除收支记录
             'finance:approve',      // 收支记录审批
             'finance:typeSetting',  // 收支类型设置
-            'finance:manage',       // 收支管理
-            
             // 团队财务账户权限
-            'finance:team_read',    // 查看团队账户
-            'finance:team_manage',  // 团队财务管理
+            'finance:team_create',    
+            'finance:team_update',    
+            'finance:team_delete',    
           ])">
             <template #title>
               <el-icon><Money /></el-icon>
               <span>财务对账</span>
             </template>
-            <el-menu-item index="/finance-reconciliation/income-expense-list" >
+            <el-menu-item index="/finance-reconciliation/income-expense-list" v-if="hasAnyPermission([
+              'finance:create',       // 创建收支记录
+              'finance:update',       // 编辑收支记录
+              'finance:delete',       // 删除收支记录
+              'finance:approve',      // 收支记录审批
+            ])">
               <el-icon><List /></el-icon>
               <template #title>收支列表</template>
             </el-menu-item>
             <el-menu-item index="/finance-reconciliation/team-accounts" v-if="hasAnyPermission([
-              'finance:team_read',    // 查看团队账户
-              'finance:team_manage',  // 团队财务管理
+              'finance:team_create',    
+              'finance:team_update',    
+              'finance:team_delete',  
             ])">
               <el-icon><UserFilled /></el-icon>
               <template #title>团队账户</template>
             </el-menu-item>
             <el-menu-item index="/finance-reconciliation/record-type-settings" v-if="hasAnyPermission([
-              'finance:manage',       // 财务管理
-              'finance:typeSetting',  // 收支类型设置
+              'finance:typeSetting',  // 收支类型设置  
             ])">
               <el-icon><Setting /></el-icon>
               <template #title>类型设置</template>
@@ -116,24 +109,27 @@
           </el-sub-menu>
           
           <el-sub-menu index="/product-management" v-if="hasAnyPermission([
-              'product:read',        // 查看商品信息
               'product:create',      // 创建商品信息
               'product:update',      // 编辑商品信息
               'product:delete',      // 删除商品信息
-              'product:budget',      // 财务测算
-              'product:commission',  // 产品佣金
-              'product:manage',      // 管理商品
+              'productBudget:create',      // 财务测算
+              'productBudget:update',      // 财务测算
+              'productBudget:delete',      // 财务测算
+              'productCommission:create',  // 产品佣金
+              'productCommission:update',  // 产品佣金
+              'productCommission:delete',  // 产品佣金
+              'productOperation:create',   // 商品运营
+              'productOperation:update',   // 商品运营
+              'productOperation:delete',   // 商品运营
             ])">
             <template #title>
               <el-icon><Box /></el-icon>
               <span>商品管理</span>
             </template>
             <el-menu-item index="/product-management/product-list" v-if="hasAnyPermission([
-              'product:read',        // 查看商品信息
               'product:create',      // 创建商品信息
               'product:update',      // 编辑商品信息
               'product:delete',      // 删除商品信息
-              'product:manage',      // 管理商品
             ])">
               <el-icon><List /></el-icon>
               <template #title>商品列表</template>
@@ -143,22 +139,25 @@
               <template #title>商品统计</template>
             </el-menu-item> -->
             <el-menu-item index="/product-management/financial-projection" v-if="hasAnyPermission([
-              'product:budget',
-              'product:manage',      // 管理商品
+              'productBudget:create',      // 财务测算
+              'productBudget:update',      // 财务测算
+              'productBudget:delete',      // 财务测算
             ])">
               <el-icon><List /></el-icon>
               <template #title>财务测算</template>
             </el-menu-item>
             <el-menu-item index="/product-management/commission-accounting" v-if="hasAnyPermission([
-              'product:commission',
-              'product:manage',      // 管理商品
+              'productCommission:create',  // 产品佣金
+              'productCommission:update',  // 产品佣金
+              'productCommission:delete',  // 产品佣金
             ])">
               <el-icon><Money /></el-icon>
               <template #title>产品佣金</template>
             </el-menu-item>
             <el-menu-item index="/product-management/operational-product" v-if="hasAnyPermission([
-              'product:operation',
-              'product:manage',      // 管理商品
+              'productOperation:create',   // 商品运营
+              'productOperation:update',   // 商品运营
+              'productOperation:delete',   // 商品运营  // 管理商品
             ])">
               <el-icon><Money /></el-icon>
               <template #title>运营商品</template>
@@ -167,21 +166,30 @@
           </el-sub-menu>
 
           <!-- 库存管理菜单 -->
-          <el-menu-item index="/inventory" v-if="hasAnyPermission([
-              'inventory:read',      // 查看库存信息
-              'inventory:create',    // 创建库存记录
-              'inventory:update',    // 编辑库存信息
-              'inventory:delete',    // 删除库存记录
-              'inventory:in',        // 入库操作
-              'inventory:out',       // 出库操作
-              'inventory:records',   // 查看操作记录
-              'inventory:stats',     // 查看库存统计
-              'inventory:manage',    // 管理库存
+          <el-sub-menu index="/inventory-management" v-if="hasAnyPermission([
+              'inventory:create',     // 添加库存
+              'inventory:update',     // 编辑库存
+              'inventory:in',         // 入库操作
+              'inventory:out',        // 出库操作
+              'inventory:delete',     // 删除库存
             ])">
-            <el-icon><Box /></el-icon>
-            <template #title>库存管理</template>
-          </el-menu-item>
+            <template #title>
+              <el-icon><Box /></el-icon>
+              <span>库存管理</span>
+            </template>
 
+            <el-menu-item index="/inventory-management/inventory-list" v-if="hasAnyPermission([
+                'inventory:create',     // 添加库存
+                'inventory:update',     // 编辑库存
+                'inventory:in',         // 入库操作
+                'inventory:out',        // 出库操作
+                'inventory:delete',     // 删除库存
+              ])">
+              <el-icon><List /></el-icon>
+              <template #title>库存列表</template>
+            </el-menu-item>
+
+          </el-sub-menu>
           <!-- <el-menu-item index="/settings">
             <el-icon><Setting /></el-icon>
             <template #title>系统设置</template>

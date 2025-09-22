@@ -371,89 +371,113 @@ const getAvailablePermissions = asyncHandler(async (req, res) => {
   // 从Role模型的schema中获取权限枚举
   const permissionEnums = [
     // 用户管理权限
-    'user:read',            // 查看员工信息
-    'user:create',          // 创建员工账号
-    'user:update',          // 编辑员工信息
-    'user:delete',          // 删除员工账号
-    'user:manage',          // 管理员工
+      // 'user:read',            // 查看员工信息
+      'user:create',          // 创建员工账号
+      'user:update',          // 编辑员工信息
+      'user:delete',          // 删除员工账号
+      // 'user:manage',          // 管理员工
 
-    // 部门管理权限
-    'department:read',          // 查看部门信息
-    'department:create',        // 创建部门
-    'department:update',        // 编辑部门信息
-    'department:delete',        // 删除部门
-    'department:manage',        // 管理部门
+      // 部门管理权限
+      // 'department:read',          // 查看部门信息
+      'department:create',        // 创建部门
+      'department:update',        // 编辑部门信息
+      'department:delete',        // 删除部门
+      'department:manageEmployee',   // 管理部门员工
 
-    // 角色权限管理
-    'role:read',           // 查看角色信息
-    'role:create',         // 创建角色
-    'role:update',         // 编辑角色权限
-    'role:delete',         // 删除角色
-    'role:manage',         // 角色管理
+      // 角色权限管理
+      // 'role:read',           // 查看角色信息
+      'role:create',         // 创建角色
+      'role:update',         // 编辑角色权限
+      'role:delete',         // 删除角色
+      // 'role:manage',         // 角色管理
 
-    // 商品管理权限
-    'product:read',        // 查看商品信息
-    'product:create',      // 创建商品信息
-    'product:update',      // 编辑商品信息
-    'product:delete',      // 删除商品信息
-    'product:manage',      // 管理商品
-    'product:budget',      // 财务测算
-    'product:commission',  // 产品佣金
-    'product:operation',   // 商品运营
+      // 商品列表权限
+      // 'product:read',        // 查看商品信息
+      'product:create',      // 创建商品信息
+      'product:update',      // 编辑商品信息
+      'product:delete',      // 删除商品信息
 
-    // 库存管理权限
-    'inventory:create',    // 添加库存
-    'inventory:update',    // 编辑库存
-    'inventory:in',        // 入库操作
-    'inventory:out',       // 出库操作
-    'inventory:delete',    // 删除库存
+      // 财务测算
+      // 'product:budget',      // 财务测算
+      'productBudget:create',      // 新增财务测算
+      'productBudget:update',      // 编辑财务测算
+      'productBudget:delete',      // 删除财务测算
 
-    // 财务管理权限
-    'finance:read',         // 查看财务信息
-    'finance:create',       // 创建收支记录
-    'finance:update',       // 编辑收支记录
-    'finance:delete',       // 删除收支记录
-    'finance:approve',      // 收支记录审批
-    'finance:typeSetting',  // 收支类型设置
-    'finance:manage',       // 收支管理
+      // 产品佣金
+      // 'product:commission',  // 产品佣金
+      'productCommission:create',  // 新增产品佣金
+      'productCommission:update',  // 编辑产品佣金
+      'productCommission:delete',  // 删除产品佣金
 
-    // 团队财务账户权限
-    'finance:team_read',    // 查看团队账户
-    'finance:team_manage',  // 团队财务管理
+      // 商品运营
+      // 'product:operation',   // 商品运营
+      'productOperation:create',   // 新增商品运营
+      'productOperation:update',   // 编辑商品运营
+      'productOperation:delete',   // 删除商品运营
+
+      // 库存管理权限
+      'inventory:create',     // 添加库存
+      'inventory:update',     // 编辑库存
+      'inventory:in',         // 入库操作
+      'inventory:out',        // 出库操作
+      'inventory:delete',     // 删除库存
+
+      // 财务管理权限
+      // 'finance:read',         // 查看财务信息
+      'finance:create',       // 创建收支记录
+      'finance:update',       // 编辑收支记录
+      'finance:delete',       // 删除收支记录
+      'finance:approve',      // 收支记录审批
+      'finance:typeSetting',  // 收支类型设置
+      
+      // 团队财务账户权限
+      // 'finance:team_read',    // 查看团队账户
+      'finance:team_create',    // 创建团队账户
+      'finance:team_update',    // 编辑团队账户
+      'finance:team_delete',    // 删除团队账户
+      // 'finance:team_manage',  // 团队财务管理
   ];
 
   // 权限分类和标签映射
   const permissionMap = {
     // 用户管理权限
-    'user:read': { label: '查看用户', category: '用户管理' },
-    'user:create': { label: '创建用户', category: '用户管理' },
-    'user:update': { label: '编辑用户', category: '用户管理' },
-    'user:delete': { label: '删除用户', category: '用户管理' },
-    'user:manage': { label: '管理用户', category: '用户管理' },
+    'user:create': { label: '新增员工', category: '员工管理' },
+    'user:update': { label: '编辑员工', category: '员工管理' },
+    'user:delete': { label: '删除员工', category: '员工管理' },
 
     // 部门管理权限
-    'department:read': { label: '查看部门', category: '部门管理' },
-    'department:create': { label: '创建部门', category: '部门管理' },
+    'department:create': { label: '新增部门', category: '部门管理' },
     'department:update': { label: '编辑部门', category: '部门管理' },
     'department:delete': { label: '删除部门', category: '部门管理' },
-    'department:manage': { label: '管理部门', category: '部门管理' },
+    'department:manageEmployee': { label: '部门分配员工', category: '部门管理' },
 
     // 角色权限管理
-    'role:read': { label: '查看角色', category: '角色管理' },
-    'role:create': { label: '创建角色', category: '角色管理' },
+    'role:create': { label: '新增角色', category: '角色管理' },
     'role:update': { label: '编辑角色', category: '角色管理' },
     'role:delete': { label: '删除角色', category: '角色管理' },
-    'role:manage': { label: '管理角色', category: '角色管理' },
 
     // 商品管理权限
-    'product:read': { label: '查看商品', category: '商品管理' },
-    'product:create': { label: '创建商品', category: '商品管理' },
+    'product:create': { label: '添加商品', category: '商品管理' },
     'product:update': { label: '编辑商品', category: '商品管理' },
     'product:delete': { label: '删除商品', category: '商品管理' },
-    'product:budget': { label: '财务测算', category: '商品管理' },
-    'product:commission': { label: '产品佣金', category: '商品管理' },
-    'product:operation': { label: '商品运营', category: '商品管理' },
-    'product:manage': { label: '管理商品', category: '商品管理' },
+
+    // 财务测算
+    // 'product:budget': { label: '财务测算', category: '商品管理' },
+    'productBudget:create': { label: '新增预算', category: '财务测算' },
+    'productBudget:update': { label: '更新预算', category: '财务测算' },
+    'productBudget:delete': { label: '删除预算', category: '财务测算' },
+
+    // 产品佣金
+    // 'product:commission': { label: '产品佣金', category: '商品管理' },
+    'productCommission:create': { label: '新增产品佣金', category: '产品佣金' },
+    'productCommission:update': { label: '更新产品佣金', category: '产品佣金' },
+    'productCommission:delete': { label: '删除产品佣金', category: '产品佣金' },
+
+    // 商品运营
+    // 'product:operation': { label: '商品运营', category: '商品管理' },
+    'productOperation:create': { label: '新增商品运营', category: '商品运营' },
+    'productOperation:update': { label: '更新商品运营', category: '商品运营' },
+    'productOperation:delete': { label: '删除商品运营', category: '商品运营' },
 
     // 库存管理权限
     'inventory:create': { label: '添加库存', category: '库存管理' },
@@ -463,15 +487,16 @@ const getAvailablePermissions = asyncHandler(async (req, res) => {
     'inventory:delete': { label: '删除', category: '库存管理' },
 
     // 财务管理权限
-    'finance:read': { label: '查看财务', category: '财务管理' },
-    'finance:create': { label: '创建财务记录', category: '财务管理' },
+    'finance:create': { label: '新增财务记录', category: '财务管理' },
     'finance:update': { label: '编辑财务记录', category: '财务管理' },
     'finance:delete': { label: '删除财务记录', category: '财务管理' },
     'finance:approve': { label: '审批财务记录', category: '财务管理' },
     'finance:typeSetting': { label: '收支类型设置', category: '财务管理' },
-    'finance:manage': { label: '管理财务', category: '财务管理' },
-    'finance:team_read': { label: '查看团队账户', category: '财务管理' },
-    'finance:team_manage': { label: '管理团队账户', category: '财务管理' }
+    
+    // 团队财务账户权限
+    'finance:team_create': { label: '创建团队账户', category: '团队账户' },
+    'finance:team_update': { label: '编辑团队账户', category: '团队账户' },
+    'finance:team_delete': { label: '删除团队账户', category: '团队账户' },
   };
 
   const permissions = permissionEnums.map(key => ({

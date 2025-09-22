@@ -16,13 +16,14 @@ const router = express.Router();
 // 所有路由都需要认证
 router.use(protect);
 
-// 获取部门树形结构
+// 获取部门树形结构 - 不需要特殊权限
 router.get('/tree', getDepartmentTree);
-// 创建和获取所有部门（管理员权限）
+// 创建和获取所有部门
 router
   .route('/')
-  .get(getDepartments)
+  .get(getDepartments)  // 查看部门列表不需要特殊权限
   .post(
+    authorize('department:create'),
     logOperation({
       operationType: 'CREATE',
       module: 'DEPARTMENT',
@@ -35,8 +36,9 @@ router
 // 获取、更新、删除特定部门
 router
   .route('/:id')
-  .get(getDepartment)
+  .get(getDepartment)  // 查看单个部门不需要特殊权限
   .put(
+    authorize('department:update'),
     saveOriginalData(Department),
     logOperation({
       operationType: 'UPDATE',
@@ -47,6 +49,7 @@ router
     updateDepartment
   )
   .delete(
+    authorize('department:delete'),
     saveOriginalData(Department),
     logOperation({
       operationType: 'DELETE',

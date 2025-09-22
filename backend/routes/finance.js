@@ -9,7 +9,7 @@ const {
   getFinanceStats,
   batchDeleteFinance
 } = require('../controllers/financeController');
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 const { logOperation, saveOriginalData } = require('../middleware/operationLog');
 const Finance = require('../models/Finance');
 
@@ -18,11 +18,12 @@ const router = express.Router();
 // 以下所有路由都需要认证
 router.use(protect);
 
-// 统计数据路由（需要放在 /:id 路由之前）
+// 统计数据路由（需要放在 /:id 路由之前）- 不需要特殊权限
 router.get('/stats', getFinanceStats);
 
 // 批量删除路由
 router.delete('/batch',
+  authorize('finance:delete'),
   logOperation({
     operationType: 'DELETE',
     module: 'FINANCE',
@@ -34,8 +35,9 @@ router.delete('/batch',
 // 财务记录基本CRUD
 router
   .route('/')
-  .get(getFinances)
+  .get(getFinances)  // 查看财务记录列表不需要特殊权限
   .post(
+    authorize('finance:create'),
     logOperation({
       operationType: 'CREATE',
       module: 'FINANCE',
@@ -47,6 +49,7 @@ router
 
 // 审批路由
 router.put('/:id/approve',
+  authorize('finance:approve'),
   saveOriginalData(Finance),
   logOperation({
     operationType: 'APPROVE',
@@ -60,8 +63,9 @@ router.put('/:id/approve',
 // 单个财务记录操作
 router
   .route('/:id')
-  .get(getFinance)
+  .get(getFinance)  // 查看单个财务记录不需要特殊权限
   .put(
+    authorize('finance:update'),
     saveOriginalData(Finance),
     logOperation({
       operationType: 'UPDATE',
@@ -72,6 +76,7 @@ router
     updateFinance
   )
   .delete(
+    authorize('finance:delete'),
     saveOriginalData(Finance),
     logOperation({
       operationType: 'DELETE',

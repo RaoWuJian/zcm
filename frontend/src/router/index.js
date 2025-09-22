@@ -127,10 +127,19 @@ const routes = [
         ]
       },
       {
-        path: 'inventory',
-        name: 'Inventory',
-        component: () => import('../views/product-management/InventoryManagement.vue'),
-        meta: { title: '库存管理', icon: 'Box' }
+        path: 'inventory-management',
+        name: 'InventoryManagement',
+        component: () => import('../views/inventory-management/index.vue'),
+        redirect: '/inventory-management/inventory-list',
+        meta: { title: '库存管理', icon: 'Box' },
+        children: [
+          {
+            path: 'inventory-list',
+            name: 'InventoryList',
+            component: () => import('../views/inventory-management/InventoryList.vue'),
+            meta: { title: '库存列表', icon: 'List' }
+          }
+        ]
       },
       {
         path: 'operation-logs',

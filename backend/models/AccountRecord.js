@@ -14,8 +14,7 @@ const accountRecordSchema = new mongoose.Schema({
   financeId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Finance',
-    required: true,
-    index: true
+    required: true
   },
 
   // 记录类型

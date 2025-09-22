@@ -10,7 +10,7 @@ const {
   deleteSubCategory,
   getSubCategories
 } = require('../controllers/recordTypeController');
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 const { logOperation, saveOriginalData } = require('../middleware/operationLog');
 const RecordType = require('../models/RecordType');
 
@@ -20,8 +20,9 @@ router.use(protect);
 // 记录类型基本CRUD
 router
   .route('/')
-  .get(getRecordTypes)
+  .get(getRecordTypes)  // 查看记录类型列表不需要特殊权限
   .post(
+    authorize('finance:typeSetting'),
     logOperation({
       operationType: 'CREATE',
       module: 'RECORD_TYPE',
@@ -35,6 +36,7 @@ router
 router
   .route('/:id')
   .put(
+    authorize('finance:typeSetting'),
     saveOriginalData(RecordType),
     logOperation({
       operationType: 'UPDATE',
@@ -45,6 +47,7 @@ router
     updateRecordType
   )
   .delete(
+    authorize('finance:typeSetting'),
     saveOriginalData(RecordType),
     logOperation({
       operationType: 'DELETE',
@@ -56,9 +59,10 @@ router
   );
 
 // 小类路由
-router.get('/:id/subcategories', getSubCategories);
+router.get('/:id/subcategories', getSubCategories);  // 查看小类不需要特殊权限
 
 router.post('/:id/subcategories',
+  authorize('finance:typeSetting'),
   logOperation({
     operationType: 'CREATE',
     module: 'RECORD_TYPE',
@@ -69,6 +73,7 @@ router.post('/:id/subcategories',
 );
 
 router.put('/:id/subcategories/:subId',
+  authorize('finance:typeSetting'),
   logOperation({
     operationType: 'UPDATE',
     module: 'RECORD_TYPE',
@@ -79,6 +84,7 @@ router.put('/:id/subcategories/:subId',
 );
 
 router.delete('/:id/subcategories/:subId',
+  authorize('finance:typeSetting'),
   logOperation({
     operationType: 'DELETE',
     module: 'RECORD_TYPE',

@@ -83,7 +83,7 @@
     <!-- 操作栏 -->
     <div class="action-card">
       <div class="action-left">
-        <el-button type="primary" v-if="hasAnyPermission(['user:create','user:manage'])" @click="handleAdd" :icon="Plus" class="action-btn primary">
+        <el-button type="primary" v-if="hasAnyPermission(['user:create'])" @click="handleAdd" :icon="Plus" class="action-btn primary">
           新增员工
         </el-button>
         <el-button
@@ -92,7 +92,7 @@
           :disabled="!selectedRows.length"
           :icon="Delete"
           class="action-btn danger"
-          v-if="hasAnyPermission(['user:delete','user:manage'])"
+          v-if="hasAnyPermission(['user:delete'])"
         >
           批量删除
           <span v-if="selectedRows.length">({{ selectedRows.length }})</span>
@@ -165,9 +165,9 @@
             <span class="time-text">{{ new Date(row.createdAt).toLocaleDateString() }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="100" fixed="right">
+        <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" type="primary" @click="handleEdit(row)" link v-if="hasAnyPermission(['user:update','user:manage'])">
+            <el-button size="small" type="primary" @click="handleEdit(row)" link v-if="hasAnyPermission(['user:update'])">
               编辑
             </el-button>
             <el-button size="small" type="danger" @click="handleDelete(row)" link v-if="hasAnyPermission(['user:delete','user:manage'])">
