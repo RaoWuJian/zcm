@@ -341,19 +341,19 @@ const currentSlide = ref(0)
 const carouselItems = ref([
   {
     id: 1,
-    theme: 'theme-ai',
-    badge: 'AI智能',
-    title: '智能财务管理新时代',
-    shortTitle: '智能管理',
-    description: '基于人工智能的财务分析系统，让数据说话，让决策更精准。体验前所未有的智能化财务管理。',
-    icon: '🤖',
-    gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    features: ['AI数据分析', '智能预测', '自动分类'],
-    primaryAction: '立即体验',
-    secondaryAction: '了解更多',
+    theme: 'theme-collaboration',
+    title: '团队协作无界限',
+    shortTitle: '团队协作',
+    badge: '协作办公',
+    description: '支持多人实时协作，云端同步，权限管理，让团队工作更高效，沟通更顺畅。',
+    icon: '🤝',
+    gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+    features: ['实时同步', '权限管理', '团队共享'],
+    primaryAction: '开始协作',
+    secondaryAction: '功能演示',
     stats: [
-      { value: '99.9%', label: '准确率' },
-      { value: '10x', label: '效率提升' }
+      { value: '∞', label: '团队规模' },
+      { value: '1ms', label: '同步延迟' }
     ]
   },
   {
@@ -375,19 +375,19 @@ const carouselItems = ref([
   },
   {
     id: 3,
-    theme: 'theme-collaboration',
-    title: '团队协作无界限',
-    shortTitle: '团队协作',
-    badge: '协作办公',
-    description: '支持多人实时协作，云端同步，权限管理，让团队工作更高效，沟通更顺畅。',
-    icon: '🤝',
-    gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-    features: ['实时同步', '权限管理', '团队共享'],
-    primaryAction: '开始协作',
-    secondaryAction: '功能演示',
+    theme: 'theme-ai',
+    badge: 'AI智能',
+    title: '智能财务管理新时代',
+    shortTitle: '智能管理',
+    description: '基于人工智能的财务分析系统，让数据说话，让决策更精准。体验前所未有的智能化财务管理。',
+    icon: '🤖',
+    gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    features: ['AI数据分析', '智能预测', '自动分类'],
+    primaryAction: '立即体验',
+    secondaryAction: '了解更多',
     stats: [
-      { value: '∞', label: '团队规模' },
-      { value: '1ms', label: '同步延迟' }
+      { value: '99.9%', label: '准确率' },
+      { value: '10x', label: '效率提升' }
     ]
   },
   {
@@ -767,7 +767,7 @@ onUnmounted(() => {
 
 /* 欢迎区域 */
 .welcome-section {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2ae2eb 0%, #32a5a5 100%);
   border-radius: 16px;
   padding: 32px;
   margin-bottom: 28px;
