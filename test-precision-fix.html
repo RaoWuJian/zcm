@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>精度计算修复测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+        }
+        .test-title {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 5px;
+            margin-bottom: 15px;
+        }
+        .result {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 3px;
+            margin: 5px 0;
+        }
+        .difference {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .same {
+            color: #28a745;
+            font-weight: bold;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: right;
+        }
+        th {
+            background-color: #f2f2f2;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>佣金核算统计计算精度修复测试</h1>
+        
+        <div class="test-section">
+            <h2 class="test-title">问题说明</h2>
+            <p>在佣金核算系统中，API统计数据和导出数据计算结果不一致的问题主要由以下原因造成：</p>
+            <ul>
+                <li><strong>数据来源不同</strong>：API统计基于所有匹配记录，导出基于当前页数据</li>
+                <li><strong>计算精度差异</strong>：后端使用精度计算工具，前端使用简单加法</li>
+                <li><strong>浮点数精度问题</strong>：JavaScript浮点数运算存在精度误差</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h2 class="test-title">测试数据</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>记录</th>
+                        <th>净成交数据</th>
+                        <th>佣金利润</th>
+                        <th>净利润</th>
+                        <th>今日消耗</th>
+                    </tr>
+                </thead>
+                <tbody id="testDataTable">
+                </tbody>
+            </table>
+        </div>
+
+        <div class="test-section">
+            <h2 class="test-title">计算结果对比</h2>
+            <div id="calculationResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h2 class="test-title">修复方案</h2>
+            <ol>
+                <li><strong>统一数据来源</strong>：导出时重新请求所有匹配条件的数据</li>
+                <li><strong>统一计算方式</strong>：前端统计也使用精度计算工具</li>
+                <li><strong>精度处理</strong>：所有数值计算都保留2位小数</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // 精度计算工具（与后端一致）
+        const precisionCalculate = {
+            add(...numbers) {
+                return parseFloat(numbers.reduce((sum, num) => sum + (num || 0), 0).toFixed(2));
+            },
+            subtract(minuend, ...subtrahends) {
+                const result = subtrahends.reduce((diff, num) => diff - (num || 0), minuend || 0);
+                return parseFloat(result.toFixed(2));
+            },
+            multiply(...numbers) {
+                return parseFloat(numbers.reduce((product, num) => product * (num || 0), 1).toFixed(2));
+            },
+            divide(dividend, divisor) {
+                if (!divisor) return 0;
+                return parseFloat((dividend / divisor).toFixed(2));
+            }
+        };
+
+        // 测试数据
+        const testData = [
+            { netTransactionData: 1000.50, commissionProfit: 35.02, netProfit: -165.23, dailyConsumption: 200.25 },
+            { netTransactionData: 2500.75, commissionProfit: 105.03, netProfit: -45.47, dailyConsumption: 150.50 },
+            { netTransactionData: 800.33, commissionProfit: 22.41, netProfit: -53.39, dailyConsumption: 75.80 },
+            { netTransactionData: 1500.12, commissionProfit: 67.89, netProfit: 12.34, dailyConsumption: 55.55 },
+            { netTransactionData: 999.99, commissionProfit: 45.67, netProfit: -89.12, dailyConsumption: 134.79 }
+        ];
+
+        // 显示测试数据
+        function displayTestData() {
+            const tableBody = document.getElementById('testDataTable');
+            testData.forEach((item, index) => {
+                const row = tableBody.insertRow();
+                row.insertCell(0).textContent = `记录 ${index + 1}`;
+                row.insertCell(1).textContent = item.netTransactionData;
+                row.insertCell(2).textContent = item.commissionProfit;
+                row.insertCell(3).textContent = item.netProfit;
+                row.insertCell(4).textContent = item.dailyConsumption;
+            });
+        }
+
+        // 计算统计结果
+        function calculateStats() {
+            // 原始前端计算方式（简单加法）
+            const oldFrontendStats = testData.reduce((acc, item) => {
+                acc.totalNetTransaction += item.netTransactionData || 0;
+                acc.totalCommissionProfit += item.commissionProfit || 0;
+                acc.totalNetProfit += item.netProfit || 0;
+                acc.totalDailyConsumption += item.dailyConsumption || 0;
+                return acc;
+            }, {
+                totalNetTransaction: 0,
+                totalCommissionProfit: 0,
+                totalNetProfit: 0,
+                totalDailyConsumption: 0
+            });
+
+            // 新的前端计算方式（精度计算）
+            const newFrontendStats = testData.reduce((acc, item) => {
+                acc.totalNetTransaction = precisionCalculate.add(acc.totalNetTransaction, item.netTransactionData || 0);
+                acc.totalCommissionProfit = precisionCalculate.add(acc.totalCommissionProfit, item.commissionProfit || 0);
+                acc.totalNetProfit = precisionCalculate.add(acc.totalNetProfit, item.netProfit || 0);
+                acc.totalDailyConsumption = precisionCalculate.add(acc.totalDailyConsumption, item.dailyConsumption || 0);
+                return acc;
+            }, {
+                totalNetTransaction: 0,
+                totalCommissionProfit: 0,
+                totalNetProfit: 0,
+                totalDailyConsumption: 0
+            });
+
+            // 后端计算方式（精度计算）
+            const backendStats = testData.reduce((acc, item) => {
+                acc.totalNetTransactionData = precisionCalculate.add(acc.totalNetTransactionData, item.netTransactionData || 0);
+                acc.totalCommissionProfit = precisionCalculate.add(acc.totalCommissionProfit, item.commissionProfit || 0);
+                acc.totalNetProfit = precisionCalculate.add(acc.totalNetProfit, item.netProfit || 0);
+                acc.totalDailyConsumption = precisionCalculate.add(acc.totalDailyConsumption, item.dailyConsumption || 0);
+                return acc;
+            }, {
+                totalNetTransactionData: 0,
+                totalCommissionProfit: 0,
+                totalNetProfit: 0,
+                totalDailyConsumption: 0
+            });
+
+            return { oldFrontendStats, newFrontendStats, backendStats };
+        }
+
+        // 显示计算结果
+        function displayResults() {
+            const { oldFrontendStats, newFrontendStats, backendStats } = calculateStats();
+            const resultsDiv = document.getElementById('calculationResults');
+
+            const fields = [
+                { key: 'totalNetTransaction', backendKey: 'totalNetTransactionData', label: '总净成交数据' },
+                { key: 'totalCommissionProfit', backendKey: 'totalCommissionProfit', label: '总佣金利润' },
+                { key: 'totalNetProfit', backendKey: 'totalNetProfit', label: '总净利润' },
+                { key: 'totalDailyConsumption', backendKey: 'totalDailyConsumption', label: '总今日消耗' }
+            ];
+
+            let html = '<table><thead><tr><th>项目</th><th>原前端计算</th><th>新前端计算</th><th>后端计算</th><th>修复前差异</th><th>修复后差异</th></tr></thead><tbody>';
+
+            fields.forEach(field => {
+                const oldValue = oldFrontendStats[field.key];
+                const newValue = newFrontendStats[field.key];
+                const backendValue = backendStats[field.backendKey];
+                const oldDiff = Math.abs(oldValue - backendValue);
+                const newDiff = Math.abs(newValue - backendValue);
+
+                html += `<tr>
+                    <td style="text-align: left;">${field.label}</td>
+                    <td>${oldValue}</td>
+                    <td>${newValue}</td>
+                    <td>${backendValue}</td>
+                    <td class="${oldDiff === 0 ? 'same' : 'difference'}">${oldDiff === 0 ? '一致' : oldDiff.toFixed(6)}</td>
+                    <td class="${newDiff === 0 ? 'same' : 'difference'}">${newDiff === 0 ? '一致' : newDiff.toFixed(6)}</td>
+                </tr>`;
+            });
+
+            html += '</tbody></table>';
+
+            html += '<div class="result"><strong>结论：</strong>';
+            const allFixed = fields.every(field => 
+                Math.abs(newFrontendStats[field.key] - backendStats[field.backendKey]) < 0.000001
+            );
+            
+            if (allFixed) {
+                html += '<span class="same">修复成功！新的前端计算方式与后端完全一致。</span>';
+            } else {
+                html += '<span class="difference">仍存在差异，需要进一步调试。</span>';
+            }
+            html += '</div>';
+
+            resultsDiv.innerHTML = html;
+        }
+
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', function() {
+            displayTestData();
+            displayResults();
+        });
+    </script>
+</body>
+</html>

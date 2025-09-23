@@ -2,34 +2,51 @@
 export const precisionCalculate = {
   // 加法
   add(...numbers) {
-    return parseFloat(numbers.reduce((sum, num) => sum + (num || 0), 0).toFixed(2))
+    const sum = numbers.reduce((acc, num) => {
+      const numValue = parseFloat(num) || 0
+      return acc + numValue
+    }, 0)
+    return parseFloat(sum.toFixed(2))
   },
 
   // 减法
   subtract(minuend, ...subtrahends) {
-    const result = subtrahends.reduce((diff, num) => diff - (num || 0), minuend || 0)
+    const minuendValue = parseFloat(minuend) || 0
+    const result = subtrahends.reduce((diff, num) => {
+      const numValue = parseFloat(num) || 0
+      return diff - numValue
+    }, minuendValue)
     return parseFloat(result.toFixed(2))
   },
 
   // 乘法
   multiply(...numbers) {
-    return parseFloat(numbers.reduce((product, num) => product * (num || 0), 1).toFixed(2))
+    const product = numbers.reduce((acc, num) => {
+      const numValue = parseFloat(num) || 0
+      return acc * numValue
+    }, 1)
+    return parseFloat(product.toFixed(2))
   },
 
   // 除法
   divide(dividend, divisor) {
-    if (!divisor) return 0
-    return parseFloat((dividend / divisor).toFixed(2))
+    const dividendValue = parseFloat(dividend) || 0
+    const divisorValue = parseFloat(divisor) || 0
+    if (!divisorValue) return 0
+    return parseFloat((dividendValue / divisorValue).toFixed(2))
   },
 
   // 百分比计算
   percentage(value, total) {
-    if (!total) return 0
-    return parseFloat(((value / total) * 100).toFixed(2))
+    const valueNum = parseFloat(value) || 0
+    const totalNum = parseFloat(total) || 0
+    if (!totalNum) return 0
+    return parseFloat(((valueNum / totalNum) * 100).toFixed(2))
   },
 
   // 四舍五入到指定小数位
   round(number, decimals = 2) {
-    return parseFloat(Number(number).toFixed(decimals))
+    const numValue = parseFloat(number) || 0
+    return parseFloat(numValue.toFixed(decimals))
   }
 }

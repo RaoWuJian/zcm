@@ -21,8 +21,42 @@ const getInventoryRecords = asyncHandler(async (req, res) => {
     search
   } = req.query;
 
+  const user = req.user;
+
   // 构建查询条件
   const query = {};
+
+  // 根据用户部门权限过滤数据
+  if (!user.isAdmin) {
+    const userDepartmentPath = user.departmentPath || '';
+
+    if (userDepartmentPath) {
+      // 转义正则表达式特殊字符
+      const escapedPath = userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      // 获取当前部门及其子部门的用户
+      const User = require('../models/User');
+      const allowedUsers = await User.find({
+        $or: [
+          { departmentPath: userDepartmentPath }, // 当前部门用户
+          { departmentPath: { $regex: `^${escapedPath}->` } }, // 子部门用户
+        ]
+      }).select('_id');
+
+      const allowedUserIds = allowedUsers.map(user => user._id);
+
+      // 限制只查看有权限的用户操作的记录
+      if (allowedUserIds.length > 0) {
+        query.operatedBy = { $in: allowedUserIds };
+      } else {
+        // 如果没有权限访问任何用户，返回空结果
+        query.operatedBy = { $in: [] };
+      }
+    } else {
+      // 没有部门的用户只能查看自己操作的记录
+      query.operatedBy = user.id;
+    }
+  }
 
   if (inventoryId) query.inventoryId = inventoryId;
   if (operationType) query.operationType = operationType;
@@ -230,11 +264,11 @@ const getInventoryStats = asyncHandler(async (req, res) => {
       // 转义正则表达式特殊字符
       const escapedPath = userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-      // 获取当前用户自己和下属子部门的用户
+      // 获取当前部门及其子部门的用户
       const User = require('../models/User');
       const allowedUsers = await User.find({
         $or: [
-          { _id: user.id }, // 当前用户自己
+          { departmentPath: userDepartmentPath }, // 当前部门用户
           { departmentPath: { $regex: `^${escapedPath}->` } }, // 子部门用户
         ]
       }).select('_id');

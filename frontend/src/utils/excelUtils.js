@@ -209,6 +209,8 @@ export function validateImportHeaders(headers) {
     'shopName': 'shopName',
     '平台': 'platform',
     'platform': 'platform',
+    '团队': 'team',
+    'team': 'team',
     '净成交数据': 'netTransactionData',
     '净成交': 'netTransactionData',
     'netTransaction': 'netTransactionData',
@@ -221,6 +223,10 @@ export function validateImportHeaders(headers) {
     '消耗': 'dailyConsumption',
     'consumption': 'dailyConsumption',
     'dailyConsumption': 'dailyConsumption',
+    '订单数量': 'orderCount',
+    '订单': 'orderCount',
+    'orderCount': 'orderCount',
+    'orders': 'orderCount',
     '备注': 'description',
     '描述': 'description',
     'description': 'description',
@@ -273,9 +279,11 @@ export function transformImportData(data, fieldMapping) {
       productTime: '',
       shopName: '',
       platform: '',
+      team: '',
       netTransactionData: 0,
       commission: 0,
       dailyConsumption: 0,
+      orderCount: 0,
       description: ''
     }
 
@@ -284,7 +292,7 @@ export function transformImportData(data, fieldMapping) {
       const value = row[originalField]
       
       if (value !== undefined && value !== null) {
-        if (mappedField === 'netTransactionData' || mappedField === 'commission' || mappedField === 'dailyConsumption') {
+        if (mappedField === 'netTransactionData' || mappedField === 'commission' || mappedField === 'dailyConsumption' || mappedField === 'orderCount') {
           // 数字字段处理
           const numValue = parseFloat(String(value).replace(/[^\d.-]/g, ''))
           transformedRow[mappedField] = isNaN(numValue) ? 0 : numValue
@@ -385,17 +393,21 @@ export function validateImportData(data) {
 }
 
 /**
- * 生成导入模板数据
+ * 生成产品佣金导入模板数据
  * @returns {Object} 模板数据
  */
 export function generateImportTemplate() {
-  const headers = ['产品名称', '产品时间', '店铺名称', '平台', '净成交数据', '佣金(%)', '今日消耗', '备注']
+  const headers = [
+    '产品名称', '产品时间', '店铺名称', '平台', '团队',
+    '净成交数据', '佣金(%)', '今日消耗', '备注'
+  ]
   const sampleData = [
     {
       '产品名称': 'iPhone 14',
       '产品时间': '2024-01-01',
       '店铺名称': '苹果官方旗舰店',
       '平台': '天猫',
+      '团队': '电子产品团队',
       '净成交数据': '5000',
       '佣金(%)': '3.5',
       '今日消耗': '800',
@@ -406,9 +418,52 @@ export function generateImportTemplate() {
       '产品时间': '2024-01-02',
       '店铺名称': '苹果专卖店',
       '平台': '京东',
+      '团队': '电子产品团队',
       '净成交数据': '4500',
       '佣金(%)': '4.0',
       '今日消耗': '700',
+      '备注': '苹果手机销售'
+    }
+  ]
+
+  return {
+    headers,
+    data: sampleData
+  }
+}
+
+/**
+ * 生成运营商品导入模板数据
+ * @returns {Object} 模板数据
+ */
+export function generateOperationalProductImportTemplate() {
+  const headers = [
+    '产品名称', '产品时间', '店铺名称', '平台', '团队',
+    '净成交数据', '佣金(%)', '今日消耗', '订单数量', '备注'
+  ]
+  const sampleData = [
+    {
+      '产品名称': 'iPhone 14',
+      '产品时间': '2024-01-01',
+      '店铺名称': '苹果官方旗舰店',
+      '平台': '天猫',
+      '团队': '电子产品团队',
+      '净成交数据': '5000',
+      '佣金(%)': '3.5',
+      '今日消耗': '800',
+      '订单数量': '25',
+      '备注': '苹果手机销售'
+    },
+    {
+      '产品名称': 'iPhone 14',
+      '产品时间': '2024-01-02',
+      '店铺名称': '苹果专卖店',
+      '平台': '京东',
+      '团队': '电子产品团队',
+      '净成交数据': '4500',
+      '佣金(%)': '4.0',
+      '今日消耗': '700',
+      '订单数量': '22',
       '备注': '苹果手机销售'
     }
   ]
@@ -483,11 +538,42 @@ export function exportToExcel(data, headers, filename = 'export', sheetName = 'S
 }
 
 /**
- * 下载导入模板
+ * 下载产品佣金导入模板
  * @param {string} filename - 文件名（不含扩展名）
  */
 export function downloadImportTemplate(filename = '核算佣金导入模板') {
   const template = generateImportTemplate()
+
+  try {
+    exportToExcel(template.data, template.headers, filename, '导入模板')
+    return true
+  } catch (error) {
+    // 如果Excel导出失败，降级到CSV
+    console.warn('Excel模板导出失败，使用CSV格式：', error.message)
+    const csvContent = exportToCSV(template.data, template.headers)
+
+    // 添加BOM以支持Excel正确显示中文
+    const bom = '\uFEFF'
+    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${filename}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    return true
+  }
+}
+
+/**
+ * 下载运营商品导入模板
+ * @param {string} filename - 文件名（不含扩展名）
+ */
+export function downloadOperationalProductImportTemplate(filename = '运营商品导入模板') {
+  const template = generateOperationalProductImportTemplate()
 
   try {
     exportToExcel(template.data, template.headers, filename, '导入模板')

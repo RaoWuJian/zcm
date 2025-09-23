@@ -138,6 +138,12 @@ const routes = [
             name: 'InventoryList',
             component: () => import('../views/inventory-management/InventoryList.vue'),
             meta: { title: '库存列表', icon: 'List' }
+          },
+          {
+            path: 'shipment-records',
+            name: 'ShipmentRecords',
+            component: () => import('../views/inventory-management/ShipmentRecords.vue'),
+            meta: { title: '库存记录', icon: 'Document' }
           }
         ]
       },

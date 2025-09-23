@@ -422,6 +422,12 @@ const getAvailablePermissions = asyncHandler(async (req, res) => {
       'inventory:out',        // 出库操作
       'inventory:delete',     // 删除库存
 
+      // 发货记录权限
+      'shipment:create',      // 创建发货记录
+      'shipment:update',      // 编辑发货记录
+      'shipment:delete',      // 删除发货记录
+      'shipment:approve',     // 审批发货记录
+
       // 财务管理权限
       // 'finance:read',         // 查看财务信息
       'finance:create',       // 创建收支记录
@@ -480,11 +486,17 @@ const getAvailablePermissions = asyncHandler(async (req, res) => {
     'productOperation:delete': { label: '删除商品运营', category: '商品运营' },
 
     // 库存管理权限
-    'inventory:create': { label: '添加库存', category: '库存管理' },
-    'inventory:update': { label: '编辑库存', category: '库存管理' },
-    'inventory:in': { label: '入库', category: '库存管理' },
-    'inventory:out': { label: '出库', category: '库存管理' },
-    'inventory:delete': { label: '删除', category: '库存管理' },
+    'inventory:create': { label: '添加库存', category: '库存列表' },
+    'inventory:update': { label: '编辑库存', category: '库存列表' },
+    'inventory:in': { label: '入库', category: '库存列表' },
+    'inventory:out': { label: '出库', category: '库存列表' },
+    'inventory:delete': { label: '删除', category: '库存列表' },
+
+    // 发货记录权限
+    'shipment:create': { label: '创建发货记录', category: '发货记录' },
+    'shipment:update': { label: '编辑发货记录', category: '发货记录' },
+    'shipment:delete': { label: '删除发货记录', category: '发货记录' },
+    'shipment:approve': { label: '审批发货记录', category: '发货记录' },
 
     // 财务管理权限
     'finance:create': { label: '新增财务记录', category: '财务管理' },

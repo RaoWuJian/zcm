@@ -588,6 +588,49 @@ export const inventoryRecordApi = {
   }
 }
 
+// 发货记录API
+export const shipmentRecordApi = {
+  // 获取发货记录列表
+  getRecords: (params) => {
+    return api.get('/shipment-records', { params })
+  },
+
+  // 创建发货记录
+  createRecord: (data) => {
+    return api.post('/shipment-records', data)
+  },
+
+  // 批量创建发货记录
+  batchCreateRecord: (records) => {
+    return api.post('/shipment-records/batch', { records })
+  },
+
+  // 获取发货记录详情
+  getRecord: (id) => {
+    return api.get(`/shipment-records/${id}`)
+  },
+
+  // 更新发货记录
+  updateRecord: (id, data) => {
+    return api.put(`/shipment-records/${id}`, data)
+  },
+
+  // 删除发货记录
+  deleteRecord: (id) => {
+    return api.delete(`/shipment-records/${id}`)
+  },
+
+  // 获取发货记录统计
+  getStats: (params) => {
+    return api.get('/shipment-records/stats', { params })
+  },
+
+  // 审批发货记录
+  approveRecord: (id, data) => {
+    return api.put(`/shipment-records/${id}/approve`, data)
+  }
+}
+
 // 记录类型管理API
 export const recordTypeApi = {
   // 获取所有记录类型

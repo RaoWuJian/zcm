@@ -870,7 +870,7 @@
             <ul>
               <li>支持 Excel (.xlsx, .xls) 和 CSV 文件格式</li>
               <li>必填字段：产品名称、净成交数据、佣金</li>
-              <li>可选字段：产品时间、店铺名称、平台、今日消耗、备注</li>
+              <li>可选字段：产品时间、店铺名称、平台、团队、今日消耗、订单数量、备注</li>
               <li>产品时间格式：YYYY-MM-DD（如：2024-01-01）</li>
               <li>数字字段支持负数和小数</li>
               <li>建议先下载模板，按格式填写数据</li>
@@ -928,6 +928,7 @@
             </el-table-column>
             <el-table-column prop="shopName" label="店铺名称" min-width="120" />
             <el-table-column prop="platform" label="平台" width="80" />
+            <el-table-column prop="team" label="团队" width="100" />
             <el-table-column prop="netTransactionData" label="净成交数据" width="120">
               <template #default="{ row }">
                 <span :class="{ 'negative-value': row.netTransactionData < 0 }">
@@ -947,6 +948,11 @@
                 <span :class="{ 'negative-value': row.dailyConsumption < 0 }">
                   {{ row.dailyConsumption }}
                 </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="orderCount" label="订单数量" width="100">
+              <template #default="{ row }">
+                <span>{{ row.orderCount || '0' }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="description" label="备注" min-width="100" />
@@ -1396,7 +1402,8 @@ import {
   generateImportTemplate,
   exportToCSV,
   exportToExcel,
-  downloadImportTemplate
+  downloadImportTemplate,
+  downloadOperationalProductImportTemplate
 } from '@/utils/excelUtils'
 
 // Store
@@ -2192,8 +2199,8 @@ const resetImportData = () => {
 // 下载导入模板
 const downloadTemplate = () => {
   try {
-    // 使用新的 Excel 导出功能
-    downloadImportTemplate('产品佣金导入模板')
+    // 使用运营商品专用的 Excel 导出功能
+    downloadOperationalProductImportTemplate('运营商品导入模板')
     ElMessage.success('模板下载成功')
   } catch (error) {
     ElMessage.error('模板下载失败：' + error.message)
@@ -3091,7 +3098,7 @@ onMounted(() => {
 /* 分页 */
 .pagination-wrapper {
   display: flex;
-  justify-content: center;
+  justify-content: right;
   margin-top: 20px;
 }
 

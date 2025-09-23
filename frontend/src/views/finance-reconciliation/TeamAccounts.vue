@@ -43,7 +43,7 @@
     <!-- 操作栏 -->
     <div class="action-card">
       <div class="action-left">
-        <el-button type="primary" @click="handleAdd" :icon="Plus" class="action-btn primary" v-if="hasAnyPermission(['finance:team_manage'])">
+        <el-button type="primary" @click="handleAdd" :icon="Plus" class="action-btn primary" v-if="hasAnyPermission(['finance:team_create'])">
           新增账户
         </el-button>
         <el-button
@@ -157,7 +157,7 @@
             <el-button size="small" type="info" @click="handleDetail(row)" link>
               详情
             </el-button>
-            <el-button size="small" type="primary" @click="handleEdit(row)" link v-if="hasAnyPermission(['finance:team_manage'])">
+            <el-button size="small" type="primary" @click="handleEdit(row)" link v-if="hasAnyPermission(['finance:team_update'])">
               编辑
             </el-button>
             <!-- <el-button size="small" type="success" @click="handleRechargeAccount(row)" link v-if="hasAnyPermission(['finance:team_manage'])">
@@ -166,7 +166,7 @@
             <!-- <el-button size="small" type="warning" @click="handleTransfer(row)" link v-if="hasAnyPermission(['finance:team_manage'])">
               转账
             </el-button> -->
-            <el-button size="small" type="danger" @click="handleDelete(row)" link v-if="hasAnyPermission(['finance:team_manage'])">
+            <el-button size="small" type="danger" @click="handleDelete(row)" link v-if="hasAnyPermission(['finance:team_delete'])">
               删除
             </el-button>
           </template>

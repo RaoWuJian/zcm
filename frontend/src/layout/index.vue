@@ -17,7 +17,7 @@
           active-text-color="#409eff"
         >
           <el-menu-item index="/dashboard">
-            <el-icon><Dashboard /></el-icon>
+            <el-icon><Odometer /></el-icon>
             <template #title>仪表盘</template>
           </el-menu-item>
           
@@ -172,6 +172,10 @@
               'inventory:in',         // 入库操作
               'inventory:out',        // 出库操作
               'inventory:delete',     // 删除库存
+              'shipment:create',      // 创建发货记录
+              'shipment:update',      // 编辑发货记录
+              'shipment:delete',      // 删除发货记录
+              'shipment:approve',     // 审批发货记录
             ])">
             <template #title>
               <el-icon><Box /></el-icon>
@@ -187,6 +191,16 @@
               ])">
               <el-icon><List /></el-icon>
               <template #title>库存列表</template>
+            </el-menu-item>
+
+            <el-menu-item index="/inventory-management/shipment-records" v-if="hasAnyPermission([
+                'shipment:create',      // 创建发货记录
+                'shipment:update',      // 编辑发货记录
+                'shipment:delete',      // 删除发货记录
+                'shipment:approve',     // 审批发货记录
+              ])">
+              <el-icon><Document /></el-icon>
+              <template #title>发货记录</template>
             </el-menu-item>
 
           </el-sub-menu>
@@ -244,19 +258,20 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { ElMessage } from 'element-plus'
-import { 
-  Odometer, 
-  User, 
-  UserFilled, 
-  Avatar, 
-  OfficeBuilding, 
-  Setting, 
+import {
+  Odometer,
+  User,
+  UserFilled,
+  Avatar,
+  OfficeBuilding,
+  Setting,
   ArrowDown,
   Expand,
   Fold,
   Money,
   List,
-  Box
+  Box,
+  Document
 } from '@element-plus/icons-vue'
 import hasAnyPermission from '@/utils/checkPermissions'
 

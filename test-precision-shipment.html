@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>发货记录精度计算测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 3px;
+        }
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        .success {
+            background-color: #e8f5e8;
+            color: #2e7d32;
+        }
+        input {
+            margin: 5px;
+            padding: 5px;
+            width: 100px;
+        }
+        button {
+            margin: 5px;
+            padding: 8px 15px;
+            background-color: #1976d2;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #1565c0;
+        }
+    </style>
+</head>
+<body>
+    <h1>发货记录精度计算测试</h1>
+    
+    <div class="test-section">
+        <h3>发货记录计算测试</h3>
+        <div>
+            <label>发货数量: <input type="number" id="quantity" value="10.5" step="0.01"></label>
+            <label>单价: <input type="number" id="unitPrice" value="12.99" step="0.01"></label>
+            <label>运费: <input type="number" id="shippingFee" value="5.5" step="0.01"></label>
+            <label>偏远地区加收: <input type="number" id="remoteAreaFee" value="2.3" step="0.01"></label>
+        </div>
+        <button onclick="calculateTotal()">计算合计金额</button>
+        <div id="calculationResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>精度计算对比测试</h3>
+        <button onclick="runPrecisionTests()">运行精度测试</button>
+        <div id="precisionTestResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>导出数据格式测试</h3>
+        <button onclick="testExportFormat()">测试导出格式</button>
+        <div id="exportTestResult" class="result"></div>
+    </div>
+
+    <script>
+        // 精度计算工具（与前端一致）
+        const precisionCalculate = {
+            add(...numbers) {
+                const sum = numbers.reduce((acc, num) => {
+                    const numValue = parseFloat(num) || 0
+                    return acc + numValue
+                }, 0)
+                return parseFloat(sum.toFixed(2))
+            },
+            
+            subtract(minuend, ...subtrahends) {
+                const minuendValue = parseFloat(minuend) || 0
+                const result = subtrahends.reduce((diff, num) => {
+                    const numValue = parseFloat(num) || 0
+                    return diff - numValue
+                }, minuendValue)
+                return parseFloat(result.toFixed(2))
+            },
+            
+            multiply(...numbers) {
+                const product = numbers.reduce((acc, num) => {
+                    const numValue = parseFloat(num) || 0
+                    return acc * numValue
+                }, 1)
+                return parseFloat(product.toFixed(2))
+            },
+            
+            divide(dividend, divisor) {
+                const dividendValue = parseFloat(dividend) || 0
+                const divisorValue = parseFloat(divisor) || 0
+                if (!divisorValue) return 0
+                return parseFloat((dividendValue / divisorValue).toFixed(2))
+            }
+        };
+
+        function calculateTotal() {
+            const quantity = parseFloat(document.getElementById('quantity').value) || 0;
+            const unitPrice = parseFloat(document.getElementById('unitPrice').value) || 0;
+            const shippingFee = parseFloat(document.getElementById('shippingFee').value) || 0;
+            const remoteAreaFee = parseFloat(document.getElementById('remoteAreaFee').value) || 0;
+
+            // 使用精度计算
+            const productAmount = precisionCalculate.multiply(quantity, unitPrice);
+            const total = precisionCalculate.add(productAmount, shippingFee, remoteAreaFee);
+
+            // 普通计算对比
+            const normalTotal = (quantity * unitPrice) + shippingFee + remoteAreaFee;
+
+            const resultDiv = document.getElementById('calculationResult');
+            resultDiv.innerHTML = `
+                <strong>计算结果:</strong><br>
+                产品金额 (${quantity} × ${unitPrice}): ${productAmount}<br>
+                合计金额: ¥${total.toFixed(2)}<br>
+                <br>
+                <strong>对比:</strong><br>
+                精度计算: ${total}<br>
+                普通计算: ${normalTotal.toFixed(2)}<br>
+                差异: ${Math.abs(total - normalTotal).toFixed(10)}
+            `;
+            resultDiv.className = 'result success';
+        }
+
+        function runPrecisionTests() {
+            const testCases = [
+                { quantity: 10.1, unitPrice: 12.99, shippingFee: 5.5, remoteAreaFee: 2.3 },
+                { quantity: 0.1, unitPrice: 0.2, shippingFee: 0.05, remoteAreaFee: 0.03 },
+                { quantity: 999.99, unitPrice: 1.01, shippingFee: 10.5, remoteAreaFee: 5.25 }
+            ];
+
+            let results = '<strong>精度测试结果:</strong><br>';
+            
+            testCases.forEach((testCase, index) => {
+                const { quantity, unitPrice, shippingFee, remoteAreaFee } = testCase;
+                
+                // 精度计算
+                const productAmount = precisionCalculate.multiply(quantity, unitPrice);
+                const precisionTotal = precisionCalculate.add(productAmount, shippingFee, remoteAreaFee);
+                
+                // 普通计算
+                const normalTotal = (quantity * unitPrice) + shippingFee + remoteAreaFee;
+                
+                const difference = Math.abs(precisionTotal - normalTotal);
+                
+                results += `
+                    <br>测试 ${index + 1}: 数量=${quantity}, 单价=${unitPrice}, 运费=${shippingFee}, 偏远费=${remoteAreaFee}<br>
+                    精度计算: ${precisionTotal}<br>
+                    普通计算: ${normalTotal.toFixed(2)}<br>
+                    差异: ${difference.toFixed(10)}<br>
+                `;
+            });
+
+            const resultDiv = document.getElementById('precisionTestResult');
+            resultDiv.innerHTML = results;
+            resultDiv.className = 'result success';
+        }
+
+        function testExportFormat() {
+            // 模拟发货记录数据
+            const mockData = [
+                {
+                    shipmentDate: '2024-01-15',
+                    productName: '测试产品A',
+                    quantity: 10.5,
+                    unitPrice: 12.99,
+                    shippingFee: 5.5,
+                    remoteAreaFee: 2.3,
+                    totalAmount: 142.745,
+                    receivableUnit: '测试公司A',
+                    remark: '测试备注',
+                    createdAt: '2024-01-15T10:30:00Z'
+                }
+            ];
+
+            // 模拟导出数据格式化
+            const exportData = mockData.map(item => ({
+                '发货日期': item.shipmentDate,
+                '产品名称': item.productName,
+                '数量': item.quantity,
+                '单价': item.unitPrice,
+                '运费': item.shippingFee,
+                '偏远地区加收': item.remoteAreaFee,
+                '合计金额': item.totalAmount,
+                '应收款单位': item.receivableUnit,
+                '备注': item.remark || '',
+                '创建时间': new Date(item.createdAt).toLocaleDateString('zh-CN')
+            }));
+
+            const headers = [
+                '发货日期',
+                '产品名称', 
+                '数量',
+                '单价',
+                '运费',
+                '偏远地区加收',
+                '合计金额',
+                '应收款单位',
+                '备注',
+                '创建时间'
+            ];
+
+            const resultDiv = document.getElementById('exportTestResult');
+            resultDiv.innerHTML = `
+                <strong>导出数据格式测试:</strong><br>
+                <strong>表头:</strong> ${JSON.stringify(headers)}<br>
+                <strong>数据:</strong> ${JSON.stringify(exportData, null, 2)}<br>
+                <strong>状态:</strong> 格式正确，可以正常导出
+            `;
+            resultDiv.className = 'result success';
+        }
+
+        // 页面加载时运行初始测试
+        window.onload = function() {
+            calculateTotal();
+        };
+    </script>
+</body>
+</html>

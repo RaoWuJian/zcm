@@ -816,7 +816,7 @@
             <ul>
               <li>支持 Excel (.xlsx, .xls) 和 CSV 文件格式</li>
               <li>必填字段：产品名称、净成交数据、佣金</li>
-              <li>可选字段：产品时间、店铺名称、平台、今日消耗、备注</li>
+              <li>可选字段：产品时间、店铺名称、平台、团队、今日消耗、备注</li>
               <li>产品时间格式：YYYY-MM-DD（如：2024-01-01）</li>
               <li>数字字段支持负数和小数</li>
               <li>建议先下载模板，按格式填写数据</li>
@@ -874,6 +874,7 @@
             </el-table-column>
             <el-table-column prop="shopName" label="店铺名称" min-width="120" />
             <el-table-column prop="platform" label="平台" width="80" />
+            <el-table-column prop="team" label="团队" width="100" />
             <el-table-column prop="netTransactionData" label="净成交数据" width="120">
               <template #default="{ row }">
                 <span :class="{ 'negative-value': row.netTransactionData < 0 }">
@@ -1317,6 +1318,7 @@ import {
 } from '@element-plus/icons-vue'
 import { useCommissionAccountingStore } from '@/stores/commissionAccounting'
 import { formatUtcToLocalDateTime } from '@/utils/dateUtils'
+import { precisionCalculate } from '@/utils/precision'
 
 // 格式化日期（只显示日期部分）
 const formatDateOnly = (dateString) => {
@@ -2153,20 +2155,29 @@ const fetchProductSummary = async () => {
   try {
     summaryLoading.value = true
 
-    // 简化版本：直接从当前已加载的数据中筛选
-    // 如果主列表没有数据，先加载一次
-    if (commissionStore.commissionAccountings.length === 0) {
-      await loadAccountings()
+    // 获取所有匹配产品名称的数据
+    const params = {
+      page: 1,
+      limit: 999999, // 获取所有数据
+      name: summaryForm.productName.trim(), // 按产品名称搜索
+      ...searchForm // 包含当前的搜索条件
     }
 
-    // 从当前数据中筛选匹配的产品
-    const searchTerm = summaryForm.productName.trim().toLowerCase()
-    const allData = commissionStore.commissionAccountings.filter(item =>
-      item.name && item.name.toLowerCase().includes(searchTerm)
-    )
+    // 清理空参数
+    Object.keys(params).forEach(key => {
+      if (params[key] === '' || params[key] === null || params[key] === undefined) {
+        delete params[key]
+      }
+    })
+
+    const result = await commissionStore.fetchCommissionAccountings(params)
+    if (!result.success) {
+      ElMessage.error('获取汇总数据失败')
+      return
+    }
 
     // 存储所有数据用于统计和分页
-    summaryAllData.value = allData
+    summaryAllData.value = commissionStore.commissionAccountings
 
     // 重置分页
     summaryCurrentPage.value = 1
@@ -2223,10 +2234,11 @@ const calculateSummaryStats = () => {
   }
 
   const stats = summaryAllData.value.reduce((acc, item) => {
-    acc.totalNetTransaction += item.netTransactionData || 0
-    acc.totalCommissionProfit += item.commissionProfit || 0
-    acc.totalNetProfit += item.netProfit || 0
-    acc.totalDailyConsumption += item.dailyConsumption || 0
+    // 使用精度计算工具，与后端保持一致
+    acc.totalNetTransaction = precisionCalculate.add(acc.totalNetTransaction, item.netTransactionData || 0)
+    acc.totalCommissionProfit = precisionCalculate.add(acc.totalCommissionProfit, item.commissionProfit || 0)
+    acc.totalNetProfit = precisionCalculate.add(acc.totalNetProfit, item.netProfit || 0)
+    acc.totalDailyConsumption = precisionCalculate.add(acc.totalDailyConsumption, item.dailyConsumption || 0)
     return acc
   }, {
     totalNetTransaction: 0,
@@ -2273,12 +2285,12 @@ const handleSelectedSummary = () => {
     return
   }
 
-  // 计算多选数据的统计
+  // 计算多选数据的统计，使用精度计算工具
   const stats = selectedAccountings.value.reduce((acc, item) => {
-    acc.totalNetTransaction += item.netTransactionData || 0
-    acc.totalCommissionProfit += item.commissionProfit || 0
-    acc.totalNetProfit += item.netProfit || 0
-    acc.totalDailyConsumption += item.dailyConsumption || 0
+    acc.totalNetTransaction = precisionCalculate.add(acc.totalNetTransaction, item.netTransactionData || 0)
+    acc.totalCommissionProfit = precisionCalculate.add(acc.totalCommissionProfit, item.commissionProfit || 0)
+    acc.totalNetProfit = precisionCalculate.add(acc.totalNetProfit, item.netProfit || 0)
+    acc.totalDailyConsumption = precisionCalculate.add(acc.totalDailyConsumption, item.dailyConsumption || 0)
     return acc
   }, {
     totalNetTransaction: 0,
@@ -2588,8 +2600,36 @@ const resetBatchForm = () => {
 // 导出数据
 const handleExport = async () => {
   try {
-    // 优先导出勾选的数据，如果没有勾选则导出所有数据
-    const exportData = selectedAccountings.value.length > 0 ? selectedAccountings.value : commissionStore.commissionAccountings
+    let exportData = []
+
+    // 如果有勾选数据，导出勾选的数据
+    if (selectedAccountings.value.length > 0) {
+      exportData = selectedAccountings.value
+    } else {
+      // 如果没有勾选数据，获取所有匹配条件的数据进行导出
+      ElMessage.info('正在获取所有数据，请稍候...')
+
+      const params = {
+        page: 1,
+        limit: 999999, // 设置一个很大的数字来获取所有数据
+        ...searchForm
+      }
+
+      // 清理空参数
+      Object.keys(params).forEach(key => {
+        if (params[key] === '' || params[key] === null || params[key] === undefined) {
+          delete params[key]
+        }
+      })
+
+      const result = await commissionStore.fetchCommissionAccountings(params)
+      if (result.success) {
+        exportData = commissionStore.commissionAccountings
+      } else {
+        ElMessage.error('获取导出数据失败')
+        return
+      }
+    }
 
     if (exportData.length === 0) {
       ElMessage.warning('暂无数据可导出')
@@ -2616,13 +2656,13 @@ const handleExport = async () => {
 
     // 使用 Excel 格式导出
     const headers = Object.keys(data[0])
-    const exportType = selectedAccountings.value.length > 0 ? `勾选${selectedAccountings.value.length}条` : '全部'
+    const exportType = selectedAccountings.value.length > 0 ? `勾选${selectedAccountings.value.length}条` : `全部${exportData.length}条`
     const filename = `核算佣金数据_${exportType}_${new Date().toLocaleDateString().replace(/\//g, '-')}`
 
     try {
       // 尝试导出为 Excel 格式
       exportToExcel(data, headers, filename, '核算佣金数据')
-      const exportTypeMsg = selectedAccountings.value.length > 0 ? `勾选的${selectedAccountings.value.length}条数据` : '全部数据'
+      const exportTypeMsg = selectedAccountings.value.length > 0 ? `勾选的${selectedAccountings.value.length}条数据` : `全部${exportData.length}条数据`
       ElMessage.success(`导出${exportTypeMsg}成功（Excel格式）`)
     } catch (excelError) {
       // 如果 Excel 导出失败，降级到 CSV
@@ -2642,7 +2682,7 @@ const handleExport = async () => {
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
 
-      const exportTypeMsg = selectedAccountings.value.length > 0 ? `勾选的${selectedAccountings.value.length}条数据` : '全部数据'
+      const exportTypeMsg = selectedAccountings.value.length > 0 ? `勾选的${selectedAccountings.value.length}条数据` : `全部${exportData.length}条数据`
       ElMessage.success(`导出${exportTypeMsg}成功（CSV格式）`)
     }
   } catch (error) {
@@ -3029,7 +3069,7 @@ onMounted(() => {
 /* 分页 */
 .pagination-wrapper {
   display: flex;
-  justify-content: center;
+  justify-content: right;
   margin-top: 20px;
 }
 

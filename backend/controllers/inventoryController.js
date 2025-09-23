@@ -164,10 +164,11 @@ const getInventories = asyncHandler(async (req, res) => {
       // 转义正则表达式特殊字符
       const escapedPath = userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-      // 获取当前用户自己和下属子部门的用户
+      // 获取当前部门及其子部门的用户
+      const User = require('../models/User');
       const allowedUsers = await User.find({
         $or: [
-          { _id: user.id }, // 当前用户自己
+          { _id: user.id }, // 当前部门用户
           { departmentPath: { $regex: `^${escapedPath}->` } }, // 子部门用户
         ]
       }).select('_id');

@@ -222,7 +222,7 @@ const getOperationalProducts = asyncHandler(async (req, res) => {
       const User = require('../models/User');
       const allowedUsers = await User.find({
         $or: [
-          { departmentPath: userDepartmentPath }, // 当前部门用户
+          {  _id: user.id }, // 当前部门用户
           { departmentPath: { $regex: `^${escapedPath}->` } }, // 子部门用户
         ]
       }).select('_id');

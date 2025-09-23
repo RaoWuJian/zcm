@@ -293,8 +293,11 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="250" fixed="right">
           <template #default="{ row }">
+            <el-button size="small" type="info" @click="handleDetail(row)" link>
+              详情
+            </el-button>
             <el-button size="small" type="primary" @click="handleEdit(row)" link  v-if="hasAnyPermission(['finance:update','finance:manage']) && ((row.approvalStatus === 'pending') || row.isSuperior)">
               编辑
             </el-button>
@@ -341,7 +344,7 @@
       <el-form :model="form" :rules="rules" ref="formRef" label-width="120px">
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="公司账户" prop="teamId">
+            <el-form-item label="公司账户" prop="teamId" required>
               <el-select v-model="form.teamId" placeholder="请选择公司账户" filterable>
                 <el-option 
                   v-for="account in teamAccounts" 
@@ -373,12 +376,12 @@
 
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="记录名称" prop="name">
+            <el-form-item label="记录名称" prop="name" required>
               <el-input v-model="form.name" placeholder="请输入记录名称" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="收支类型" prop="type">
+            <el-form-item label="收支类型" prop="type" required>
               <el-radio-group v-model="form.type">
                 <el-radio label="income">
                   <div style="display: flex; align-items: center; gap: 6px;">
@@ -399,7 +402,7 @@
 
         <el-row :gutter="20">
            <el-col :span="12">
-            <el-form-item label="金额" prop="amount">
+            <el-form-item label="金额" prop="amount" required>
               <el-input-number
                 v-model="form.amount"
                 :min="0"
@@ -412,7 +415,7 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="收支时间" prop="occurredAt">
+            <el-form-item label="收支时间" prop="occurredAt" required>
               <el-date-picker
                 v-model="form.occurredAt"
                 type="date"
@@ -428,7 +431,7 @@
 
         <el-row :gutter="20">
          <el-col :span="12">
-            <el-form-item label="记录大类" prop="categoryId">
+            <el-form-item label="记录大类" prop="categoryId" required>
               <el-select
                 v-model="form.categoryId"
                 placeholder="请选择记录大类"
@@ -447,7 +450,7 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="记录小类" prop="subCategoryId">
+            <el-form-item label="记录小类" prop="subCategoryId" :required="isSubCategoryRequired">
               <el-select
                 v-model="form.subCategoryId"
                 placeholder="请选择记录小类"
@@ -498,7 +501,7 @@
         <!-- 图片上传区域 -->
         <el-row>
           <el-col :span="24">
-            <el-form-item label="上传凭证">
+            <el-form-item label="上传凭证" prop="images" required>
               <div class="image-upload-container">
                 <!-- 图片预览和上传区域 - 统一在一行显示 -->
                 <div class="image-items-container">
@@ -687,11 +690,185 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 财务记录详情对话框 -->
+    <el-dialog
+      v-model="detailDialogVisible"
+      title="财务记录详情"
+      width="800px"
+      append-to-body
+      @close="handleDetailDialogClose"
+      class="finance-detail-dialog"
+    >
+      <div v-if="selectedRecord" class="finance-detail-content">
+        <!-- 基本信息 -->
+        <el-card class="detail-card" style="margin-bottom: 20px;">
+          <template #header>
+            <span>基本信息</span>
+          </template>
+          <el-descriptions :column="1" border class="detail-descriptions">
+            <el-descriptions-item label="记录名称" label-class-name="detail-label" class-name="detail-content">
+              <div class="field-content" :title="selectedRecord.recordName || selectedRecord.name">
+                {{ selectedRecord.recordName || selectedRecord.name }}
+              </div>
+            </el-descriptions-item>
+            <el-descriptions-item label="收支类型" label-class-name="detail-label" class-name="detail-content">
+              <el-tag
+                :type="selectedRecord.type === 'income' ? 'success' : 'danger'"
+                size="small"
+              >
+                {{ selectedRecord.type === 'income' ? '收入' : '支出' }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="金额" label-class-name="detail-label" class-name="detail-content">
+              <span :class="['amount-text', selectedRecord.type === 'income' ? 'income' : 'expense']">
+                {{ selectedRecord.type === 'income' ? '+' : '-' }}¥{{ selectedRecord.amount?.toLocaleString() }}
+              </span>
+            </el-descriptions-item>
+            <el-descriptions-item label="收支时间" label-class-name="detail-label" class-name="detail-content">
+              {{ formatUtcToLocalDate(selectedRecord.transactionTime || selectedRecord.occurredAt) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="公司账户" label-class-name="detail-label" class-name="detail-content">
+              <div class="field-content" :title="selectedRecord.teamAccountName || selectedRecord.teamId?.name">
+                {{ selectedRecord.teamAccountName || selectedRecord.teamId?.name }}
+              </div>
+            </el-descriptions-item>
+            <el-descriptions-item label="团队账户" label-class-name="detail-label" class-name="detail-content">
+              <div class="field-content" :title="selectedRecord.companyAccountId?.name || '-'">
+                {{ selectedRecord.companyAccountId?.name || '-' }}
+              </div>
+            </el-descriptions-item>
+            <el-descriptions-item label="记录大类" label-class-name="detail-label" class-name="detail-content">
+              <div class="field-content" :title="selectedRecord.recordType?.categoryName || '-'">
+                {{ selectedRecord.recordType?.categoryName || '-' }}
+              </div>
+            </el-descriptions-item>
+            <el-descriptions-item label="记录小类" label-class-name="detail-label" class-name="detail-content">
+              <div class="field-content" :title="selectedRecord.recordType?.subCategoryName || '-'">
+                {{ selectedRecord.recordType?.subCategoryName || '-' }}
+              </div>
+            </el-descriptions-item>
+            <el-descriptions-item :label="selectedRecord.type === 'income' ? '收款方名称' : '付款方名称'" label-class-name="detail-label" class-name="detail-content">
+              <div class="field-content" :title="selectedRecord.payerName || selectedRecord.paymentName || '-'">
+                {{ selectedRecord.payerName || selectedRecord.paymentName || '-' }}
+              </div>
+            </el-descriptions-item>
+            <el-descriptions-item :label="selectedRecord.type === 'income' ? '收款账号' : '付款账号'" label-class-name="detail-label" class-name="detail-content">
+              <div class="field-content" :title="selectedRecord.payerAccount || selectedRecord.account || '-'">
+                {{ selectedRecord.payerAccount || selectedRecord.account || '-' }}
+              </div>
+            </el-descriptions-item>
+            <el-descriptions-item label="说明/备注" label-class-name="detail-label" class-name="detail-content">
+              <div class="description-content">
+                <div v-if="selectedRecord.description" class="description-text field-content" :title="selectedRecord.description">
+                  {{ selectedRecord.description }}
+                </div>
+                <div v-else class="no-description">
+                  无备注信息
+                </div>
+              </div>
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-card>
+
+        <!-- 审批信息 -->
+        <el-card class="detail-card" style="margin-bottom: 20px;">
+          <template #header>
+            <span>审批信息</span>
+          </template>
+          <el-descriptions :column="2" border class="detail-descriptions">
+            <el-descriptions-item label="审批状态" label-class-name="detail-label" class-name="detail-content">
+              <el-tag
+                :type="selectedRecord.approvalStatus === 'approved' ? 'success' :
+                       selectedRecord.approvalStatus === 'rejected' ? 'danger' : 'warning'"
+                size="small"
+              >
+                {{ selectedRecord.approvalStatus === 'pending' ? '待审批' :
+                   selectedRecord.approvalStatus === 'approved' ? '已通过' : '已拒绝' }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="审批人" label-class-name="detail-label" class-name="detail-content">
+              <div class="field-content" :title="selectedRecord.approvedBy?.username || '未审批'">
+                {{ selectedRecord.approvedBy?.username || '未审批' }}
+              </div>
+            </el-descriptions-item>
+            <el-descriptions-item label="审批时间" label-class-name="detail-label" class-name="detail-content">
+              {{ selectedRecord.approvedAt ? formatUtcToLocalDate(selectedRecord.approvedAt) : '未审批' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="审批意见" :span="2" label-class-name="detail-label" class-name="detail-content">
+              <div class="approval-comment-display">
+                <div v-if="selectedRecord.approvalComment" class="comment-content field-content" :title="selectedRecord.approvalComment">
+                  {{ selectedRecord.approvalComment }}
+                </div>
+                <div v-else class="no-comment">
+                  {{ selectedRecord.approvalStatus === 'pending' ? '待审批' : '无审批意见' }}
+                </div>
+              </div>
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-card>
+
+        <!-- 操作信息 -->
+        <el-card class="detail-card" style="margin-bottom: 20px;">
+          <template #header>
+            <span>操作信息</span>
+          </template>
+          <el-descriptions :column="2" border class="detail-descriptions">
+            <el-descriptions-item label="创建人" label-class-name="detail-label" class-name="detail-content">
+              <div class="field-content" :title="selectedRecord.createdBy?.username || selectedRecord.operatorName || '未知'">
+                {{ selectedRecord.createdBy?.username || selectedRecord.operatorName || '未知' }}
+              </div>
+            </el-descriptions-item>
+            <el-descriptions-item label="创建时间" label-class-name="detail-label" class-name="detail-content">
+              {{ selectedRecord.createdAt ? formatUtcToLocalDate(selectedRecord.createdAt) : '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="更新人" label-class-name="detail-label" class-name="detail-content">
+              <div class="field-content" :title="selectedRecord.updatedBy?.username || '-'">
+                {{ selectedRecord.updatedBy?.username || '-' }}
+              </div>
+            </el-descriptions-item>
+            <el-descriptions-item label="更新时间" label-class-name="detail-label" class-name="detail-content">
+              {{ selectedRecord.updatedAt ? formatUtcToLocalDate(selectedRecord.updatedAt) : '-' }}
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-card>
+
+        <!-- 凭证图片 -->
+        <el-card v-if="selectedRecord.images && selectedRecord.images.length > 0" class="detail-card">
+          <template #header>
+            <span>凭证图片</span>
+          </template>
+          <div class="images-grid">
+            <div
+              v-for="(image, index) in selectedRecord.images"
+              :key="image._id || image.id || index"
+              class="image-item"
+              @click="previewSingleImage(selectedRecord.images, index)"
+            >
+              <img
+                :src="image.url"
+                :alt="`凭证${index + 1}`"
+                class="image-thumbnail"
+              />
+              <div class="image-overlay">
+                <span>点击查看</span>
+              </div>
+            </div>
+          </div>
+        </el-card>
+      </div>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="handleDetailDialogClose">关闭</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup >
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Plus,
@@ -713,6 +890,8 @@ import { formatUtcToLocalDate } from '@/utils/dateUtils'
 const loading = ref(false)
 const dialogVisible = ref(false)
 const showSelectedSummaryDialog = ref(false)
+const detailDialogVisible = ref(false)
+const selectedRecord = ref(null)
 
 // 图片预览相关
 const imagePreviewVisible = ref(false)
@@ -756,8 +935,10 @@ const loadRecordTypes = async () => {
 }
 
 // 处理大类变化
-const handleCategoryChange = async (categoryId) => {
-  form.subCategoryId = null
+const handleCategoryChange = async (categoryId, clearSubCategory = true) => {
+  if (clearSubCategory) {
+    form.subCategoryId = null
+  }
   subCategories.value = []
 
   if (categoryId) {
@@ -770,6 +951,13 @@ const handleCategoryChange = async (categoryId) => {
       console.error('加载小类失败:', error)
     }
   }
+
+  // 触发小类字段的验证，因为验证规则依赖于当前的小类选项
+  nextTick(() => {
+    if (formRef.value) {
+      formRef.value.validateField('subCategoryId')
+    }
+  })
 }
 
 // 处理搜索大类变化
@@ -912,6 +1100,45 @@ const form = reactive({
 // 记录要删除的已保存图片ID
 const deletedImageIds = ref([])
 
+// 计算属性：小类是否必填
+const isSubCategoryRequired = computed(() => {
+  return form.categoryId && subCategories.value.length > 0
+})
+
+// 自定义验证函数：检查小类是否必填
+const validateSubCategory = (rule, value, callback) => {
+  // 如果没有选择大类，则小类不需要验证
+  if (!form.categoryId) {
+    callback()
+    return
+  }
+
+  // 如果选择了大类但没有小类选项，则小类不需要验证
+  if (subCategories.value.length === 0) {
+    callback()
+    return
+  }
+
+  // 如果有小类选项但没有选择小类，则验证失败
+  if (!value) {
+    callback(new Error('请选择记录小类'))
+    return
+  }
+
+  callback()
+}
+
+// 自定义验证函数：检查图片是否必填
+const validateImages = (rule, value, callback) => {
+  // 检查是否有图片
+  if (!value || !Array.isArray(value) || value.length === 0) {
+    callback(new Error('请上传至少一张凭证图片'))
+    return
+  }
+
+  callback()
+}
+
 // 表单验证规则
 const rules = {
   teamId: [{ required: true, message: '请选择团队账户', trigger: 'change' }],
@@ -922,6 +1149,9 @@ const rules = {
     { type: 'number', min: 0.01, message: '金额必须大于0', trigger: 'blur' }
   ],
   occurredAt: [{ required: true, message: '请选择收支日期', trigger: 'change' }],
+  categoryId: [{ required: true, message: '请选择记录大类', trigger: 'change' }],
+  subCategoryId: [{ validator: validateSubCategory, trigger: 'change' }],
+  images: [{ validator: validateImages, trigger: 'change' }],
 }
 
 // 初始化团队账户数据
@@ -1318,9 +1548,9 @@ const handleEdit = async (row) => {
       subCategoryName: row.recordType.subCategoryName || ''
     }
 
-    // 如果有大类，加载对应的小类
+    // 如果有大类，加载对应的小类，但不清空当前的小类选择
     if (form.categoryId) {
-      await handleCategoryChange(form.categoryId)
+      await handleCategoryChange(form.categoryId, false)
     }
   }
 
@@ -1328,6 +1558,31 @@ const handleEdit = async (row) => {
   form.companyAccountId = row.companyAccountId || null
 
   dialogVisible.value = true
+}
+
+// 查看详情
+const handleDetail = async (row) => {
+  try {
+    loading.value = true
+    const response = await financeApi.getRecord(row._id || row.id)
+
+    if (response.success) {
+      selectedRecord.value = response.data
+      detailDialogVisible.value = true
+    } else {
+      ElMessage.error('获取记录详情失败')
+    }
+  } catch (error) {
+    ElMessage.error('获取记录详情失败，请重试')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 关闭详情对话框
+const handleDetailDialogClose = () => {
+  detailDialogVisible.value = false
+  selectedRecord.value = null
 }
 
 // 删除
@@ -1528,6 +1783,13 @@ const handleFileChange = (file, fileList) => {
   // 添加到临时图片列表
   form.images.push(rawFile)
   ElMessage.success('图片添加成功')
+
+  // 触发图片字段验证
+  nextTick(() => {
+    if (formRef.value) {
+      formRef.value.validateField('images')
+    }
+  })
 }
 
 // 删除图片
@@ -1556,6 +1818,13 @@ const removeImage = async (index) => {
 
     form.images.splice(index, 1)
     ElMessage.success('图片删除成功')
+
+    // 触发图片字段验证
+    nextTick(() => {
+      if (formRef.value) {
+        formRef.value.validateField('images')
+      }
+    })
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error('删除图片失败')
@@ -1585,7 +1854,7 @@ const uploadSingleImage = async (file) => {
 const handleSubmit = async () => {
   if (!formRef.value) return
 
-  await formRef.value.validate(async (valid) => {
+  await formRef.value.validate(async (valid, fields) => {
     if (valid) {
       try {
         submitLoading.value = true
@@ -1671,6 +1940,32 @@ const handleSubmit = async () => {
         ElMessage.error('操作失败，请重试')
       } finally {
         submitLoading.value = false
+      }
+    } else {
+      // 验证失败，显示详细错误信息
+      const errorMessages = []
+      const fieldLabels = {
+        teamId: '公司账户',
+        name: '记录名称',
+        type: '收支类型',
+        amount: '金额',
+        occurredAt: '收支时间',
+        categoryId: '记录大类',
+        subCategoryId: '记录小类',
+        images: '上传凭证'
+      }
+
+      if (fields) {
+        Object.keys(fields).forEach(field => {
+          const label = fieldLabels[field] || field
+          errorMessages.push(label)
+        })
+      }
+
+      if (errorMessages.length > 0) {
+        ElMessage.error(`请填写以下必填项：${errorMessages.join('、')}`)
+      } else {
+        ElMessage.error('请检查表单填写是否完整')
       }
     }
   })
@@ -2541,6 +2836,180 @@ onMounted(() => {
 .stats-label {
   font-size: 14px;
   color: #909399;
+}
+
+/* 财务记录详情对话框样式 */
+.finance-detail-dialog .el-dialog__body {
+  padding: 20px;
+}
+
+.finance-detail-content {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-bottom: 0;
+}
+
+.detail-card {
+  margin-bottom: 20px;
+}
+
+.detail-card:last-child {
+  margin-bottom: 0;
+}
+
+.detail-card .el-card__header {
+  background-color: #f5f7fa;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.detail-card .el-card__header span {
+  font-weight: 600;
+  color: #303133;
+}
+
+.approval-comment-display {
+  min-height: 20px;
+}
+
+.comment-content {
+  padding: 8px 12px;
+  background-color: #f0f9ff;
+  border: 1px solid #b3d8ff;
+  border-radius: 4px;
+  color: #606266;
+  line-height: 1.5;
+}
+
+.no-comment {
+  color: #c0c4cc;
+  font-style: italic;
+}
+
+.images-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.image-item {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid #e4e7ed;
+  transition: all 0.3s ease;
+}
+
+.image-item:hover {
+  border-color: #409eff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+}
+
+.image-thumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.image-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.image-item:hover .image-overlay {
+  opacity: 1;
+}
+
+.amount-text.income {
+  color: #67c23a;
+  font-weight: 600;
+}
+
+.amount-text.expense {
+  color: #f56c6c;
+  font-weight: 600;
+}
+
+.description-content {
+  min-height: 20px;
+}
+
+.description-text {
+  padding: 8px 12px;
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  color: #495057;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.no-description {
+  color: #c0c4cc;
+  font-style: italic;
+}
+
+/* 详情对话框字段内容样式 */
+.detail-descriptions .detail-label {
+  width: 120px;
+  min-width: 120px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.detail-descriptions .detail-content {
+  max-width: calc(100% - 120px);
+}
+
+.field-content {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: help;
+  line-height: 1.5;
+}
+
+.field-content:hover {
+  color: #409eff;
+}
+
+/* 多行文本溢出处理 */
+.description-text.field-content {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: 4.5em;
+  line-height: 1.5;
+}
+
+.comment-content.field-content {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: 3em;
+  line-height: 1.5;
 }
 
 </style>

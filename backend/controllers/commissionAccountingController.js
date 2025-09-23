@@ -301,28 +301,49 @@ const getCommissionAccountings = asyncHandler(async (req, res) => {
   // 只在第一页时计算统计信息，提高性能
   let stats = null;
   if (pageNum === 1) {
-    const statsAggregation = await CommissionAccounting.aggregate([
-      { $match: query },
-      {
-        $group: {
-          _id: null,
-          totalNetTransactionData: { $sum: '$netTransactionData' },
-          totalCommissionProfit: { $sum: '$commissionProfit' },
-          totalNetProfit: { $sum: '$netProfit' },
-          totalDailyConsumption: { $sum: '$dailyConsumption' },
-          averageCommission: { $avg: '$commission' },
-          recordCount: { $sum: 1 }
-        }
-      }
-    ]);
+    // 获取所有匹配的记录进行前端式计算，确保与前端计算结果一致
+    const allRecords = await CommissionAccounting.find(query)
+      .select('netTransactionData commissionProfit netProfit dailyConsumption commission')
+      .lean();
 
-    stats = statsAggregation.length > 0 ? statsAggregation[0] : {
+    // 使用与前端相同的计算逻辑
+    const calculatedStats = allRecords.reduce((acc, item) => {
+      // 确保数值类型转换，与前端 || 0 的处理保持一致
+      const netTransactionData = Number(item.netTransactionData) || 0;
+      const commissionProfit = Number(item.commissionProfit) || 0;
+      const netProfit = Number(item.netProfit) || 0;
+      const dailyConsumption = Number(item.dailyConsumption) || 0;
+      const commission = Number(item.commission) || 0;
+
+      acc.totalNetTransactionData = precisionCalculate.add(acc.totalNetTransactionData, netTransactionData);
+      acc.totalCommissionProfit = precisionCalculate.add(acc.totalCommissionProfit, commissionProfit);
+      acc.totalNetProfit = precisionCalculate.add(acc.totalNetProfit, netProfit);
+      acc.totalDailyConsumption = precisionCalculate.add(acc.totalDailyConsumption, dailyConsumption);
+      acc.commissionSum = precisionCalculate.add(acc.commissionSum, commission);
+      acc.recordCount += 1;
+
+      return acc;
+    }, {
       totalNetTransactionData: 0,
       totalCommissionProfit: 0,
       totalNetProfit: 0,
       totalDailyConsumption: 0,
-      averageCommission: 0,
+      commissionSum: 0,
       recordCount: 0
+    });
+
+    // 计算平均佣金
+    const averageCommission = calculatedStats.recordCount > 0
+      ? precisionCalculate.divide(calculatedStats.commissionSum, calculatedStats.recordCount)
+      : 0;
+
+    stats = {
+      totalNetTransactionData: calculatedStats.totalNetTransactionData,
+      totalCommissionProfit: calculatedStats.totalCommissionProfit,
+      totalNetProfit: calculatedStats.totalNetProfit,
+      totalDailyConsumption: calculatedStats.totalDailyConsumption,
+      averageCommission: averageCommission,
+      recordCount: calculatedStats.recordCount
     };
   }
 

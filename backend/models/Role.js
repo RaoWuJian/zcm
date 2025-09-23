@@ -68,6 +68,12 @@ const roleSchema = new mongoose.Schema({
       'inventory:out',        // 出库操作
       'inventory:delete',     // 删除库存
 
+      // 发货记录权限
+      'shipment:create',      // 创建发货记录
+      'shipment:update',      // 编辑发货记录
+      'shipment:delete',      // 删除发货记录
+      'shipment:approve',     // 审批发货记录
+
       // 财务管理权限
       // 'finance:read',         // 查看财务信息
       'finance:create',       // 创建收支记录

@@ -729,6 +729,7 @@ import { useInventoryStore } from '../../stores/inventory'
 import { fileApi, inventoryApi } from '../../api/index'
 import checkPermissions from '../../utils/checkPermissions'
 import { exportToCSV, exportToExcel } from '../../utils/excelUtils'
+import { precisionCalculate } from '../../utils/precision'
 
 // 权限检查函数
 const hasAnyPermission = checkPermissions
@@ -1521,7 +1522,7 @@ const handleExport = async () => {
       '单位': item.unit || '',
       '成本价': item.costPrice || 0,
       '售价': item.sellingPrice || 0,
-      '库存价值': (item.currentStock || 0) * (item.costPrice || 0),
+      '库存价值': precisionCalculate.multiply(item.currentStock || 0, item.costPrice || 0),
       '备注': item.remark || '',
       '创建时间': item.createdAt ? formatDate(item.createdAt) : '',
       '更新时间': item.updatedAt ? formatDate(item.updatedAt) : ''

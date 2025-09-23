@@ -80,6 +80,7 @@ const roleRoutes = require('./routes/roles');
 const operationLogRoutes = require('./routes/operationLogs');
 const inventoryRoutes = require('./routes/inventory');
 const inventoryRecordRoutes = require('./routes/inventoryRecords');
+const shipmentRecordRoutes = require('./routes/shipmentRecords');
 const recordTypeRoutes = require('./routes/recordType');
 
 // 根路由
@@ -102,7 +103,8 @@ app.get('/', (req, res) => {
       roles: '/api/roles',
       operationLogs: '/api/operation-logs',
       inventory: '/api/inventory',
-      inventoryRecords: '/api/inventory-records'
+      inventoryRecords: '/api/inventory-records',
+      shipmentRecords: '/api/shipment-records'
     }
   });
 });
@@ -121,6 +123,7 @@ app.use('/api/roles', roleRoutes);
 app.use('/api/operation-logs', operationLogRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/inventory-records', inventoryRecordRoutes);
+app.use('/api/shipment-records', shipmentRecordRoutes);
 app.use('/api/record-types', recordTypeRoutes);
 
 // 健康检查端点
