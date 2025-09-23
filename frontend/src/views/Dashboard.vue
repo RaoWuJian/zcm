@@ -381,7 +381,7 @@ const carouselItems = ref([
     shortTitle: '智能管理',
     description: '基于人工智能的财务分析系统，让数据说话，让决策更精准。体验前所未有的智能化财务管理。',
     icon: '🤖',
-    gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    gradient: 'linear-gradient(135deg, #979cb1 0%, #6aa5a2 100%)',
     features: ['AI数据分析', '智能预测', '自动分类'],
     primaryAction: '立即体验',
     secondaryAction: '了解更多',
