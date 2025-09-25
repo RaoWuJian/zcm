@@ -720,6 +720,174 @@ const inventoryIn = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    批量创建库存记录
+// @route   POST /api/inventory/batch
+// @access  Private
+const batchCreateInventory = asyncHandler(async (req, res) => {
+  const { records } = req.body;
+
+  if (!records || !Array.isArray(records) || records.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: '请提供有效的库存记录数据'
+    });
+  }
+
+  if (records.length > 1000) {
+    return res.status(400).json({
+      success: false,
+      message: '单次最多只能导入1000条记录'
+    });
+  }
+
+  try {
+    const validatedRecords = [];
+    const errors = [];
+
+    // 验证每条记录
+    for (let i = 0; i < records.length; i++) {
+      const record = records[i];
+      const rowErrors = [];
+
+      // 验证必填字段
+      if (!record.externalCode || record.externalCode.trim() === '') {
+        rowErrors.push('外部编码不能为空');
+      }
+
+      if (!record.productionDate) {
+        rowErrors.push('生产日期不能为空');
+      }
+
+      if (!record.bulkDate) {
+        rowErrors.push('大货日期不能为空');
+      }
+
+      if (record.currentQuantity === undefined || record.currentQuantity === null || record.currentQuantity === '') {
+        rowErrors.push('当前库存数量不能为空');
+      }
+
+      if (!record.specification || record.specification.trim() === '') {
+        rowErrors.push('规格不能为空');
+      }
+
+      if (!record.manufacturer || record.manufacturer.trim() === '') {
+        rowErrors.push('厂家不能为空');
+      }
+
+      if (!record.productName || record.productName.trim() === '') {
+        rowErrors.push('货号名称不能为空');
+      }
+
+      // 验证数据类型和范围
+      const quantity = Number(record.currentQuantity);
+      if (isNaN(quantity)) {
+        rowErrors.push('当前库存数量必须是有效数字');
+      } else if (quantity < 0) {
+        rowErrors.push('当前库存数量不能为负数');
+      }
+
+      // 验证日期格式
+      const productionDate = new Date(record.productionDate);
+      if (isNaN(productionDate.getTime())) {
+        rowErrors.push('生产日期格式不正确');
+      }
+
+      const bulkDate = new Date(record.bulkDate);
+      if (isNaN(bulkDate.getTime())) {
+        rowErrors.push('大货日期格式不正确');
+      }
+
+      if (rowErrors.length > 0) {
+        errors.push({
+          row: i + 1,
+          errors: rowErrors
+        });
+      } else {
+        validatedRecords.push({
+          externalCode: record.externalCode.trim(),
+          productionDate: productionDate,
+          bulkDate: bulkDate,
+          currentQuantity: quantity,
+          specification: record.specification.trim(),
+          manufacturer: record.manufacturer.trim(),
+          productName: record.productName.trim(),
+          remark: record.remark ? record.remark.trim() : '',
+          images: [],
+          createdBy: req.user.id
+        });
+      }
+    }
+
+    if (errors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: '数据验证失败',
+        errors: errors
+      });
+    }
+
+    // 为每条记录生成内部编码（批量生成避免重复）
+    const today = new Date();
+    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD格式
+
+    // 查找今天已有的记录数量
+    const existingCount = await Inventory.countDocuments({
+      internalCode: { $regex: `^${dateStr}` }
+    });
+
+    const recordsToInsert = [];
+    for (let i = 0; i < validatedRecords.length; i++) {
+      const record = validatedRecords[i];
+      // 生成序号（从现有数量+1开始，每条记录递增）
+      const sequence = String(existingCount + i + 1).padStart(3, '0');
+      const internalCode = `${dateStr}${sequence}`;
+
+      recordsToInsert.push({
+        ...record,
+        internalCode
+      });
+    }
+
+    // 批量插入库存记录
+    const insertedInventories = await Inventory.insertMany(recordsToInsert);
+
+    // 为每条库存记录创建操作记录
+    const inventoryRecords = insertedInventories.map(inventory => ({
+      inventoryId: inventory._id,
+      operationType: 'create',
+      quantity: inventory.currentQuantity,
+      quantityBefore: 0,
+      quantityAfter: inventory.currentQuantity,
+      reason: '批量导入创建库存记录',
+      externalCode: inventory.externalCode,
+      internalCode: inventory.internalCode,
+      productName: inventory.productName,
+      manufacturer: inventory.manufacturer,
+      specification: inventory.specification,
+      operatedBy: req.user.id
+    }));
+
+    await InventoryRecord.insertMany(inventoryRecords);
+
+    res.status(201).json({
+      success: true,
+      data: {
+        insertedCount: insertedInventories.length,
+        records: insertedInventories
+      },
+      message: `成功导入 ${insertedInventories.length} 条库存记录`
+    });
+
+  } catch (error) {
+    console.error('批量创建库存记录失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '批量创建库存记录失败',
+      error: error.message
+    });
+  }
+});
+
 module.exports = {
   createInventory: [upload.single('image'), createInventory],
   getInventories,
@@ -728,5 +896,6 @@ module.exports = {
   deleteInventory,
   inventoryOut,
   inventoryIn,
+  batchCreateInventory,
   upload
 };

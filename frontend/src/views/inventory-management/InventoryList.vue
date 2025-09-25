@@ -124,6 +124,15 @@
           添加库存
         </el-button>
         <el-button
+          type="success"
+          @click="showImportDialog = true"
+          :icon="Upload"
+          class="action-btn"
+          v-if="hasAnyPermission(['inventory:create'])"
+        >
+          批量导入
+        </el-button>
+        <el-button
           type="primary"
           @click="handleSelectedSummary"
           :disabled="selectedRows.length === 0"
@@ -698,6 +707,102 @@
       </template>
     </el-dialog>
 
+    <!-- Excel导入对话框 -->
+    <el-dialog
+      v-model="showImportDialog"
+      title="Excel批量导入"
+      width="800px"
+      append-to-body
+      @close="resetImportData"
+    >
+      <div class="import-container">
+        <!-- 步骤1: 文件上传 -->
+        <div v-if="!importData.length" class="upload-section">
+          <div class="upload-tips">
+            <h4>导入说明：</h4>
+            <ul>
+              <li>支持 Excel (.xlsx, .xls) 和 CSV 文件格式</li>
+              <li>必填字段：外部编码、生产日期、大货日期、当前库存数量、规格、厂家、货号名称</li>
+              <li>可选字段：备注</li>
+              <li>日期格式：YYYY-MM-DD（如：2024-01-01）</li>
+              <li>数量字段必须为非负数</li>
+              <li>建议先下载模板，按格式填写数据</li>
+            </ul>
+
+            <div class="template-download">
+              <el-button type="primary" @click="downloadTemplate" :icon="Download">
+                下载导入模板
+              </el-button>
+            </div>
+          </div>
+
+          <el-upload
+            class="upload-dragger"
+            drag
+            :auto-upload="false"
+            :on-change="handleFileUpload"
+            :show-file-list="false"
+            accept=".xlsx,.xls,.csv"
+            :disabled="importSubmitting"
+          >
+            <el-icon class="el-icon--upload"><Upload /></el-icon>
+            <div class="el-upload__text">
+              将文件拖到此处，或<em>点击上传</em>
+            </div>
+            <template #tip>
+              <div class="el-upload__tip">
+                只能上传 xlsx/xls/csv 文件
+              </div>
+            </template>
+          </el-upload>
+        </div>
+
+        <!-- 步骤2: 数据预览 -->
+        <div v-else class="preview-section">
+          <div class="preview-header">
+            <h4>数据预览 (共 {{ importData.length }} 条记录)</h4>
+            <el-button @click="resetImportData" :icon="RefreshRight">重新选择文件</el-button>
+          </div>
+
+          <el-table
+            :data="importData.slice(0, 10)"
+            border
+            stripe
+            max-height="400"
+            style="width: 100%"
+          >
+            <el-table-column prop="externalCode" label="外部编码" width="120" show-overflow-tooltip />
+            <el-table-column prop="productName" label="货号名称" min-width="150" show-overflow-tooltip />
+            <el-table-column prop="productionDate" label="生产日期" width="120" />
+            <el-table-column prop="bulkDate" label="大货日期" width="120" />
+            <el-table-column prop="currentQuantity" label="库存数量" width="100" align="center" />
+            <el-table-column prop="specification" label="规格" width="120" show-overflow-tooltip />
+            <el-table-column prop="manufacturer" label="厂家" width="120" show-overflow-tooltip />
+            <el-table-column prop="remark" label="备注" width="120" show-overflow-tooltip />
+          </el-table>
+
+          <div v-if="importData.length > 10" class="preview-tip">
+            <el-text type="info">仅显示前10条记录，实际将导入 {{ importData.length }} 条记录</el-text>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="showImportDialog = false">取消</el-button>
+          <el-button
+            v-if="importData.length"
+            type="primary"
+            @click="handleImportConfirm"
+            :loading="importSubmitting"
+            :icon="Check"
+          >
+            确认导入 ({{ importData.length }}条)
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
+
     <!-- 图片预览器 -->
     <el-image-viewer
       v-if="imagePreviewVisible"
@@ -719,17 +824,28 @@ import {
   Refresh,
   RefreshRight,
   Download,
+  Upload,
   Box,
   CircleCheck,
   Warning,
   DataAnalysis,
-  List
+  List,
+  Document,
+  Check,
+  Close
 } from '@element-plus/icons-vue'
 import { useInventoryStore } from '../../stores/inventory'
 import { fileApi, inventoryApi } from '../../api/index'
 import checkPermissions from '../../utils/checkPermissions'
 import { exportToCSV, exportToExcel } from '../../utils/excelUtils'
 import { precisionCalculate } from '../../utils/precision'
+import {
+  readInventoryExcelFile,
+  validateInventoryImportHeaders,
+  transformInventoryImportData,
+  validateInventoryImportData,
+  downloadInventoryImportTemplate
+} from '../../utils/inventoryExcelUtils'
 
 // 权限检查函数
 const hasAnyPermission = checkPermissions
@@ -747,6 +863,13 @@ const currentPage = ref(1)
 const pageSize = ref(20)
 const dateRange = ref([])
 const formImages = ref([])
+
+// 导入相关变量
+const showImportDialog = ref(false)
+const importData = ref([])
+const importColumns = ref([])
+const importFile = ref(null)
+const importSubmitting = ref(false)
 
 // 日期快捷选项
 const dateShortcuts = [
@@ -1685,6 +1808,102 @@ const exportSelectedSummaryData = () => {
   }
 }
 
+// Excel导入相关方法
+// 下载导入模板
+const downloadTemplate = () => {
+  try {
+    downloadInventoryImportTemplate()
+    ElMessage.success('模板下载成功')
+  } catch (error) {
+    console.error('下载模板失败:', error)
+    ElMessage.error('下载模板失败: ' + error.message)
+  }
+}
+
+// 处理文件上传
+const handleFileUpload = async (file) => {
+  try {
+    importSubmitting.value = true
+
+    // 读取Excel文件
+    const result = await readInventoryExcelFile(file.raw)
+
+    // 验证表头
+    const headerValidation = validateInventoryImportHeaders(result.headers)
+
+    if (!headerValidation.isValid) {
+      ElMessage.error('缺少必填字段: ' + headerValidation.missingRequired.join(', '))
+      return false
+    }
+
+    // 转换数据格式
+    const transformedData = transformInventoryImportData(result.data, headerValidation.mappedFields)
+
+    // 验证数据
+    const dataValidation = validateInventoryImportData(transformedData)
+
+    // 保存导入数据
+    importData.value = dataValidation.validRows
+    importColumns.value = result.headers
+    importFile.value = file.raw
+
+    // 显示验证结果
+    if (dataValidation.errors.length > 0) {
+      ElMessage.warning('发现 ' + dataValidation.errors.length + ' 行数据有错误，已自动过滤')
+    }
+
+    if (dataValidation.warnings.length > 0) {
+      ElMessage.warning('发现 ' + dataValidation.warnings.length + ' 行数据有警告')
+    }
+
+    ElMessage.success('成功解析 ' + dataValidation.validRowCount + ' 行有效数据')
+
+    return false // 阻止自动上传
+  } catch (error) {
+    ElMessage.error('文件解析失败: ' + error.message)
+    return false
+  } finally {
+    importSubmitting.value = false
+  }
+}
+
+// 确认导入数据
+const handleImportConfirm = async () => {
+  if (!importData.value || importData.value.length === 0) {
+    ElMessage.error('没有可导入的数据')
+    return
+  }
+
+  try {
+    importSubmitting.value = true
+
+    // 使用批量创建接口
+    const result = await inventoryApi.batchCreateInventory(importData.value)
+
+    if (result.success) {
+      ElMessage.success(result.message)
+      showImportDialog.value = false
+      resetImportData()
+      // 重新加载数据
+      fetchData()
+      fetchStats()
+    } else {
+      ElMessage.error(result.message)
+    }
+  } catch (error) {
+    ElMessage.error('导入失败: ' + error.message)
+  } finally {
+    importSubmitting.value = false
+  }
+}
+
+// 重置导入数据
+const resetImportData = () => {
+  importData.value = []
+  importColumns.value = []
+  importFile.value = null
+}
+
 // 生命周期
 onMounted(() => {
   fetchData()
@@ -2254,5 +2473,78 @@ onMounted(() => {
   .records-search-form .el-date-picker {
     width: 100% !important;
   }
+}
+
+/* 导入相关样式 */
+.import-container {
+  padding: 20px 0;
+}
+
+.upload-section {
+  text-align: center;
+}
+
+.upload-tips {
+  margin-bottom: 30px;
+  text-align: left;
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
+  border-left: 4px solid #409eff;
+}
+
+.upload-tips h4 {
+  margin: 0 0 15px 0;
+  color: #409eff;
+  font-size: 16px;
+}
+
+.upload-tips ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.upload-tips li {
+  margin-bottom: 8px;
+  color: #606266;
+  line-height: 1.5;
+}
+
+.template-download {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.upload-dragger {
+  margin-top: 20px;
+}
+
+.preview-section {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.preview-header h4 {
+  margin: 0;
+  color: #303133;
+  font-size: 16px;
+}
+
+.preview-tip {
+  margin-top: 15px;
+  text-align: center;
+  padding: 10px;
+  background: #f0f9ff;
+  border-radius: 4px;
+  border: 1px solid #b3d8ff;
 }
 </style>

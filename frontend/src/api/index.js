@@ -535,6 +535,11 @@ export const inventoryApi = {
     })
   },
 
+  // 批量创建库存记录
+  batchCreateInventory: (records) => {
+    return api.post('/inventory/batch', { records })
+  },
+
   // 获取库存详情
   getInventory: (id) => {
     return api.get(`/inventory/${id}`)

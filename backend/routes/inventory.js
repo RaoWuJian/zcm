@@ -6,7 +6,8 @@ const {
   updateInventory,
   deleteInventory,
   inventoryOut,
-  inventoryIn
+  inventoryIn,
+  batchCreateInventory
 } = require('../controllers/inventoryController');
 const {
   getInventoryRecords,
@@ -22,6 +23,9 @@ router.use(protect);
 
 // 统计数据路由（需要放在 /:id 路由之前）- 不需要特殊权限
 router.get('/stats', getInventoryStats);
+
+// 批量操作路由
+router.post('/batch', authorize('inventory:create'), batchCreateInventory);
 
 // 库存基本CRUD
 router
