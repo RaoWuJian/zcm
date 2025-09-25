@@ -148,6 +148,27 @@ const routes = [
         ]
       },
       {
+        path: 'work-reports',
+        name: 'WorkReports',
+        component: () => import('../views/work-reports/index.vue'),
+        redirect: '/work-reports/daily-data',
+        meta: { title: '工作报告', icon: 'Document' },
+        children: [
+          {
+            path: 'daily-data',
+            name: 'DailyDataReports',
+            component: () => import('../views/work-reports/DailyReports.vue'),
+            meta: { title: '日数据报表', icon: 'List' }
+          },
+          {
+            path: 'statistics',
+            name: 'DailyDataStatistics',
+            component: () => import('../views/work-reports/Statistics.vue'),
+            meta: { title: '数据统计', icon: 'DataAnalysis' }
+          }
+        ]
+      },
+      {
         path: 'operation-logs',
         name: 'OperationLogs',
         component: () => import('../views/OperationLogs.vue'),

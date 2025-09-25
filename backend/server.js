@@ -82,6 +82,7 @@ const inventoryRoutes = require('./routes/inventory');
 const inventoryRecordRoutes = require('./routes/inventoryRecords');
 const shipmentRecordRoutes = require('./routes/shipmentRecords');
 const recordTypeRoutes = require('./routes/recordType');
+const dailyReportRoutes = require('./routes/dailyReports');
 
 // 根路由
 app.get('/', (req, res) => {
@@ -104,7 +105,8 @@ app.get('/', (req, res) => {
       operationLogs: '/api/operation-logs',
       inventory: '/api/inventory',
       inventoryRecords: '/api/inventory-records',
-      shipmentRecords: '/api/shipment-records'
+      shipmentRecords: '/api/shipment-records',
+      dailyDataReports: '/api/daily-data-reports'
     }
   });
 });
@@ -125,6 +127,7 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/inventory-records', inventoryRecordRoutes);
 app.use('/api/shipment-records', shipmentRecordRoutes);
 app.use('/api/record-types', recordTypeRoutes);
+app.use('/api/daily-data-reports', dailyReportRoutes);
 
 // 健康检查端点
 app.get('/health', (req, res) => {

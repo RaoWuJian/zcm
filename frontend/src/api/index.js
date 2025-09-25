@@ -60,6 +60,11 @@ export const employeeApi = {
     return api.get('/users/getNoDepartmentUser')
   },
 
+  // 获取用户列表用于汇报人和抄送人选择
+  getUsersForReport: (params) => {
+    return api.get('/users/for-report', { params })
+  },
+
   // 批量添加用户到部门
   addUserToDepartment: (data) => {
     return api.put('/users/add-to-department', data)
@@ -676,5 +681,53 @@ export const recordTypeApi = {
   // 删除小类
   deleteSubCategory: (categoryId, subCategoryId) => {
     return api.delete(`/record-types/${categoryId}/subcategories/${subCategoryId}`)
+  }
+}
+
+// 日数据报表API
+export const dailyReportApi = {
+  // 获取日数据报表列表
+  getDailyDataReports: (params) => {
+    return api.get('/daily-data-reports', { params })
+  },
+
+  // 获取日数据报表详情
+  getDailyDataReport: (id) => {
+    return api.get(`/daily-data-reports/${id}`)
+  },
+
+  // 创建日数据报表
+  createDailyDataReport: (data) => {
+    return api.post('/daily-data-reports', data)
+  },
+
+  // 更新日数据报表
+  updateDailyDataReport: (id, data) => {
+    return api.put(`/daily-data-reports/${id}`, data)
+  },
+
+  // 删除日数据报表
+  deleteDailyDataReport: (id) => {
+    return api.delete(`/daily-data-reports/${id}`)
+  },
+
+  // 批量删除日数据报表
+  batchDeleteDailyDataReports: (ids) => {
+    return api.delete('/daily-data-reports/batch', { data: { ids } })
+  },
+
+  // 标记为已读
+  markAsRead: (id) => {
+    return api.put(`/daily-data-reports/${id}/read`)
+  },
+
+  // 审批日数据报表
+  approveDailyDataReport: (id, data) => {
+    return api.put(`/daily-data-reports/${id}/approve`, data)
+  },
+
+  // 获取统计数据
+  getStatistics: (params) => {
+    return api.get('/daily-data-reports/statistics', { params })
   }
 }

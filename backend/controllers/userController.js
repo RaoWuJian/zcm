@@ -684,7 +684,7 @@ const getNoDepartmentUser = asyncHandler(async (req, res) => {
   try {
     // 验证所有用户ID是否存在
     const userList  = await User.find({ departmentPath: '' }).populate('rolePermission');
-   
+
     res.json({
       success: true,
       message: `获取成功`,
@@ -704,6 +704,49 @@ const getNoDepartmentUser = asyncHandler(async (req, res) => {
       });
     }
     throw error;
+  }
+});
+
+// @desc    获取所有用户用于汇报人和抄送人选择（除了自己）
+// @route   GET /api/users/for-report
+// @access  Private
+const getUsersForReport = asyncHandler(async (req, res) => {
+  const { search = '', limit = 50 } = req.query;
+  const currentUserId = req.user._id;
+
+  try {
+    // 构建查询条件：排除当前用户，只获取活跃用户
+    let query = {
+      _id: { $ne: currentUserId },
+      isActive: true
+    };
+
+    // 如果有搜索条件，添加搜索
+    if (search) {
+      query.$or = [
+        { username: { $regex: search, $options: 'i' } },
+        { loginAccount: { $regex: search, $options: 'i' } },
+        { departmentPath: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const users = await User.find(query)
+      .select('username loginAccount departmentPath')
+      .sort({ username: 1 })
+      .limit(parseInt(limit));
+
+    res.json({
+      success: true,
+      data: users,
+      count: users.length
+    });
+
+  } catch (error) {
+    console.error('获取用户列表失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取用户列表失败'
+    });
   }
 });
 
@@ -732,5 +775,6 @@ module.exports = {
   deleteUser,
   getUserStats,
   addUserToDepartment,
-  getNoDepartmentUser
+  getNoDepartmentUser,
+  getUsersForReport
 };

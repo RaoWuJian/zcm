@@ -12,7 +12,8 @@ const {
   deleteUser,
   getUserStats,
   addUserToDepartment,
-  getNoDepartmentUser
+  getNoDepartmentUser,
+  getUsersForReport
 } = require('../controllers/userController');
 const { protect, authorize, protectOwnerOrAdmin } = require('../middleware/auth');
 const { logOperation, saveOriginalData } = require('../middleware/operationLog');
@@ -84,6 +85,9 @@ router
     createUser
   );
 router.get('/getNoDepartmentUser', authorize('department:manageEmployee'), getNoDepartmentUser)
+
+// 获取用户列表用于汇报人和抄送人选择
+router.get('/for-report', protect, getUsersForReport)
 
 // 批量添加用户到部门
 router.put('/add-to-department',

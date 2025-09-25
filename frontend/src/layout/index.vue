@@ -204,6 +204,35 @@
             </el-menu-item>
 
           </el-sub-menu>
+
+          <el-sub-menu index="/work-reports" v-if="hasAnyPermission([
+              'dailyDataReport:read',
+              'dailyDataReport:create',
+              'dailyDataReport:update',
+              'dailyDataReport:delete',
+              'dailyDataReport:export'
+            ])">
+            <template #title>
+              <el-icon><Document /></el-icon>
+              <span>工作报告</span>
+            </template>
+            <el-menu-item index="/work-reports/daily-data" v-if="hasAnyPermission([
+              'dailyDataReport:read',
+              'dailyDataReport:create',
+              'dailyDataReport:update',
+              'dailyDataReport:delete'
+            ])">
+              <el-icon><List /></el-icon>
+              <template #title>日数据报表</template>
+            </el-menu-item>
+            <el-menu-item index="/work-reports/statistics" v-if="hasAnyPermission([
+              'dailyDataReport:read'
+            ])">
+              <el-icon><DataAnalysis /></el-icon>
+              <template #title>数据统计</template>
+            </el-menu-item>
+          </el-sub-menu>
+
           <!-- <el-menu-item index="/settings">
             <el-icon><Setting /></el-icon>
             <template #title>系统设置</template>
@@ -271,7 +300,8 @@ import {
   Money,
   List,
   Box,
-  Document
+  Document,
+  DataAnalysis
 } from '@element-plus/icons-vue'
 import hasAnyPermission from '@/utils/checkPermissions'
 

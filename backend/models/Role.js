@@ -88,6 +88,11 @@ const roleSchema = new mongoose.Schema({
       'finance:team_update',    // 编辑团队账户
       'finance:team_delete',    // 删除团队账户
       // 'finance:team_manage',  // 团队财务管理
+
+      // 日数据报表权限
+      'dailyDataReport:create',   // 创建日数据报表
+      'dailyDataReport:update',   // 编辑日数据报表
+      'dailyDataReport:delete',   // 删除日数据报表
     ]
   }],
 

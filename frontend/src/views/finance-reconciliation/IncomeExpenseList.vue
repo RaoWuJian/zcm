@@ -195,6 +195,7 @@
         v-loading="loading"
         @selection-change="handleSelectionChange"
         stripe
+        max-heigth="400"
         border
       >
         <el-table-column type="selection" width="50" />
