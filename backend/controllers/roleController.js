@@ -1,5 +1,19 @@
 const Role = require('../models/Role');
 const { asyncHandler } = require('../middleware/error');
+const DepartmentPermissionManager = require('../utils/departmentPermission');
+
+// 构建角色权限查询条件
+const buildRolePermissionQuery = async (user, baseQuery = {}) => {
+  if (user.isAdmin) {
+    return baseQuery;
+  }
+  // 获取用户有权限访问的用户ID列表（包括自己创建的和下属创建的）
+  const accessibleUserIds = await DepartmentPermissionManager.getAccessibleUserIds(user);
+  return {
+    ...baseQuery,
+    createdBy: { $in: accessibleUserIds }
+  };
+};
 
 // @desc    创建角色
 // @route   POST /api/roles
@@ -46,8 +60,7 @@ const createRole = asyncHandler(async (req, res) => {
     code,
     permissions: permissions || [],
     description: description || '',
-    createdBy: req.user.id,
-    createdByDepartmentPath: req.user.departmentPath || ''
+    createdBy: req.user.id
   });
 
   res.status(201).json({
@@ -72,24 +85,7 @@ const getRoles = asyncHandler(async (req, res) => {
   let query = {};
 
   // 权限控制：只能查看自己创建的角色和后代部门创建的角色
-  if (!req.user.isAdmin) {
-    const userDepartmentPath = req.user.departmentPath || '';
-
-    // 构建部门权限查询条件
-    const departmentConditions = [];
-
-    // 可以查看自己创建的角色
-    departmentConditions.push({ createdBy: req.user.id });
-
-    // 可以查看后代部门创建的角色
-    if (userDepartmentPath) {
-      departmentConditions.push({
-        createdByDepartmentPath: { $regex: `^${userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}->` }
-      });
-    }
-
-    query.$or = departmentConditions;
-  }
+  query = await buildRolePermissionQuery(req.user, query);
 
   if (search) {
     const searchConditions = [
@@ -98,13 +94,13 @@ const getRoles = asyncHandler(async (req, res) => {
       { description: { $regex: search, $options: 'i' } }
     ];
 
-    if (query.$or) {
-      // 如果已经有部门权限条件，需要合并搜索条件
+    // 如果已经有权限条件，需要合并搜索条件
+    if (query.createdBy) {
       query.$and = [
-        { $or: query.$or },
+        { createdBy: query.createdBy },
         { $or: searchConditions }
       ];
-      delete query.$or;
+      delete query.createdBy;
     } else {
       query.$or = searchConditions;
     }
@@ -118,7 +114,7 @@ const getRoles = asyncHandler(async (req, res) => {
   const total = await Role.countDocuments(query);
 
   const roles = await Role.find(query)
-    .populate('createdBy', 'username loginAccount departmentPath')
+    .populate('createdBy', 'username loginAccount departmentIds')
     .sort({ [sortBy]: sortOrder })
     .limit(limit)
     .skip(startIndex);
@@ -145,30 +141,11 @@ const getRoles = asyncHandler(async (req, res) => {
 // @route   GET /api/roles/:id
 // @access  Private/Admin
 const getRole = asyncHandler(async (req, res) => {
-  let query = { _id: req.params.id };
-
-  // 权限控制：只能查看自己创建的角色和后代部门创建的角色
-  if (!req.user.isAdmin) {
-    const userDepartmentPath = req.user.departmentPath || '';
-
-    const departmentConditions = [
-      { createdBy: req.user.id },
-    ];
-
-    if (userDepartmentPath) {
-      departmentConditions.push({
-        createdByDepartmentPath: { $regex: `^${userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}->` }
-      });
-    }
-
-    query.$and = [
-      { _id: req.params.id },
-      { $or: departmentConditions }
-    ];
-  }
+  // 构建权限查询条件
+  const query = await buildRolePermissionQuery(req.user, { _id: req.params.id });
 
   const role = await Role.findOne(query)
-    .populate('createdBy', 'username loginAccount departmentPath');
+    .populate('createdBy', 'username loginAccount departmentIds');
 
   if (!role) {
     return res.status(404).json({
@@ -187,27 +164,8 @@ const getRole = asyncHandler(async (req, res) => {
 // @route   PUT /api/roles/:id
 // @access  Private/Admin
 const updateRole = asyncHandler(async (req, res) => {
-  // 先检查权限：只能更新自己创建的角色和后代部门创建的角色
-  let query = { _id: req.params.id };
-
-  if (!req.user.isAdmin) {
-    const userDepartmentPath = req.user.departmentPath || '';
-
-    const departmentConditions = [
-      { createdBy: req.user.id },
-    ];
-
-    if (userDepartmentPath) {
-      departmentConditions.push({
-        createdByDepartmentPath: { $regex: `^${userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}->` }
-      });
-    }
-
-    query.$and = [
-      { _id: req.params.id },
-      { $or: departmentConditions }
-    ];
-  }
+  // 构建权限查询条件：只能更新自己创建的角色和下属创建的角色
+  const query = await buildRolePermissionQuery(req.user, { _id: req.params.id });
 
   // 检查角色是否存在且有权限访问
   const existingRole = await Role.findOne(query);
@@ -238,7 +196,8 @@ const updateRole = asyncHandler(async (req, res) => {
       new: true,
       runValidators: true
     }
-  ).populate('createdBy', 'username loginAccount departmentPath');
+  )
+  .populate('createdBy', 'username loginAccount departmentIds');
 
   if (!role) {
     return res.status(404).json({
@@ -258,27 +217,8 @@ const updateRole = asyncHandler(async (req, res) => {
 // @route   DELETE /api/roles/:id
 // @access  Private/Admin
 const deleteRole = asyncHandler(async (req, res) => {
-  // 先检查权限：只能删除自己创建的角色和后代部门创建的角色
-  let query = { _id: req.params.id };
-
-  if (!req.user.isAdmin) {
-    const userDepartmentPath = req.user.departmentPath || '';
-
-    const departmentConditions = [
-      { createdBy: req.user.id },
-    ];
-
-    if (userDepartmentPath) {
-      departmentConditions.push({
-        createdByDepartmentPath: { $regex: `^${userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}->` }
-      });
-    }
-
-    query.$and = [
-      { _id: req.params.id },
-      { $or: departmentConditions }
-    ];
-  }
+  // 构建权限查询条件：只能删除自己创建的角色和下属创建的角色
+  const query = await buildRolePermissionQuery(req.user, { _id: req.params.id });
 
   const role = await Role.findOne(query);
 

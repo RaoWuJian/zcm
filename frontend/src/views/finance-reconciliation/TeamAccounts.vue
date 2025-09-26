@@ -95,6 +95,7 @@
         style="width: 100%"
         :header-cell-style="{ background: '#fafbfc', color: '#1f2329', fontWeight: '600' }"
         @selection-change="handleSelectionChange"
+        max-height="600"
       >
         <el-table-column type="selection" width="50" />
         <el-table-column label="名称" min-width="150">
@@ -212,7 +213,6 @@
               :key="dept._id"
               :label="dept.departmentName"
               :value="dept._id"
-              :disabled="!dept.isActive"
             />
           </el-select>
         </el-form-item>
@@ -688,7 +688,7 @@ const filteredRecords = ref([])
 // 分页信息
 const pagination = reactive({
   currentPage: 1,
-  pageSize: 12, // 卡片视图默认每页显示12个
+  pageSize: 10, // 卡片视图默认每页显示12个
   total: 0
 })
 
@@ -778,20 +778,27 @@ const flattenDepartments = (depts) => {
   return result
 }
 
-// 获取部门列表
+// 获取可用部门列表（排除已关联账户的部门）
 const getDepartments = async () => {
   try {
     departmentLoading.value = true
-    const response = await departmentApi.getDepartmentTree({ isActive: true })
+
+    // 根据是否是编辑模式决定调用哪个API
+    const params = {}
+    if (form.id && dialogTitle.value === '编辑账户') {
+      // 编辑模式，排除当前账户
+      params.excludeAccountId = form.id
+    }
+
+    const response = await teamAccountApi.getAvailableDepartments(params)
     if (response.success && response.data) {
-      // 将树形结构扁平化，便于查找
-      const flatDepartments = flattenDepartments(response.data || [])
-      departments.value = flatDepartments
+      departments.value = response.data
     } else {
-      ElMessage.error('获取部门列表失败：' + (response?.message || '未知错误'))
+      ElMessage.error('获取可用部门列表失败：' + (response?.message || '未知错误'))
     }
   } catch (error) {
-    ElMessage.error('获取部门列表失败')
+    console.error('获取可用部门失败:', error)
+    ElMessage.error('获取可用部门列表失败')
   } finally {
     departmentLoading.value = false
   }
@@ -1225,10 +1232,12 @@ const handleAccountAction = (command) => {
 }
 
 // 新增账户
-const handleAdd = () => {
+const handleAdd = async () => {
   dialogTitle.value = '新增账户'
   resetForm()
   dialogVisible.value = true
+  // 加载可用部门列表
+  await getDepartments()
 }
 
 // 充值账户
@@ -1255,10 +1264,22 @@ const handleDetail = async (account) => {
 }
 
 // 编辑账户
-const handleEdit = (account) => {
+const handleEdit = async (account) => {
   dialogTitle.value = '编辑账户'
-  Object.assign(form, account)
+
+  // 正确处理部门ID，确保departmentId是字符串而不是对象
+  const departmentId = typeof account.departmentId === 'object' && account.departmentId?._id
+    ? account.departmentId._id
+    : account.departmentId
+
+  Object.assign(form, {
+    ...account,
+    departmentId: departmentId
+  })
+
   dialogVisible.value = true
+  // 加载可用部门列表（排除当前账户）
+  await getDepartments()
 }
 
 // 转账
@@ -2441,7 +2462,7 @@ onMounted(async () => {
 .pagination-wrapper {
   margin-top: 24px;
   display: flex;
-  justify-content: center;
+  justify-content: right;
   padding: 20px 0;
   border-top: 1px solid #f0f2f5;
 }

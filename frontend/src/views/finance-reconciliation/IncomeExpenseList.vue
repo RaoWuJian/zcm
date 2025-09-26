@@ -195,7 +195,7 @@
         v-loading="loading"
         @selection-change="handleSelectionChange"
         stripe
-        max-heigth="400"
+        max-height="600"
         border
       >
         <el-table-column type="selection" width="50" />
@@ -1196,19 +1196,15 @@ const initData = async () => {
     if (response && response.data) {
       const data = response.data
       
-      // 如果后端返回的是数组数据，直接使用
+      // 如果后端返回的是数组数据，检查是否有总记录数信息
+      pagination.total = response.pagination?.totalRecords || 0
       if (Array.isArray(data)) {
         tableData.value = data
-        pagination.total = data.length
+        // 从响应中获取总记录数，而不是当前页数据长度
+       
       } else {
         // 如果后端返回的是对象包装的数据
         tableData.value = data.records || data.data || data.list || []
-        if (data.pagination) {
-          // 使用 totalRecords 作为总记录数
-          pagination.total = data.pagination.totalRecords || 0
-        } else {
-          pagination.total = data.total || data.count || tableData.value.length
-        }
       }
       
       // 数据字段映射，确保前端显示正确

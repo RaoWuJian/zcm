@@ -1,32 +1,20 @@
 const CommissionAccounting = require('../models/CommissionAccounting');
 const { asyncHandler } = require('../middleware/error');
 const { precisionCalculate } = require('../utils/precision');
+const DepartmentPermissionManager = require('../utils/departmentPermission');
 
 // 辅助函数：检查用户是否有权限访问核算佣金记录
 const checkCommissionAccountingAccess = async (recordId, user) => {
   const record = await CommissionAccounting.findById(recordId).populate('createdBy');
-  
+
   if (!record) {
     return { hasAccess: false, record: null, error: '核算佣金记录不存在' };
   }
 
-  // 管理员可以访问所有记录
-  if (user.isAdmin) {
-    return { hasAccess: true, record, error: null };
-  }
+  // 使用新的权限管理器检查权限
+  const hasAccess = await DepartmentPermissionManager.hasAccessToRecord(user, record);
 
-  // 检查创建者是否在用户的部门权限范围内
-  const createdByUser = record.createdBy;
-  if (!createdByUser) {
-    return { hasAccess: false, record: null, error: '无法确定记录创建者' };
-  }
-
-  const userDepartmentPath = user.departmentPath || '';
-  const createdByDepartmentPath = createdByUser.departmentPath || '';
-
-  // 检查是否是同一部门或子部门
-  if (createdByDepartmentPath === userDepartmentPath || 
-      createdByDepartmentPath.startsWith(userDepartmentPath + '->')) {
+  if (hasAccess) {
     return { hasAccess: true, record, error: null };
   }
 
@@ -204,35 +192,9 @@ const getCommissionAccountings = asyncHandler(async (req, res) => {
   if (platform) query.platform = { $regex: platform, $options: 'i' };
   if (team) query.team = { $regex: team, $options: 'i' };
 
-  // 获取用户有权限访问的用户ID列表（基于部门权限）
-  let allowedUserIds = [];
-  if (!user.isAdmin) {
-    const userDepartmentPath = user.departmentPath || '';
-    
-    if (userDepartmentPath) {
-      // 转义正则表达式特殊字符
-      const escapedPath = userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      
-      // 获取当前部门及其子部门的用户
-      const User = require('../models/User');
-      const allowedUsers = await User.find({
-        $or: [
-          { departmentPath: userDepartmentPath }, // 当前部门用户
-          { departmentPath: { $regex: `^${escapedPath}->` } }, // 子部门用户
-        ]
-      }).select('_id');
-      
-      allowedUserIds = allowedUsers.map(user => user._id);
-    }
-    
-    // 限制只查看有权限的用户创建的记录
-    if (allowedUserIds.length > 0) {
-      query.createdBy = { $in: allowedUserIds };
-    } else {
-      // 如果没有权限访问任何用户，返回空结果
-      query.createdBy = { $in: [] };
-    }
-  }
+  // 使用新的权限管理器构建查询条件
+  const permissionQuery = await DepartmentPermissionManager.buildAccessibleUserQuery(user);
+  Object.assign(query, permissionQuery);
 
   // 净利润范围查询
   if (minProfit || maxProfit) {
@@ -532,31 +494,9 @@ const getShopNameSuggestions = asyncHandler(async (req, res) => {
   // 构建查询条件（基于用户权限）
   let query = {};
   if (!user.isAdmin) {
-    const userDepartmentPath = user.departmentPath || '';
-
-    if (userDepartmentPath) {
-      // 转义正则表达式特殊字符
-      const escapedPath = userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-      // 获取当前部门及其子部门的用户
-      const User = require('../models/User');
-      const allowedUsers = await User.find({
-        $or: [
-          { departmentPath: userDepartmentPath }, // 当前部门用户
-          { departmentPath: { $regex: `^${escapedPath}->` } }, // 子部门用户
-        ]
-      }).select('_id');
-
-      const allowedUserIds = allowedUsers.map(user => user._id);
-
-      // 限制只查看有权限的用户创建的记录
-      if (allowedUserIds.length > 0) {
-        query.createdBy = { $in: allowedUserIds };
-      } else {
-        // 如果没有权限访问任何用户，返回空结果
-        query.createdBy = { $in: [] };
-      }
-    }
+    // 使用新的部门权限管理器获取可访问的用户查询条件
+    const permissionQuery = await DepartmentPermissionManager.buildAccessibleUserQuery(user);
+    Object.assign(query, permissionQuery);
   }
 
   // 获取所有非空的店铺名称
@@ -579,31 +519,9 @@ const getPlatformSuggestions = asyncHandler(async (req, res) => {
   // 构建查询条件（基于用户权限）
   let query = {};
   if (!user.isAdmin) {
-    const userDepartmentPath = user.departmentPath || '';
-
-    if (userDepartmentPath) {
-      // 转义正则表达式特殊字符
-      const escapedPath = userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-      // 获取当前部门及其子部门的用户
-      const User = require('../models/User');
-      const allowedUsers = await User.find({
-        $or: [
-          { departmentPath: userDepartmentPath }, // 当前部门用户
-          { departmentPath: { $regex: `^${escapedPath}->` } }, // 子部门用户
-        ]
-      }).select('_id');
-
-      const allowedUserIds = allowedUsers.map(user => user._id);
-
-      // 限制只查看有权限的用户创建的记录
-      if (allowedUserIds.length > 0) {
-        query.createdBy = { $in: allowedUserIds };
-      } else {
-        // 如果没有权限访问任何用户，返回空结果
-        query.createdBy = { $in: [] };
-      }
-    }
+    // 使用新的部门权限管理器获取可访问的用户查询条件
+    const permissionQuery = await DepartmentPermissionManager.buildAccessibleUserQuery(user);
+    Object.assign(query, permissionQuery);
   }
 
   // 获取所有非空的平台名称
@@ -626,31 +544,9 @@ const getProductNameSuggestions = asyncHandler(async (req, res) => {
   // 构建查询条件（基于用户权限）
   let query = {};
   if (!user.isAdmin) {
-    const userDepartmentPath = user.departmentPath || '';
-
-    if (userDepartmentPath) {
-      // 转义正则表达式特殊字符
-      const escapedPath = userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-      // 获取当前部门及其子部门的用户
-      const User = require('../models/User');
-      const allowedUsers = await User.find({
-        $or: [
-          { departmentPath: userDepartmentPath }, // 当前部门用户
-          { departmentPath: { $regex: `^${escapedPath}->` } }, // 子部门用户
-        ]
-      }).select('_id');
-
-      const allowedUserIds = allowedUsers.map(user => user._id);
-
-      // 限制只查看有权限的用户创建的记录
-      if (allowedUserIds.length > 0) {
-        query.createdBy = { $in: allowedUserIds };
-      } else {
-        // 如果没有权限访问任何用户，返回空结果
-        query.createdBy = { $in: [] };
-      }
-    }
+    // 使用新的部门权限管理器获取可访问的用户查询条件
+    const permissionQuery = await DepartmentPermissionManager.buildAccessibleUserQuery(user);
+    Object.assign(query, permissionQuery);
   }
 
   // 获取所有非空的产品名称
@@ -673,23 +569,9 @@ const getTeamSuggestions = asyncHandler(async (req, res) => {
   // 构建查询条件（基于用户权限）
   let query = {};
   if (!user.isAdmin) {
-    const userDepartmentPath = user.departmentPath || '';
-
-    if (userDepartmentPath) {
-      const escapedPath = userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const User = require('../models/User');
-      const allowedUsers = await User.find({
-        $or: [
-          { departmentPath: userDepartmentPath },
-          { departmentPath: { $regex: `^${escapedPath}->` } },
-        ]
-      }).select('_id');
-
-      const allowedUserIds = allowedUsers.map(user => user._id);
-      query.createdBy = { $in: allowedUserIds };
-    } else {
-      query.createdBy = user._id;
-    }
+    // 使用新的部门权限管理器获取可访问的用户查询条件
+    const permissionQuery = await DepartmentPermissionManager.buildAccessibleUserQuery(user);
+    Object.assign(query, permissionQuery);
   }
 
   // 获取所有不重复的团队名称

@@ -32,12 +32,11 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Role',
   },
-  departmentPath: {
-    type: String,
-    trim: true,
-    maxlength: [100, '部门路径最多100个字符'],
-    default: ''
-  },
+  // 多部门支持
+  departmentIds: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Department'
+  }],
   isActive: {
     type: Boolean,
     default: true
@@ -79,6 +78,7 @@ userSchema.pre('save', function(next) {
   next();
 });
 
+
 // 密码验证方法
 userSchema.methods.matchPassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.loginPassword);
@@ -89,6 +89,39 @@ userSchema.methods.getPublicProfile = function() {
   const userObject = this.toObject();
   delete userObject.loginPassword;
   return userObject;
+};
+
+// 获取用户的部门ID列表
+userSchema.methods.getDepartmentIds = function() {
+  if (this.departmentIds && this.departmentIds.length > 0) {
+    return this.departmentIds;
+  }
+  return [];
+};
+
+// 检查用户是否属于指定部门
+userSchema.methods.belongsToDepartment = function(departmentId) {
+  if (this.departmentIds && this.departmentIds.length > 0) {
+    return this.departmentIds.some(id => id.toString() === departmentId.toString());
+  }
+  return false;
+};
+
+// 添加部门到用户
+userSchema.methods.addDepartment = function(departmentId) {
+  if (!this.belongsToDepartment(departmentId)) {
+    this.departmentIds = this.departmentIds || [];
+    this.departmentIds.push(departmentId);
+  }
+};
+
+// 从用户中移除部门
+userSchema.methods.removeDepartment = function(departmentId) {
+  if (this.departmentIds) {
+    this.departmentIds = this.departmentIds.filter(id =>
+      id.toString() !== departmentId.toString()
+    );
+  }
 };
 
 module.exports = mongoose.model('User', userSchema);

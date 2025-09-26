@@ -114,7 +114,7 @@ const getOperationLogs = asyncHandler(async (req, res) => {
 const getOperationLog = asyncHandler(async (req, res) => {
   try {
     const log = await OperationLog.findById(req.params.id)
-      .populate('operatorId', 'username loginAccount departmentPath');
+      .populate('operatorId', 'username loginAccount');
 
     if (!log) {
       return res.status(404).json({

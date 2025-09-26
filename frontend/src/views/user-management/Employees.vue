@@ -54,16 +54,16 @@
           
           <el-form-item label="部门" class="search-item">
             <el-select
-              v-model="searchForm.departmentPath"
+              v-model="searchForm.departmentId"
               placeholder="全部部门"
               clearable
               class="business-select"
             >
-              <el-option 
-                v-for="dept in departmentOptions" 
-                :key="dept._id || 'empty'" 
-                :label="dept.departmentName" 
-                :value="dept.departmentPath || dept.departmentName"
+              <el-option
+                v-for="dept in departmentOptions"
+                :key="dept._id || 'empty'"
+                :label="dept.departmentName"
+                :value="dept._id"
               />
             </el-select>
           </el-form-item>
@@ -144,11 +144,27 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="部门" width="120">
+        <el-table-column label="部门" width="150">
           <template #default="{ row }">
-            <span v-if="row.departmentPath" class="dept-text" :title="row.departmentPath">
-              {{ getDepartmentName(row.departmentPath) }}
-            </span>
+            <div v-if="row.departmentIds && row.departmentIds.length" class="dept-tags">
+              <el-tag
+                v-for="dept in row.departmentIds.slice(0, 2)"
+                :key="dept._id || dept"
+                size="small"
+                type="info"
+                class="dept-tag"
+              >
+                {{ getDepartmentDisplayName(dept) }}
+              </el-tag>
+              <el-tag
+                v-if="row.departmentIds.length > 2"
+                size="small"
+                type="info"
+                class="dept-tag"
+              >
+                +{{ row.departmentIds.length - 2 }}
+              </el-tag>
+            </div>
             <span v-else class="text-gray">未分配</span>
           </template>
         </el-table-column>
@@ -245,14 +261,21 @@
           </el-col>
         </el-row>
         
-        <el-form-item label="部门" prop="departmentPath">
-          <!-- <el-select v-model="form.departmentPath" :disabled="!hasAnyPermission(['product:create','product:update','product:manage'])" placeholder="请选择部门" style="width: 100%" clearable> -->
-          <el-select v-model="form.departmentPath" placeholder="请选择部门" style="width: 100%" clearable>
-            <el-option 
-              v-for="dept in departmentOptions" 
-              :key="dept._id || 'empty'" 
-              :label="dept.departmentName" 
-              :value="dept.departmentPath || dept.departmentName"
+        <el-form-item label="部门" prop="departmentIds">
+          <el-select
+            v-model="form.departmentIds"
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            placeholder="请选择部门"
+            style="width: 100%"
+            clearable
+          >
+            <el-option
+              v-for="dept in departmentOptions"
+              :key="dept._id || 'empty'"
+              :label="dept.departmentName"
+              :value="dept._id"
             />
           </el-select>
         </el-form-item>
@@ -294,7 +317,7 @@ const searchForm = reactive({
   search: '',
   loginAccount: '',
   role: '',
-  departmentPath: ''
+  departmentId: ''
 })
 
 // 表格数据
@@ -330,7 +353,7 @@ const form = reactive({
   loginAccount: '',
   loginPassword: '123456',
   rolePermission: '',
-  departmentPath: '',
+  departmentIds: [],
   remark: ''
 })
 
@@ -356,7 +379,7 @@ const rules = {
   rolePermission: [
     { required: true, message: '请选择员工角色', trigger: 'change' }
   ],
-  departmentPath: [
+  departmentIds: [
     { required: true, message: '请选择所属部门', trigger: 'change' }
   ],
   remark: [
@@ -374,7 +397,7 @@ const getEmployeeList = async () => {
       search: searchForm.search,
       loginAccount: searchForm.loginAccount,
       role: searchForm.role,
-      departmentPath: searchForm.departmentPath
+      departmentId: searchForm.departmentId
     }
 
     // 移除空值参数
@@ -410,7 +433,7 @@ const handleReset = () => {
     search: '',
     loginAccount: '',
     role: '',
-    departmentPath: ''
+    departmentId: ''
   })
   pagination.page = 1
   getEmployeeList()
@@ -435,7 +458,7 @@ const handleEdit = (row) => {
     loginAccount: row.loginAccount,
     loginPassword: '123456', // 编辑时不显示真实密码
     rolePermission: row.rolePermission?._id || row.rolePermission || '',
-    departmentPath: row.departmentPath || '',
+    departmentIds: Array.isArray(row.departmentIds) ? row.departmentIds.map(d => d._id || d) : [],
     remark: row.remark || ''
   })
 }
@@ -524,7 +547,7 @@ const handleSubmit = async () => {
         username: form.username,
         loginAccount: form.loginAccount,
         ...(form.loginPassword && form.loginPassword !== '123456' ? { loginPassword: form.loginPassword } : {}),
-        departmentPath: form.departmentPath || undefined,
+        departmentIds: form.departmentIds || [],
         remark: form.remark || undefined
       }
       
@@ -536,7 +559,7 @@ const handleSubmit = async () => {
       response = await employeeApi.updateEmployee(form._id, updateData)
     } else {
       // 新增
-      response = await employeeApi.createEmployee(form )
+      response = await employeeApi.createEmployee(form)
     }
     
     if (response.success) {
@@ -590,7 +613,7 @@ const handleExport = async () => {
       '姓名': item.username,
       '登录账号': item.loginAccount,
       '角色': item.rolePermission?.roleName || '普通用户',
-      '部门': item.departmentPath ? getDepartmentName(item.departmentPath) : '未分配',
+      '部门': item.departmentIds && item.departmentIds.length ? item.departmentIds.map(d => getDepartmentDisplayName(d)).join(', ') : '未分配',
       '状态': item.isActive ? '活跃' : '禁用',
       '备注': item.remark || '',
       '创建时间': new Date(item.createdAt).toLocaleString()
@@ -634,13 +657,20 @@ const getRoleDisplayName = (row) => {
   return '普通用户'
 }
 
-// 从部门路径中提取部门名称
-const getDepartmentName = (departmentPath) => {
-  if (!departmentPath) return ''
+// 获取部门显示名称
+const getDepartmentDisplayName = (dept) => {
+  if (!dept) return ''
 
-  // 部门路径格式：A->B->C->D，我们需要最后一个部门名称
-  const parts = departmentPath.split('->')
-  return parts[parts.length - 1].trim()
+  if (typeof dept === 'object' && dept.departmentName) {
+    return dept.departmentName
+  }
+
+  if (typeof dept === 'string') {
+    const deptObj = departmentOptions.value.find(d => d._id === dept)
+    return deptObj?.departmentName || '未知部门'
+  }
+
+  return '未知部门'
 }
 
 // 获取角色选项列表
@@ -672,7 +702,7 @@ const resetForm = () => {
     loginAccount: '',
     loginPassword: '123456',
     rolePermission: '',
-    departmentPath: '',
+    departmentIds: [],
     remark: ''
   })
   formRef.value?.clearValidate()
@@ -925,10 +955,17 @@ onMounted(() => {
   margin-top: 1px;
 }
 
-/* 部门文字 */
-.dept-text {
-  color: #606266;
-  font-size: 13px;
+/* 部门标签 */
+.dept-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.dept-tag {
+  margin: 0;
+  font-size: 12px;
+  border-radius: 3px;
 }
 
 /* 时间文字 */

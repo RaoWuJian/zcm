@@ -255,27 +255,27 @@ export const teamAccountApi = {
   getTeamAccounts: (params) => {
     return api.get('/team-accounts', { params })
   },
-  
+
   // 创建团队账户
   createTeamAccount: (data) => {
     return api.post('/team-accounts', data)
   },
-  
+
   // 获取团队账户详情
   getTeamAccount: (id) => {
     return api.get(`/team-accounts/${id}`)
   },
-  
+
   // 更新团队账户
   updateTeamAccount: (id, data) => {
     return api.put(`/team-accounts/${id}`, data)
   },
-  
+
   // 删除团队账户
   deleteTeamAccount: (id) => {
     return api.delete(`/team-accounts/${id}`)
   },
-  
+
   // 获取账户记录
   getAccountRecords: (id, params) => {
     return api.get(`/team-accounts/${id}/records`, { params })
@@ -285,12 +285,22 @@ export const teamAccountApi = {
   getTeamAccountRecords: (id, params) => {
     return api.get(`/team-accounts/${id}/records`, { params })
   },
-  
+
+  // 获取可用部门列表（排除已关联账户的部门）
+  getAvailableDepartments: (params) => {
+    return api.get('/team-accounts/available-departments', { params })
+  },
+
   // 账户充值
   rechargeAccount: (id, data) => {
     return api.post(`/team-accounts/${id}/recharge`, data)
   },
-  
+
+  // 团队账户充值（别名方法，保持向后兼容）
+  rechargeTeamAccount: (id, data) => {
+    return api.post(`/team-accounts/${id}/recharge`, data)
+  },
+
   // 账户扣费
   deductAccount: (id, data) => {
     return api.post(`/team-accounts/${id}/deduct`, data)

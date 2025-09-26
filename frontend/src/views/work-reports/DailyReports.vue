@@ -653,10 +653,10 @@ const fetchUsers = async () => {
     const response = await employeeApi.getUsersForReport({ limit: 1000 })
     if (response && response.success) {
       userOptions.value = response.data.map(user => ({
-        label: `${user.username} (${user.departmentPath || '未分配部门'})`,
+        label: `${user.username} (${getDepartmentNameFromIds(user.departmentIds) || '未分配部门'})`,
         value: user._id,
         username: user.username,
-        department: user.departmentPath || '未分配部门'
+        department: getDepartmentNameFromIds(user.departmentIds) || '未分配部门'
       }))
     }
   } catch (error) {
@@ -671,6 +671,18 @@ const searchUsers = (query) => {
   if (query && query.length >= 2) {
     fetchUsers()
   }
+}
+
+// 获取部门名称（从部门ID数组中获取名称）
+const getDepartmentNameFromIds = (departmentIds) => {
+  if (!departmentIds || !Array.isArray(departmentIds) || departmentIds.length === 0) {
+    return '未分配部门'
+  }
+
+  // 如果有多个部门，显示第一个部门名称（后续可根据需要调整显示逻辑）
+  // 这里暂时返回部门ID，实际使用时应该通过API获取部门名称
+  // 或者在用户数据中直接包含部门名称信息
+  return departmentIds.length > 0 ? `部门${departmentIds[0]}` : '未分配部门'
 }
 
 // 初始化

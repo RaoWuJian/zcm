@@ -12,7 +12,7 @@ const adminUserData = {
   loginPassword: '123456', // 初始密码，建议首次登录后修改
   remark: '系统初始化创建的管理员账户',
   rolePermission: null, // 先设为null，后面才设置
-  departmentPath: '',
+  departmentIds: [],
   isActive: true,
   isAdmin: true
 };
@@ -36,7 +36,7 @@ const createAdminUser = async () => {
       console.log('✅ 管理员账户已存在:', {
         用户名: existingAdmin.username,
         登录账号: existingAdmin.loginAccount,
-        部门路径: existingAdmin.departmentPath,
+        部门ID: existingAdmin.departmentIds || [],
         创建时间: existingAdmin.createdAt
       });
       return existingAdmin;
@@ -53,7 +53,7 @@ const createAdminUser = async () => {
       登录账号: adminUser.loginAccount,
       初始密码: adminUserData.loginPassword,
       角色权限: adminUser.rolePermission,
-      部门路径: adminUser.departmentPath,
+      部门ID: adminUser.departmentIds || [],
       管理员权限: adminUser.isAdmin,
       账户状态: adminUser.isActive ? '活跃' : '禁用',
       创建时间: adminUser.createdAt

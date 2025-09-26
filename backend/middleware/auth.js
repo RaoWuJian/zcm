@@ -16,11 +16,12 @@ const protect = async (req, res, next) => {
       // 验证token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      // 获取用户信息并添加到请求对象，同时预加载角色权限信息
+      // 获取用户信息并添加到请求对象，同时预加载角色权限信息和部门信息
       req.user = await User.findById(decoded.id)
         .select('-password')
-        .populate('rolePermission', 'permissions roleName');
-      
+        .populate('rolePermission', 'permissions roleName')
+        .populate('departmentIds', 'departmentName');
+
       if (!req.user) {
         return res.status(401).json({
           success: false,
@@ -39,7 +40,11 @@ const protect = async (req, res, next) => {
         });
       }
 
-      if (!req.user.departmentPath) {
+      // 检查用户是否有部门信息（支持新的departmentIds和旧的departmentPath）
+      const hasDepartment = (req.user.departmentIds && req.user.departmentIds.length > 0) ||
+                           (req.user.departmentPath && req.user.departmentPath.trim() !== '');
+
+      if (!hasDepartment) {
         return res.status(401).json({
           success: false,
           message: '请先加入部门'

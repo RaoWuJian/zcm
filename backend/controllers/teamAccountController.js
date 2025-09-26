@@ -4,6 +4,7 @@ const Finance = require('../models/Finance');
 const AccountRecord = require('../models/AccountRecord');
 const { asyncHandler } = require('../middleware/error');
 const { precisionCalculate } = require('../utils/precision');
+const DepartmentPermissionManager = require('../utils/departmentPermission');
 
 // @desc    创建团队账户
 // @route   POST /api/team-accounts
@@ -145,30 +146,22 @@ const getTeamAccounts = asyncHandler(async (req, res) => {
   // 获取用户有权限访问的部门ID列表
   let allowedDepartmentIds = [];
   if (!user.isAdmin) {
-    const userDepartmentPath = user.departmentPath || '';
-    
-    if (userDepartmentPath) {
-      // 转义正则表达式特殊字符
-      const escapedPath = userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      
-      // 查找当前部门及其子部门
-      const Department = require('../models/Department');
-      const allowedDepartments = await Department.find({
-        $or: [
-          { departmentPath: userDepartmentPath }, // 当前部门
-          { departmentPath: { $regex: `^${escapedPath}->` } }, // 子部门
-        ]
-      }).select('_id departmentName departmentCode');
-      
-      allowedDepartmentIds = allowedDepartments.map(dept => dept._id);
+    // 使用新的部门权限管理器获取用户可访问的部门ID列表
+    const accessibleDepartmentIds = await DepartmentPermissionManager.getAccessibleDepartmentIds(user);
+
+    if (accessibleDepartmentIds && accessibleDepartmentIds.length > 0) {
+      allowedDepartmentIds = accessibleDepartmentIds;
 
       // 如果有搜索条件，也支持按部门名称搜索
       if (search) {
-        const matchingDepts = allowedDepartments.filter(dept => 
-          dept.departmentName?.toLowerCase().includes(search.toLowerCase()) ||
-          dept.departmentCode?.toLowerCase().includes(search.toLowerCase())
-        );
-        
+        const matchingDepts = await Department.find({
+          _id: { $in: accessibleDepartmentIds },
+          $or: [
+            { departmentName: { $regex: search, $options: 'i' } },
+            { departmentCode: { $regex: search, $options: 'i' } }
+          ]
+        }).select('_id');
+
         if (matchingDepts.length > 0) {
           searchConditions.push({
             departmentId: { $in: matchingDepts.map(dept => dept._id) }
@@ -176,7 +169,7 @@ const getTeamAccounts = asyncHandler(async (req, res) => {
         }
       }
     } else {
-      // 如果用户没有部门信息，只能查看没有部门关联的团队账户
+      // 如果用户没有部门权限，只能查看没有部门关联的团队账户
       allowedDepartmentIds = []; // 空数组表示只查看无部门关联的账户
     }
   }
@@ -213,7 +206,7 @@ const getTeamAccounts = asyncHandler(async (req, res) => {
   const skip = (page - 1) * limit;
 
   const teamAccounts = await TeamAccount.find(finalQuery)
-    .populate('departmentId', 'departmentName departmentCode departmentPath level')
+    .populate('departmentId', 'departmentName departmentCode level')
     .populate('createdBy', 'username loginAccount')
     .populate('updatedBy', 'username loginAccount')
     .sort({ createdAt: -1 })
@@ -301,7 +294,7 @@ const getTeamAccount = asyncHandler(async (req, res) => {
   const user = req.user;
   
   const teamAccount = await TeamAccount.findById(req.params.id)
-    .populate('departmentId', 'departmentName departmentCode departmentPath level')
+    .populate('departmentId', 'departmentName departmentCode level')
     .populate('createdBy', 'username loginAccount')
     .populate('updatedBy', 'username loginAccount');
 
@@ -314,14 +307,9 @@ const getTeamAccount = asyncHandler(async (req, res) => {
 
   // 非管理员用户权限检查
   if (!user.isAdmin) {
-    const userDepartmentPath = user.departmentPath || '';
-    const teamDepartmentPath = teamAccount.departmentId?.departmentPath || '';
-    
-    // 检查是否有权限查看此团队账户
-    const hasPermission = !teamDepartmentPath || // 没有部门关联的账户
-      teamDepartmentPath === userDepartmentPath || // 同一部门
-      teamDepartmentPath.startsWith(userDepartmentPath + '->'); // 子部门
-    
+    // 使用新的部门权限管理器检查是否有权限查看此团队账户
+    const hasPermission = await DepartmentPermissionManager.hasAccessToTeamAccount(user, teamAccount);
+
     if (!hasPermission) {
       return res.status(403).json({
         success: false,
@@ -454,7 +442,7 @@ const updateTeamAccount = asyncHandler(async (req, res) => {
       new: true,
       runValidators: true
     }
-  ).populate('departmentId', 'departmentName departmentCode departmentPath level')
+  ).populate('departmentId', 'departmentName departmentCode level')
    .populate('createdBy', 'username loginAccount')
    .populate('updatedBy', 'username loginAccount');
 
@@ -562,7 +550,7 @@ const rechargeTeamAccount = asyncHandler(async (req, res) => {
 
   // 查找团队账户
   const teamAccount = await TeamAccount.findById(req.params.id)
-    .populate('departmentId', 'departmentName departmentCode departmentPath level');
+    .populate('departmentId', 'departmentName departmentCode level');
 
   if (!teamAccount) {
     return res.status(404).json({
@@ -580,14 +568,9 @@ const rechargeTeamAccount = asyncHandler(async (req, res) => {
 
   // 非管理员用户权限检查
   if (!user.isAdmin) {
-    const userDepartmentPath = user.departmentPath || '';
-    const teamDepartmentPath = teamAccount.departmentId?.departmentPath || '';
-    
-    // 检查是否有权限为此团队账户充值
-    const hasPermission = !teamDepartmentPath || // 没有部门关联的账户
-      teamDepartmentPath === userDepartmentPath || // 同一部门
-      teamDepartmentPath.startsWith(userDepartmentPath + '->'); // 子部门
-    
+    // 使用新的部门权限管理器检查是否有权限为此团队账户充值
+    const hasPermission = await DepartmentPermissionManager.hasAccessToTeamAccount(user, teamAccount);
+
     if (!hasPermission) {
       return res.status(403).json({
         success: false,
@@ -682,7 +665,7 @@ const getTeamAccountRecords = asyncHandler(async (req, res) => {
 
   // 验证团队账户是否存在
   const teamAccount = await TeamAccount.findById(teamAccountId)
-    .populate('departmentId', 'departmentName departmentCode departmentPath level');
+    .populate('departmentId', 'departmentName departmentCode level');
 
   if (!teamAccount) {
     return res.status(404).json({
@@ -693,14 +676,9 @@ const getTeamAccountRecords = asyncHandler(async (req, res) => {
 
   // 非管理员用户权限检查
   if (!user.isAdmin) {
-    const userDepartmentPath = user.departmentPath || '';
-    const teamDepartmentPath = teamAccount.departmentId?.departmentPath || '';
-    
-    // 检查是否有权限查看此团队账户的记录
-    const hasPermission = !teamDepartmentPath || // 没有部门关联的账户
-      teamDepartmentPath === userDepartmentPath || // 同一部门
-      teamDepartmentPath.startsWith(userDepartmentPath + '->'); // 子部门
-    
+    // 使用新的部门权限管理器检查是否有权限查看此团队账户的交易记录
+    const hasPermission = await DepartmentPermissionManager.hasAccessToTeamAccount(user, teamAccount);
+
     if (!hasPermission) {
       return res.status(403).json({
         success: false,
@@ -794,6 +772,87 @@ const getTeamAccountRecords = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    获取可用于创建团队账户的部门列表（排除已关联账户的部门）
+// @route   GET /api/team-accounts/available-departments
+// @access  Private
+const getAvailableDepartments = asyncHandler(async (req, res) => {
+  const user = req.user;
+  const { excludeAccountId } = req.query; // 用于更新时排除当前账户所关联的部门
+
+  try {
+    // 获取用户有权限访问的部门ID列表
+    let allowedDepartmentIds = [];
+    if (user.isAdmin) {
+      // 管理员可以访问所有部门
+      const allDepts = await Department.find({}, '_id');
+      allowedDepartmentIds = allDepts.map(dept => dept._id);
+    } else {
+      // 使用新的部门权限管理器获取用户可访问的部门ID列表
+      const accessibleDepartmentIds = await DepartmentPermissionManager.getAccessibleDepartmentIds(user);
+      allowedDepartmentIds = accessibleDepartmentIds;
+    }
+
+    if (allowedDepartmentIds.length === 0) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+        message: '没有可用的部门'
+      });
+    }
+
+    // 查找已经关联团队账户的部门ID（排除指定账户）
+    let teamAccountQuery = {};
+    if (excludeAccountId) {
+      teamAccountQuery._id = { $ne: excludeAccountId };
+    }
+
+    const occupiedDepartments = await TeamAccount.find(teamAccountQuery, 'departmentId');
+
+    // 过滤掉null、undefined的departmentId，并转换为字符串数组以便比较
+    const occupiedDepartmentIds = occupiedDepartments
+      .map(account => account.departmentId)
+      .filter(id => id != null)  // 过滤掉null和undefined
+      .map(id => id.toString());  // 统一转换为字符串
+
+    // 过滤出可用的部门（用户有权限且未关联账户的部门）
+    const availableDepartmentIds = allowedDepartmentIds.filter(deptId => {
+      const deptIdString = deptId.toString();
+      return !occupiedDepartmentIds.includes(deptIdString);
+    });
+
+    // 获取可用部门的详细信息
+    const availableDepartments = await Department.find({
+      _id: { $in: availableDepartmentIds },
+      isActive: true // 只返回激活的部门
+    })
+      .select('_id departmentName departmentCode level isActive')
+      .sort({ level: 1, departmentName: 1 });
+
+    // 调试信息（开发环境）
+    if (process.env.NODE_ENV === 'development') {
+      console.log('用户ID:', user.id);
+      console.log('允许的部门ID数量:', allowedDepartmentIds.length);
+      console.log('已占用的部门ID:', occupiedDepartmentIds);
+      console.log('可用的部门ID数量:', availableDepartmentIds.length);
+      console.log('最终返回的部门数量:', availableDepartments.length);
+    }
+
+    res.status(200).json({
+      success: true,
+      data: availableDepartments,
+      count: availableDepartments.length,
+      message: `找到 ${availableDepartments.length} 个可用部门`
+    });
+
+  } catch (error) {
+    console.error('获取可用部门时发生错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取可用部门失败'
+    });
+  }
+});
+
 module.exports = {
   createTeamAccount,
   getTeamAccounts,
@@ -801,5 +860,6 @@ module.exports = {
   updateTeamAccount,
   deleteTeamAccount,
   rechargeTeamAccount,
-  getTeamAccountRecords
+  getTeamAccountRecords,
+  getAvailableDepartments
 };

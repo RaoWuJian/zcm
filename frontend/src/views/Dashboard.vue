@@ -136,7 +136,7 @@
             </div>
             <div class="info-item">
               <span class="info-label">部门</span>
-              <span class="info-value">{{ getDepartmentName(userInfo?.departmentPath) }}</span>
+              <span class="info-value">{{ getDepartmentName(userInfo?.departmentIds) }}</span>
             </div>
             <div class="info-item">
               <span class="info-label">角色</span>
@@ -593,11 +593,16 @@ const updateCurrentTime = () => {
   })
 }
 
-// 获取部门名称（从部门路径中提取最后一级）
-const getDepartmentName = (departmentPath) => {
-  if (!departmentPath) return '未设置'
-  const parts = departmentPath.split('->')
-  return parts[parts.length - 1] || '未设置'
+// 获取部门名称（从部门ID数组中获取名称）
+const getDepartmentName = (departmentIds) => {
+  if (!departmentIds || !Array.isArray(departmentIds) || departmentIds.length === 0) {
+    return '未设置'
+  }
+
+  // 如果有多个部门，显示第一个部门名称（后续可根据需要调整显示逻辑）
+  // 这里暂时返回部门ID，实际使用时应该通过API获取部门名称
+  // 或者在用户数据中直接包含部门名称信息
+  return departmentIds.length > 0 ? `部门${departmentIds[0]}` : '未设置'
 }
 
 // 获取角色名称

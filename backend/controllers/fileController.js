@@ -39,12 +39,11 @@ const checkFileAccess = async (fileId, user) => {
     return { hasAccess: false, file: null, error: '无法确定文件创建者' };
   }
 
-  const userDepartmentPath = user.departmentPath || '';
-  const createdByDepartmentPath = createdByUser.departmentPath || '';
+  // 使用新的部门权限管理器检查访问权限
+  const DepartmentPermissionManager = require('../utils/departmentPermission');
+  const hasPermission = await DepartmentPermissionManager.hasAccessToUser(user, createdByUser);
 
-  // 检查是否是同一部门或子部门
-  if (createdByDepartmentPath === userDepartmentPath || 
-      createdByDepartmentPath.startsWith(userDepartmentPath + '->')) {
+  if (hasPermission) {
     return { hasAccess: true, file, error: null };
   }
 
@@ -214,24 +213,23 @@ const getFiles = asyncHandler(async (req, res) => {
   // 获取用户有权限访问的用户ID列表（基于部门权限）
   let allowedUserIds = [];
   if (!user.isAdmin) {
-    const userDepartmentPath = user.departmentPath || '';
-    
-    if (userDepartmentPath) {
-      // 转义正则表达式特殊字符
-      const escapedPath = userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      
-      // 获取当前部门及其子部门的用户
+    // 使用新的部门权限管理器获取用户可访问的部门ID列表
+    const DepartmentPermissionManager = require('../utils/departmentPermission');
+    const allowedDepartmentIds = await DepartmentPermissionManager.getAccessibleDepartmentIds(user);
+
+    if (allowedDepartmentIds && allowedDepartmentIds.length > 0) {
+      // 获取这些部门的用户
       const User = require('../models/User');
       const allowedUsers = await User.find({
-        $or: [
-          { departmentPath: userDepartmentPath }, // 当前部门用户
-          { departmentPath: { $regex: `^${escapedPath}->` } }, // 子部门用户
-        ]
+        departmentIds: { $in: allowedDepartmentIds }
       }).select('_id');
-      
-      allowedUserIds = allowedUsers.map(user => user._id);
+
+      allowedUserIds = allowedUsers.map(u => u._id);
+      allowedUserIds.push(user._id); // 包括当前用户
+    } else {
+      allowedUserIds = [user._id]; // 只包括当前用户
     }
-    
+
     // 限制只查看有权限的用户创建的文件或公开文件
     query.$or = [
       { isPublic: true }, // 公开文件

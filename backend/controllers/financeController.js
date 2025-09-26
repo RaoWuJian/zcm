@@ -4,6 +4,7 @@ const User = require('../models/User');
 const AccountRecord = require('../models/AccountRecord');
 const { asyncHandler } = require('../middleware/error');
 const { precisionCalculate } = require('../utils/precision');
+const DepartmentPermissionManager = require('../utils/departmentPermission');
 
 /**
  * 检查当前用户是否为记录创建者的上级部门人员
@@ -11,7 +12,7 @@ const { precisionCalculate } = require('../utils/precision');
  * @param {Object} recordCreator - 记录创建者用户对象
  * @returns {boolean} - 如果是上级部门人员返回true，否则返回false
  */
-const isUserSuperiorToCreator = (currentUser, recordCreator) => {
+const isUserSuperiorToCreator = async (currentUser, recordCreator) => {
   // 管理员拥有所有权限
   if (currentUser.isAdmin) {
     return true;
@@ -22,17 +23,13 @@ const isUserSuperiorToCreator = (currentUser, recordCreator) => {
     return false;
   }
 
-  const currentUserPath = currentUser.departmentPath || '';
-  const creatorPath = recordCreator.departmentPath || '';
-  // 如果任一用户没有部门路径，无法判断层级关系
-  if (!currentUserPath || !creatorPath) {
-    return false;
-  }
+  // 使用新的权限管理器检查权限
+  const hasAccess = await DepartmentPermissionManager.hasAccessToRecord(
+    currentUser,
+    { createdBy: recordCreator }
+  );
 
-  // 检查当前用户的部门路径是否为创建者部门路径的前缀
-  // 例如：当前用户路径 "总部->销售部"，创建者路径 "总部->销售部->华南区"
-  // 则当前用户是创建者的上级
-  return creatorPath.startsWith(currentUserPath + '->');
+  return hasAccess;
 };
 
 // @desc    创建财务记录
@@ -147,35 +144,11 @@ const getFinances = asyncHandler(async (req, res) => {
   if (categoryId) query['recordType.categoryId'] = categoryId;
   if (subCategoryId) query['recordType.subCategoryId'] = subCategoryId;
 
-  // 获取用户有权限查看的财务记录（基于创建者权限）
+  // 获取用户有权限查看的财务记录
   if (!user.isAdmin) {
-    const userDepartmentPath = user.departmentPath || '';
-
-    if (userDepartmentPath) {
-      // 转义正则表达式特殊字符
-      const escapedPath = userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-      // 查找下属子部门用户
-      const allowedUsers = await User.find({
-        $or: [
-          { _id: user.id }, // 用户自己
-          { departmentPath: { $regex: `^${escapedPath}->` } } // 下属子部门用户
-        ]
-      }).select('_id');
-
-      const allowedUserIds = allowedUsers.map(u => u._id);
-
-      // 限制只查看这些用户创建的财务记录
-      query.createdBy = { $in: allowedUserIds };
-    } else {
-      // 如果用户没有部门信息，只能查看自己创建的记录
-      query.createdBy = user.id;
-    }
-
-    // 如果用户指定了特定的teamId，保持这个过滤条件
-    if (teamId) {
-      query.teamId = teamId;
-    }
+    const accessibleUserQuery = await DepartmentPermissionManager.buildAccessibleUserQuery(user);
+    Object.assign(query, accessibleUserQuery);
+    console.log(accessibleUserQuery)
   } else {
     // 管理员用户，如果指定了teamId则使用
     if (teamId) query.teamId = teamId;
@@ -219,20 +192,20 @@ const getFinances = asyncHandler(async (req, res) => {
   const finances = await Finance.find(query)
     .populate('teamId', 'name')
     .populate('companyAccountId', 'name')
-    .populate('createdBy', 'username loginAccount departmentPath')
-    .populate('updatedBy', 'username loginAccount departmentPath')
-    .populate('approvedBy', 'username loginAccount departmentPath')
+    .populate('createdBy', 'username loginAccount departmentIds')
+    .populate('updatedBy', 'username loginAccount departmentIds')
+    .populate('approvedBy', 'username loginAccount departmentIds')
     .populate('images', 'filename originalName url mimeType size')
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(Number(limit));
 
   const total = await Finance.countDocuments(query);
-  const list  = (finances|| []).map(item => {
+  const list = await Promise.all((finances || []).map(async item => {
     const financeObj = item.toObject();
-    financeObj.isSuperior = isUserSuperiorToCreator(user, financeObj.createdBy);
+    financeObj.isSuperior = await isUserSuperiorToCreator(user, financeObj.createdBy);
     return financeObj;
-  })
+  }));
   res.status(200).json({
     success: true,
     data: list,
@@ -286,7 +259,8 @@ const updateFinance = asyncHandler(async (req, res) => {
   // 如果已审批，需要检查权限
   if (finance.approvalStatus === 'approved') {
     // 检查当前用户是否为记录创建者的上级部门人员
-    if (!isUserSuperiorToCreator(req.user, finance.createdBy)) {
+    const hasPermission = await isUserSuperiorToCreator(req.user, finance.createdBy);
+    if (!hasPermission) {
       return res.status(403).json({
         success: false,
         message: '已审批的记录只能由上级部门人员修改'
@@ -428,7 +402,8 @@ const deleteFinance = asyncHandler(async (req, res) => {
   // 如果已审批，需要检查权限
   if (finance.approvalStatus === 'approved') {
     // 检查当前用户是否为记录创建者的上级部门人员
-    if (!isUserSuperiorToCreator(req.user, finance.createdBy)) {
+    const hasPermission = await isUserSuperiorToCreator(req.user, finance.createdBy);
+    if (!hasPermission) {
       return res.status(403).json({
         success: false,
         message: '已审批的记录只能由上级部门人员删除'
@@ -755,7 +730,8 @@ const batchDeleteFinance = asyncHandler(async (req, res) => {
 
   // 验证用户是否有权限删除已审批的记录
   for (const record of approvedRecords) {
-    if (!isUserSuperiorToCreator(req.user, record.createdBy)) {
+    const hasPermission = await isUserSuperiorToCreator(req.user, record.createdBy);
+    if (!hasPermission) {
       return res.status(403).json({
         success: false,
         message: `记录 "${record.name}" 已审批，只能由上级部门人员删除`

@@ -1,7 +1,9 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Role = require('../models/Role');
+const Department = require('../models/Department');
 const { asyncHandler } = require('../middleware/error');
+const DepartmentPermissionManager = require('../utils/departmentPermission');
 
 // 生成JWT令牌
 const generateToken = (id) => {
@@ -10,13 +12,12 @@ const generateToken = (id) => {
   });
 };
 
-
 // @desc    用户登录
 // @route   POST /api/auth/login
 // @access  Public
 const login = asyncHandler(async (req, res) => {
   const { loginAccount, loginPassword } = req.body;
-  // 验证输入
+
   if (!loginAccount || !loginPassword) {
     let message = '请输入登录账号名和密码';
     if (!loginAccount && !loginPassword) {
@@ -33,7 +34,6 @@ const login = asyncHandler(async (req, res) => {
     });
   }
 
-  // 验证登录账号格式
   if (loginAccount.length < 3) {
     return res.status(400).json({
       success: false,
@@ -48,7 +48,6 @@ const login = asyncHandler(async (req, res) => {
     });
   }
 
-  // 验证密码格式
   if (loginPassword.length < 6) {
     return res.status(400).json({
       success: false,
@@ -56,10 +55,10 @@ const login = asyncHandler(async (req, res) => {
     });
   }
 
-  // 查找用户
   const user = await User.findOne({ loginAccount })
     .select('+loginPassword')
-    .populate('rolePermission');
+    .populate('rolePermission')
+    .populate('departmentIds');
 
   if (!user) {
     return res.status(401).json({
@@ -68,7 +67,6 @@ const login = asyncHandler(async (req, res) => {
     });
   }
 
-  // 检查账户状态
   if (!user.isActive) {
     return res.status(401).json({
       success: false,
@@ -76,7 +74,6 @@ const login = asyncHandler(async (req, res) => {
     });
   }
 
-  // 验证密码
   const isMatch = await user.matchPassword(loginPassword);
 
   if (!isMatch) {
@@ -86,7 +83,6 @@ const login = asyncHandler(async (req, res) => {
     });
   }
 
-  // 生成token
   const token = generateToken(user._id);
 
   res.json({
@@ -99,19 +95,18 @@ const login = asyncHandler(async (req, res) => {
   });
 });
 
-// @desc    创建用户（管理员）
+// @desc    创建用户
 // @route   POST /api/users
 // @access  Private/Admin
 const createUser = asyncHandler(async (req, res) => {
-  const { username, loginAccount, loginPassword, remark, rolePermission, departmentPath } = req.body;
-  const user = req.user;
-  // 检查必填字段并提供具体的错误信息
+  const { username, loginAccount, loginPassword, remark, rolePermission, departmentIds = [] } = req.body;
+
   const missingFields = [];
   if (!username) missingFields.push('员工姓名');
   if (!loginAccount) missingFields.push('登录账号');
   if (!loginPassword) missingFields.push('登录密码');
   if (!rolePermission) missingFields.push('员工角色');
-  if (!departmentPath) missingFields.push('所属部门');
+  if (!departmentIds.length) missingFields.push('所属部门');
 
   if (missingFields.length > 0) {
     return res.status(400).json({
@@ -121,31 +116,17 @@ const createUser = asyncHandler(async (req, res) => {
   }
 
   // 验证字段格式
-  if (username.length < 2) {
+  if (username.length < 2 || username.length > 50) {
     return res.status(400).json({
       success: false,
-      message: '员工姓名至少2个字符'
+      message: '员工姓名长度应在2-50个字符之间'
     });
   }
 
-  if (username.length > 50) {
+  if (loginAccount.length < 3 || loginAccount.length > 30) {
     return res.status(400).json({
       success: false,
-      message: '员工姓名最多50个字符'
-    });
-  }
-
-  if (loginAccount.length < 3) {
-    return res.status(400).json({
-      success: false,
-      message: '登录账号至少3个字符'
-    });
-  }
-
-  if (loginAccount.length > 30) {
-    return res.status(400).json({
-      success: false,
-      message: '登录账号最多30个字符'
+      message: '登录账号长度应在3-30个字符之间'
     });
   }
 
@@ -164,11 +145,8 @@ const createUser = asyncHandler(async (req, res) => {
   }
 
   // 检查用户名和登录账号是否已存在
-  const existingUser = await User.findOne({ 
-    $or: [
-      { username },
-      { loginAccount }
-    ]
+  const existingUser = await User.findOne({
+    $or: [{ username }, { loginAccount }]
   });
 
   if (existingUser) {
@@ -179,43 +157,51 @@ const createUser = asyncHandler(async (req, res) => {
     });
   }
 
-  // 验证角色是否存在（如果提供了角色ID）
-  let roleId = null;
-  if (rolePermission) {
-    const role = await Role.findById(rolePermission);
-    if (!role) {
+  // 验证角色是否存在
+  const role = await Role.findById(rolePermission);
+  if (!role) {
+    return res.status(400).json({
+      success: false,
+      message: '指定的角色不存在'
+    });
+  }
+
+  // 验证部门ID是否存在
+  const validDepartmentIds = [];
+  for (const departmentId of departmentIds) {
+    const department = await Department.findById(departmentId);
+    if (!department) {
       return res.status(400).json({
         success: false,
-        message: '指定的角色不存在'
+        message: `部门ID ${departmentId} 不存在`
       });
     }
-    roleId = role._id;
+    validDepartmentIds.push(departmentId);
   }
 
   try {
-    // 创建用户
     const user = await User.create({
       username,
       loginAccount,
       loginPassword,
       remark: remark || '',
-      rolePermission: roleId,
-      departmentPath: departmentPath || '',
-      isActive: true, // 新创建的用户默认为活跃状态
-      isAdmin: false // 新创建的用户默认不是管理员
+      rolePermission,
+      departmentIds: validDepartmentIds,
+      isActive: true,
+      isAdmin: false
     });
 
-    // 获取带有角色信息的用户数据
-    const userWithRole = await User.findById(user._id);
+    const userWithDetails = await User.findById(user._id)
+      .populate('rolePermission')
+      .populate('departmentIds');
 
     res.status(201).json({
       success: true,
       message: '用户创建成功',
-      data: userWithRole
+      data: userWithDetails
     });
 
   } catch (error) {
-    // 处理数据库验证错误
     if (error.name === 'ValidationError') {
       const errors = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({
@@ -224,89 +210,52 @@ const createUser = asyncHandler(async (req, res) => {
         errors
       });
     }
-    
     throw error;
   }
 });
 
-// @desc    获取所有用户（管理员）
+// @desc    获取所有用户
 // @route   GET /api/users
 // @access  Private/Admin
 const getUsers = asyncHandler(async (req, res) => {
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 10;
   const search = req.query.search || '';
-  const loginAccount = req.query.loginAccount || '';
-  const departmentPath = req.query.departmentPath || '';
+  const departmentId = req.query.departmentId || '';
   const role = req.query.role || '';
   const sortBy = req.query.sortBy || 'createdAt';
   const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
   const user = req.user;
 
-  // 构建查询条件
   let query = {
     _id: { $ne: user.id },
     isAdmin: false
   };
 
-  // 构建搜索条件
-  const searchConditions = [];
+  // 按部门筛选
+  if (departmentId) {
+    query.departmentIds = departmentId;
+  }
 
+  const searchConditions = [];
   if (search) {
     searchConditions.push(
       { username: { $regex: search, $options: 'i' } },
       { loginAccount: { $regex: search, $options: 'i' } },
-      { remark: { $regex: search, $options: 'i' } },
-      { departmentPath: { $regex: search, $options: 'i' } }
+      { remark: { $regex: search, $options: 'i' } }
     );
-  }
-
-  // 单独的搜索条件
-  if (loginAccount) {
-    query.loginAccount = { $regex: loginAccount, $options: 'i' };
-  }
-
-  if (departmentPath) {
-    query.departmentPath = { $regex: departmentPath, $options: 'i' };
   }
 
   if (searchConditions.length > 0) {
     query.$or = searchConditions;
   }
 
-  // 非管理员用户，只能查看后代部门的员工和无部门员工（不包括自己部门）
+  // 非管理员用户权限过滤
   if (!user.isAdmin) {
-    const departmentPath = (user.departmentPath || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-    // 构建部门权限查询条件
-    const departmentConditions = [];
-
-    if (departmentPath) {
-      // 可以查看后代部门的员工
-      departmentConditions.push({
-        departmentPath: { $regex: `^${departmentPath}->` } // 匹配所有后代部门
-      });
-    }
-
-    // 总是可以查看无部门的员工
-    departmentConditions.push(
-      { departmentPath: '' },
-      { departmentPath: { $exists: false } }
-    );
-
-    // 如果已经有搜索条件，需要合并
-    if (query.$or && query.$or.length > 0) {
-      // 将部门权限条件与搜索条件结合
-      query.$and = [
-        { $or: query.$or }, // 搜索条件
-        { $or: departmentConditions } // 部门权限条件
-      ];
-      delete query.$or;
-    } else {
-      // 没有搜索条件，直接使用部门权限条件
-      query.$or = departmentConditions;
-    }
+    const accessibleUserIds = await DepartmentPermissionManager.getAccessibleUserIds(user);
+    query._id = { $in: accessibleUserIds, $ne: user._id };
   }
+
   if (role) {
     query.rolePermission = role;
   }
@@ -316,11 +265,11 @@ const getUsers = asyncHandler(async (req, res) => {
 
   const users = await User.find(query)
     .populate('rolePermission')
+    .populate('departmentIds')
     .sort({ [sortBy]: sortOrder })
     .limit(limit)
     .skip(startIndex);
 
-  // 分页信息
   const pagination = {
     currentPage: page,
     totalPages: Math.ceil(total / limit),
@@ -341,7 +290,9 @@ const getUsers = asyncHandler(async (req, res) => {
 // @route   GET /api/users/me
 // @access  Private
 const getMe = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user.id).populate('rolePermission');
+  const user = await User.findById(req.user.id)
+    .populate('rolePermission')
+    .populate('departmentIds');
 
   res.json({
     success: true,
@@ -355,11 +306,9 @@ const getMe = asyncHandler(async (req, res) => {
 const updateMe = asyncHandler(async (req, res) => {
   const fieldsToUpdate = {
     username: req.body.username,
-    remark: req.body.remark,
-    departmentPath: req.body.departmentPath
+    remark: req.body.remark
   };
 
-  // 移除空值
   Object.keys(fieldsToUpdate).forEach(key => {
     if (fieldsToUpdate[key] === undefined) {
       delete fieldsToUpdate[key];
@@ -373,7 +322,8 @@ const updateMe = asyncHandler(async (req, res) => {
       new: true,
       runValidators: true
     }
-  );
+  ).populate('rolePermission')
+   .populate('departmentIds');
 
   res.json({
     success: true,
@@ -395,10 +345,8 @@ const updatePassword = asyncHandler(async (req, res) => {
     });
   }
 
-  // 获取用户（包含密码字段）
   const user = await User.findById(req.user.id).select('+loginPassword');
 
-  // 验证当前密码
   const isMatch = await user.matchPassword(currentPassword);
 
   if (!isMatch) {
@@ -408,11 +356,9 @@ const updatePassword = asyncHandler(async (req, res) => {
     });
   }
 
-  // 更新密码
   user.loginPassword = newPassword;
   await user.save();
 
-  // 生成新token
   const token = generateToken(user._id);
 
   res.json({
@@ -426,7 +372,9 @@ const updatePassword = asyncHandler(async (req, res) => {
 // @route   GET /api/users/:id
 // @access  Private
 const getUser = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.params.id).populate('rolePermission');
+  const user = await User.findById(req.params.id)
+    .populate('rolePermission')
+    .populate('departmentIds');
 
   if (!user) {
     return res.status(404).json({
@@ -441,16 +389,17 @@ const getUser = asyncHandler(async (req, res) => {
   });
 });
 
-// @desc    更新用户（管理员）
+// @desc    更新用户
 // @route   PUT /api/users/:id
 // @access  Private/Admin
 const updateUser = asyncHandler(async (req, res) => {
+  const { departmentIds = [] } = req.body;
+
   const fieldsToUpdate = {
     username: req.body.username,
     loginAccount: req.body.loginAccount,
     remark: req.body.remark,
     rolePermission: req.body.rolePermission,
-    departmentPath: req.body.departmentPath,
     isActive: req.body.isActive,
     isAdmin: req.body.isAdmin
   };
@@ -466,13 +415,25 @@ const updateUser = asyncHandler(async (req, res) => {
     }
   }
 
-  // 移除空值
+  // 验证部门ID是否存在
+  if (departmentIds.length > 0) {
+    for (const departmentId of departmentIds) {
+      const department = await Department.findById(departmentId);
+      if (!department) {
+        return res.status(400).json({
+          success: false,
+          message: `部门ID ${departmentId} 不存在`
+        });
+      }
+    }
+    fieldsToUpdate.departmentIds = departmentIds;
+  }
+
   Object.keys(fieldsToUpdate).forEach(key => {
     if (fieldsToUpdate[key] === undefined) {
       delete fieldsToUpdate[key];
     }
   });
-  fieldsToUpdate.departmentPath = req.body.departmentPath || '';
 
   const user = await User.findByIdAndUpdate(
     req.params.id,
@@ -481,7 +442,8 @@ const updateUser = asyncHandler(async (req, res) => {
       new: true,
       runValidators: true
     }
-  ).populate('rolePermission');
+  ).populate('rolePermission')
+   .populate('departmentIds');
 
   if (!user) {
     return res.status(404).json({
@@ -497,20 +459,19 @@ const updateUser = asyncHandler(async (req, res) => {
   });
 });
 
-// @desc    删除用户（管理员）
+// @desc    删除用户
 // @route   DELETE /api/users/:id
 // @access  Private/Admin
 const deleteUser = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  
-  // 验证 ObjectId 格式
+
   if (!id || !id.match(/^[0-9a-fA-F]{24}$/)) {
     return res.status(400).json({
       success: false,
       message: '无效的用户ID格式'
     });
   }
-  
+
   const user = await User.findById(id);
   if (!user) {
     return res.status(404).json({
@@ -519,7 +480,6 @@ const deleteUser = asyncHandler(async (req, res) => {
     });
   }
 
-  // 防止删除管理员账户
   if (user.isAdmin && req.user.id === user.id) {
     return res.status(400).json({
       success: false,
@@ -535,7 +495,7 @@ const deleteUser = asyncHandler(async (req, res) => {
   });
 });
 
-// @desc    获取用户统计信息（管理员）
+// @desc    获取用户统计信息
 // @route   GET /api/users/stats
 // @access  Private/Admin
 const getUserStats = asyncHandler(async (req, res) => {
@@ -544,14 +504,12 @@ const getUserStats = asyncHandler(async (req, res) => {
   const adminUsers = await User.countDocuments({ isAdmin: true });
   const regularUsers = await User.countDocuments({ isAdmin: false });
 
-  // 最近30天注册用户
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const recentUsers = await User.countDocuments({
     createdAt: { $gte: thirtyDaysAgo }
   });
 
-  // 按角色权限统计
   const roleStats = await User.aggregate([
     {
       $lookup: {
@@ -595,10 +553,8 @@ const getUserStats = asyncHandler(async (req, res) => {
 // @route   PUT /api/users/add-to-department
 // @access  Private/Admin
 const addUserToDepartment = asyncHandler(async (req, res) => {
-  const { userIds, departmentPath } = req.body;
-  const currentUser = req.user;
+  const { userIds, departmentId } = req.body;
 
-  // 验证输入
   if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
     return res.status(400).json({
       success: false,
@@ -606,29 +562,30 @@ const addUserToDepartment = asyncHandler(async (req, res) => {
     });
   }
 
-  if (!departmentPath || typeof departmentPath !== 'string') {
+  if (!departmentId) {
     return res.status(400).json({
       success: false,
-      message: '请提供有效的部门路径'
+      message: '请提供有效的部门ID'
     });
   }
 
-  // 验证部门路径格式（根据规范要求A->B->C格式）
-  if (departmentPath.trim() === '') {
+  // 验证部门是否存在
+  const department = await Department.findById(departmentId);
+  if (!department) {
     return res.status(400).json({
       success: false,
-      message: '部门路径不能为空'
+      message: '部门不存在'
     });
   }
 
   try {
     // 验证所有用户ID是否存在
     const existingUsers = await User.find({ _id: { $in: userIds } });
-    
+
     if (existingUsers.length !== userIds.length) {
       const foundIds = existingUsers.map(user => user._id.toString());
       const missingIds = userIds.filter(id => !foundIds.includes(id));
-      
+
       return res.status(400).json({
         success: false,
         message: '以下用户ID不存在',
@@ -636,33 +593,31 @@ const addUserToDepartment = asyncHandler(async (req, res) => {
       });
     }
 
-    // 批量更新用户的部门路径
+    // 批量更新用户的部门
     const result = await User.updateMany(
       { _id: { $in: userIds } },
-      { 
-        $set: { 
-          departmentPath: departmentPath.trim(),
-          updatedAt: new Date()
-        } 
+      {
+        $addToSet: { departmentIds: departmentId },
+        $set: { updatedAt: new Date() }
       }
     );
 
     // 获取更新后的用户信息
     const updatedUsers = await User.find({ _id: { $in: userIds } })
-      .populate('rolePermission');
+      .populate('rolePermission')
+      .populate('departmentIds');
 
     res.json({
       success: true,
-      message: `成功将 ${result.modifiedCount} 个用户添加到部门：${departmentPath}`,
+      message: `成功将 ${result.modifiedCount} 个用户添加到部门：${department.departmentName}`,
       data: {
         modifiedCount: result.modifiedCount,
-        departmentPath,
+        department,
         users: updatedUsers
       }
     });
 
   } catch (error) {
-    // 处理数据库验证错误
     if (error.name === 'ValidationError') {
       const errors = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({
@@ -671,43 +626,36 @@ const addUserToDepartment = asyncHandler(async (req, res) => {
         errors
       });
     }
-    
     throw error;
   }
 });
-
 
 // @desc    获取没有部门的用户
 // @route   GET /api/users/getNoDepartmentUser
 // @access  Private
 const getNoDepartmentUser = asyncHandler(async (req, res) => {
   try {
-    // 验证所有用户ID是否存在
-    const userList  = await User.find({ departmentPath: '' }).populate('rolePermission');
+    const userList = await User.find({
+      $or: [
+        { departmentIds: { $exists: false } },
+        { departmentIds: { $size: 0 } }
+      ]
+    }).populate('rolePermission');
 
     res.json({
       success: true,
-      message: `获取成功`,
+      message: '获取成功',
       data: {
         userList
       }
     });
 
   } catch (error) {
-    // 处理数据库验证错误
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({
-        success: false,
-        message: '数据验证失败',
-        errors
-      });
-    }
     throw error;
   }
 });
 
-// @desc    获取所有用户用于汇报人和抄送人选择（除了自己）
+// @desc    获取所有用户用于汇报人和抄送人选择
 // @route   GET /api/users/for-report
 // @access  Private
 const getUsersForReport = asyncHandler(async (req, res) => {
@@ -715,23 +663,25 @@ const getUsersForReport = asyncHandler(async (req, res) => {
   const currentUserId = req.user._id;
 
   try {
-    // 构建查询条件：排除当前用户，只获取活跃用户
     let query = {
       _id: { $ne: currentUserId },
       isActive: true
     };
 
-    // 如果有搜索条件，添加搜索
+    if (!req.user.isAdmin) {
+      const accessibleUserIds = await DepartmentPermissionManager.getAccessibleUserIds(req.user);
+      query._id = { $in: accessibleUserIds.filter(id => !id.equals(currentUserId)) };
+    }
+
     if (search) {
       query.$or = [
         { username: { $regex: search, $options: 'i' } },
-        { loginAccount: { $regex: search, $options: 'i' } },
-        { departmentPath: { $regex: search, $options: 'i' } }
+        { loginAccount: { $regex: search, $options: 'i' } }
       ];
     }
 
     const users = await User.find(query)
-      .select('username loginAccount departmentPath')
+      .select('username loginAccount')
       .sort({ username: 1 })
       .limit(parseInt(limit));
 
@@ -754,8 +704,6 @@ const getUsersForReport = asyncHandler(async (req, res) => {
 // @route   POST /api/users/logout
 // @access  Private
 const logout = asyncHandler(async (req, res) => {
-  // 这里可以实现token黑名单等逻辑
-  // 目前只是返回成功响应，实际的token失效由前端处理
   res.json({
     success: true,
     message: '登出成功'

@@ -1,6 +1,7 @@
 const OperationalProduct = require('../models/OperationalProduct');
 const { asyncHandler } = require('../middleware/error');
 const { precisionCalculate } = require('../utils/precision');
+const DepartmentPermissionManager = require('../utils/departmentPermission');
 
 // 辅助函数：检查用户是否有权限访问运营商品记录
 const checkOperationalProductAccess = async (recordId, user) => {
@@ -21,12 +22,10 @@ const checkOperationalProductAccess = async (recordId, user) => {
     return { hasAccess: false, record: null, error: '无法确定记录创建者' };
   }
 
-  const userDepartmentPath = user.departmentPath || '';
-  const createdByDepartmentPath = createdByUser.departmentPath || '';
+  // 使用新的部门权限管理器检查访问权限
+  const hasPermission = await DepartmentPermissionManager.hasAccessToUser(user, createdByUser);
 
-  // 检查是否是同一部门或子部门
-  if (createdByDepartmentPath === userDepartmentPath || 
-      createdByDepartmentPath.startsWith(userDepartmentPath + '->')) {
+  if (hasPermission) {
     return { hasAccess: true, record, error: null };
   }
 
@@ -212,30 +211,24 @@ const getOperationalProducts = asyncHandler(async (req, res) => {
   // 获取用户有权限访问的用户ID列表（基于部门权限）
   let allowedUserIds = [];
   if (!user.isAdmin) {
-    const userDepartmentPath = user.departmentPath || '';
-    
-    if (userDepartmentPath) {
-      // 转义正则表达式特殊字符
-      const escapedPath = userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      
-      // 获取当前部门及其子部门的用户
+    // 使用新的部门权限管理器获取用户可访问的部门ID列表
+    const allowedDepartmentIds = await DepartmentPermissionManager.getAccessibleDepartmentIds(user);
+
+    if (allowedDepartmentIds && allowedDepartmentIds.length > 0) {
+      // 获取这些部门的用户
       const User = require('../models/User');
       const allowedUsers = await User.find({
-        $or: [
-          {  _id: user.id }, // 当前部门用户
-          { departmentPath: { $regex: `^${escapedPath}->` } }, // 子部门用户
-        ]
+        departmentIds: { $in: allowedDepartmentIds }
       }).select('_id');
-      
-      allowedUserIds = allowedUsers.map(user => user._id);
-    }
-    
-    // 限制只查看有权限的用户创建的记录
-    if (allowedUserIds.length > 0) {
+
+      allowedUserIds = allowedUsers.map(u => u._id);
+      allowedUserIds.push(user._id); // 包括当前用户
+
+      // 限制只查看有权限的用户创建的记录
       query.createdBy = { $in: allowedUserIds };
     } else {
-      // 如果没有权限访问任何用户，返回空结果
-      query.createdBy = { $in: [] };
+      // 没有部门权限的用户只能查看自己创建的记录
+      query.createdBy = user.id;
     }
   }
 
@@ -498,30 +491,25 @@ const getShopNameSuggestions = asyncHandler(async (req, res) => {
   // 构建查询条件（基于用户权限）
   let query = {};
   if (!user.isAdmin) {
-    const userDepartmentPath = user.departmentPath || '';
+    // 使用新的部门权限管理器获取用户可访问的部门ID列表
+    const DepartmentPermissionManager = require('../utils/departmentPermission');
+    const allowedDepartmentIds = await DepartmentPermissionManager.getAccessibleDepartmentIds(user);
 
-    if (userDepartmentPath) {
-      // 转义正则表达式特殊字符
-      const escapedPath = userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-      // 获取当前部门及其子部门的用户
+    if (allowedDepartmentIds && allowedDepartmentIds.length > 0) {
+      // 获取这些部门的用户
       const User = require('../models/User');
       const allowedUsers = await User.find({
-        $or: [
-          { departmentPath: userDepartmentPath }, // 当前部门用户
-          { departmentPath: { $regex: `^${escapedPath}->` } }, // 子部门用户
-        ]
+        departmentIds: { $in: allowedDepartmentIds }
       }).select('_id');
 
-      const allowedUserIds = allowedUsers.map(user => user._id);
+      const allowedUserIds = allowedUsers.map(u => u._id);
+      allowedUserIds.push(user._id); // 包括当前用户
 
       // 限制只查看有权限的用户创建的记录
-      if (allowedUserIds.length > 0) {
-        query.createdBy = { $in: allowedUserIds };
-      } else {
-        // 如果没有权限访问任何用户，返回空结果
-        query.createdBy = { $in: [] };
-      }
+      query.createdBy = { $in: allowedUserIds };
+    } else {
+      // 没有部门权限的用户只能查看自己创建的记录
+      query.createdBy = user.id;
     }
   }
 
@@ -545,30 +533,25 @@ const getPlatformSuggestions = asyncHandler(async (req, res) => {
   // 构建查询条件（基于用户权限）
   let query = {};
   if (!user.isAdmin) {
-    const userDepartmentPath = user.departmentPath || '';
+    // 使用新的部门权限管理器获取用户可访问的部门ID列表
+    const DepartmentPermissionManager = require('../utils/departmentPermission');
+    const allowedDepartmentIds = await DepartmentPermissionManager.getAccessibleDepartmentIds(user);
 
-    if (userDepartmentPath) {
-      // 转义正则表达式特殊字符
-      const escapedPath = userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-      // 获取当前部门及其子部门的用户
+    if (allowedDepartmentIds && allowedDepartmentIds.length > 0) {
+      // 获取这些部门的用户
       const User = require('../models/User');
       const allowedUsers = await User.find({
-        $or: [
-          { departmentPath: userDepartmentPath }, // 当前部门用户
-          { departmentPath: { $regex: `^${escapedPath}->` } }, // 子部门用户
-        ]
+        departmentIds: { $in: allowedDepartmentIds }
       }).select('_id');
 
-      const allowedUserIds = allowedUsers.map(user => user._id);
+      const allowedUserIds = allowedUsers.map(u => u._id);
+      allowedUserIds.push(user._id); // 包括当前用户
 
       // 限制只查看有权限的用户创建的记录
-      if (allowedUserIds.length > 0) {
-        query.createdBy = { $in: allowedUserIds };
-      } else {
-        // 如果没有权限访问任何用户，返回空结果
-        query.createdBy = { $in: [] };
-      }
+      query.createdBy = { $in: allowedUserIds };
+    } else {
+      // 没有部门权限的用户只能查看自己创建的记录
+      query.createdBy = user.id;
     }
   }
 
@@ -592,30 +575,25 @@ const getProductNameSuggestions = asyncHandler(async (req, res) => {
   // 构建查询条件（基于用户权限）
   let query = {};
   if (!user.isAdmin) {
-    const userDepartmentPath = user.departmentPath || '';
+    // 使用新的部门权限管理器获取用户可访问的部门ID列表
+    const DepartmentPermissionManager = require('../utils/departmentPermission');
+    const allowedDepartmentIds = await DepartmentPermissionManager.getAccessibleDepartmentIds(user);
 
-    if (userDepartmentPath) {
-      // 转义正则表达式特殊字符
-      const escapedPath = userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-      // 获取当前部门及其子部门的用户
+    if (allowedDepartmentIds && allowedDepartmentIds.length > 0) {
+      // 获取这些部门的用户
       const User = require('../models/User');
       const allowedUsers = await User.find({
-        $or: [
-          { departmentPath: userDepartmentPath }, // 当前部门用户
-          { departmentPath: { $regex: `^${escapedPath}->` } }, // 子部门用户
-        ]
+        departmentIds: { $in: allowedDepartmentIds }
       }).select('_id');
 
-      const allowedUserIds = allowedUsers.map(user => user._id);
+      const allowedUserIds = allowedUsers.map(u => u._id);
+      allowedUserIds.push(user._id); // 包括当前用户
 
       // 限制只查看有权限的用户创建的记录
-      if (allowedUserIds.length > 0) {
-        query.createdBy = { $in: allowedUserIds };
-      } else {
-        // 如果没有权限访问任何用户，返回空结果
-        query.createdBy = { $in: [] };
-      }
+      query.createdBy = { $in: allowedUserIds };
+    } else {
+      // 没有部门权限的用户只能查看自己创建的记录
+      query.createdBy = user.id;
     }
   }
 
@@ -639,19 +617,19 @@ const getTeamSuggestions = asyncHandler(async (req, res) => {
   // 构建查询条件（基于用户权限）
   let query = {};
   if (!user.isAdmin) {
-    const userDepartmentPath = user.departmentPath || '';
+    // 使用新的部门权限管理器获取用户可访问的部门ID列表
+    const DepartmentPermissionManager = require('../utils/departmentPermission');
+    const allowedDepartmentIds = await DepartmentPermissionManager.getAccessibleDepartmentIds(user);
 
-    if (userDepartmentPath) {
-      const escapedPath = userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (allowedDepartmentIds && allowedDepartmentIds.length > 0) {
+      // 获取这些部门的用户
       const User = require('../models/User');
       const allowedUsers = await User.find({
-        $or: [
-          { departmentPath: userDepartmentPath },
-          { departmentPath: { $regex: `^${escapedPath}->` } },
-        ]
+        departmentIds: { $in: allowedDepartmentIds }
       }).select('_id');
 
-      const allowedUserIds = allowedUsers.map(user => user._id);
+      const allowedUserIds = allowedUsers.map(u => u._id);
+      allowedUserIds.push(user._id); // 包括当前用户
       query.createdBy = { $in: allowedUserIds };
     } else {
       query.createdBy = user._id;

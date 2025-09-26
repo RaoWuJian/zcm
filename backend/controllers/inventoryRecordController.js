@@ -1,6 +1,8 @@
 const { asyncHandler } = require('../middleware/error');
 const InventoryRecord = require('../models/InventoryRecord');
 const Inventory = require('../models/Inventory');
+const DepartmentPermissionManager = require('../utils/departmentPermission');
+const User = require('../models/User');
 
 // @desc    获取库存操作记录
 // @route   GET /api/inventory-records
@@ -28,32 +30,24 @@ const getInventoryRecords = asyncHandler(async (req, res) => {
 
   // 根据用户部门权限过滤数据
   if (!user.isAdmin) {
-    const userDepartmentPath = user.departmentPath || '';
+    // 使用新的部门权限管理器获取用户可访问的部门ID列表
+   
+    const allowedDepartmentIds = await DepartmentPermissionManager.getAccessibleDepartmentIds(user);
 
-    if (userDepartmentPath) {
-      // 转义正则表达式特殊字符
-      const escapedPath = userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-      // 获取当前部门及其子部门的用户
-      const User = require('../models/User');
+    if (allowedDepartmentIds && allowedDepartmentIds.length > 0) {
+      // 获取这些部门的用户
+     
       const allowedUsers = await User.find({
-        $or: [
-          { departmentPath: userDepartmentPath }, // 当前部门用户
-          { departmentPath: { $regex: `^${escapedPath}->` } }, // 子部门用户
-        ]
+        departmentIds: { $in: allowedDepartmentIds }
       }).select('_id');
 
-      const allowedUserIds = allowedUsers.map(user => user._id);
+      const allowedUserIds = allowedUsers.map(u => u._id);
+      allowedUserIds.push(user._id); // 包括当前用户
 
       // 限制只查看有权限的用户操作的记录
-      if (allowedUserIds.length > 0) {
-        query.operatedBy = { $in: allowedUserIds };
-      } else {
-        // 如果没有权限访问任何用户，返回空结果
-        query.operatedBy = { $in: [] };
-      }
+      query.operatedBy = { $in: allowedUserIds };
     } else {
-      // 没有部门的用户只能查看自己操作的记录
+      // 没有部门权限的用户只能查看自己操作的记录
       query.operatedBy = user.id;
     }
   }
@@ -136,7 +130,7 @@ const getInventoryRecordsByInventoryId = asyncHandler(async (req, res) => {
 
   // 检查库存记录是否存在
   const inventory = await Inventory.findById(inventoryId)
-    .populate('createdBy', 'username loginAccount departmentPath');
+    .populate('createdBy', 'username loginAccount');
 
   if (!inventory) {
     return res.status(404).json({
@@ -147,21 +141,15 @@ const getInventoryRecordsByInventoryId = asyncHandler(async (req, res) => {
 
   // 检查用户是否有权限查看此库存记录
   if (!user.isAdmin) {
-    const userDepartmentPath = user.departmentPath || '';
     const createdBy = inventory.createdBy;
 
     // 检查是否是用户自己创建的记录
     if (createdBy._id.toString() !== user.id) {
-      // 如果不是自己创建的，检查是否是下属部门用户创建的
-      if (userDepartmentPath && createdBy.departmentPath) {
-        const isSubordinate = createdBy.departmentPath.startsWith(userDepartmentPath + '->');
-        if (!isSubordinate) {
-          return res.status(403).json({
-            success: false,
-            message: '没有权限查看此库存记录的操作记录'
-          });
-        }
-      } else {
+      // 使用新的部门权限管理器检查访问权限
+      const DepartmentPermissionManager = require('../utils/departmentPermission');
+      const hasPermission = await DepartmentPermissionManager.hasAccessToUser(user, createdBy);
+
+      if (!hasPermission) {
         return res.status(403).json({
           success: false,
           message: '没有权限查看此库存记录的操作记录'
@@ -258,32 +246,24 @@ const getInventoryStats = asyncHandler(async (req, res) => {
 
   // 根据用户部门权限过滤数据
   if (!user.isAdmin) {
-    const userDepartmentPath = user.departmentPath || '';
+    // 使用新的部门权限管理器获取用户可访问的部门ID列表
+    const DepartmentPermissionManager = require('../utils/departmentPermission');
+    const allowedDepartmentIds = await DepartmentPermissionManager.getAccessibleDepartmentIds(user);
 
-    if (userDepartmentPath) {
-      // 转义正则表达式特殊字符
-      const escapedPath = userDepartmentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-      // 获取当前部门及其子部门的用户
+    if (allowedDepartmentIds && allowedDepartmentIds.length > 0) {
+      // 获取这些部门的用户
       const User = require('../models/User');
       const allowedUsers = await User.find({
-        $or: [
-          { departmentPath: userDepartmentPath }, // 当前部门用户
-          { departmentPath: { $regex: `^${escapedPath}->` } }, // 子部门用户
-        ]
+        departmentIds: { $in: allowedDepartmentIds }
       }).select('_id');
 
       const allowedUserIds = allowedUsers.map(u => u._id);
+      allowedUserIds.push(user._id); // 包括当前用户
 
       // 限制只查看有权限的用户创建的库存记录
-      if (allowedUserIds.length > 0) {
-        query.createdBy = { $in: allowedUserIds };
-      } else {
-        // 如果没有权限访问任何用户，返回空结果
-        query.createdBy = { $in: [] };
-      }
+      query.createdBy = { $in: allowedUserIds };
     } else {
-      // 如果用户没有部门信息，只能查看自己创建的记录
+      // 没有部门权限的用户只能查看自己创建的记录
       query.createdBy = user.id;
     }
   }

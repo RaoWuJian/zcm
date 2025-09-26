@@ -109,13 +109,6 @@ const roleSchema = new mongoose.Schema({
     required: [true, '创建人不能为空']
   },
 
-  createdByDepartmentPath: {
-    type: String,
-    trim: true,
-    maxlength: [100, '创建人部门路径最多100个字符'],
-    default: ''
-  },
-
   createdAt: {
     type: Date,
     default: Date.now

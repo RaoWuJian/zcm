@@ -160,7 +160,7 @@ async function main() {
       isActive: true,
       isAdmin: true,
       rolePermission: superAdminRole._id,
-      departmentPath: ''
+      departmentIds: []
     });
 
     colorLog('green', '默认管理员用户创建成功!');

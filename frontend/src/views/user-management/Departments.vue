@@ -183,7 +183,7 @@
               <el-table-column label="部门" width="120">
                 <template #default="{ row }">
                   <div>
-                     {{ row.departmentPath || "无"}}
+                     {{ getDepartmentNameFromIds(row.departmentIds) || "无"}}
                   </div>
                 </template>
               </el-table-column>
@@ -337,7 +337,7 @@
             </el-table-column>
             <el-table-column label="当前部门" width="120">
               <template #default="{ row }">
-                <el-tag size="small" type="info">{{ row.departmentPath || '未分配' }}</el-tag>
+                <el-tag size="small" type="info">{{ getDepartmentNameFromIds(row.departmentIds) || '未分配' }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column label="角色" width="100">
@@ -423,7 +423,7 @@ const companyNode = {
   createTime: new Date().toISOString(),
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
-  departmentPath: '招财猫',
+  departmentIds: ['-1'], // 使用departmentIds数组
   level: 0,
   isActive: true,
   children: [] // 子部门将通过API动态填充
@@ -464,31 +464,50 @@ const tableHeight = computed(() => {
   return 'calc(100vh - 380px)' // 根据页面布局调整
 })
 
-// 过滤后的员工列表（静态过滤）
+// 过滤后的员工列表（使用部门树数据和缓存数据）
 const filteredEmployeeList = computed(() => {
-  let employees = allEmployeesCache.value
-  
-  // 按部门过滤
+  let employees = []
+
+  // 根据选中的部门获取员工数据
   if (selectedDepartment.value && selectedDepartment.value.id !== -1) {
-    const departmentPath = selectedDepartment.value.departmentPath || selectedDepartment.value.departmentName
-    if (departmentPath) {
-      // 显示当前部门及其所有子部门的员工
-      employees = employees.filter(emp => {
-        if (!emp.departmentPath) return false
-        // 精确匹配当前部门或者是当前部门的子部门
-        return emp.departmentPath === departmentPath || emp.departmentPath.startsWith(departmentPath + '->')
-      })
+    // 优先使用部门树中的employees数据（如果存在）
+    if (selectedDepartment.value.employees && Array.isArray(selectedDepartment.value.employees)) {
+      employees = selectedDepartment.value.employees
+    } else {
+      // 回退到使用缓存数据进行过滤
+      employees = allEmployeesCache.value
+      const selectedDeptId = selectedDepartment.value._id || selectedDepartment.value.id
+      if (selectedDeptId) {
+        // 显示当前部门的员工（使用departmentIds数组匹配）
+        employees = employees.filter(emp => {
+          // 检查新的departmentIds字段
+          if (emp.departmentIds && Array.isArray(emp.departmentIds) && emp.departmentIds.length > 0) {
+            return emp.departmentIds.includes(selectedDeptId)
+          }
+
+          // 兼容旧的departmentPath字段（作为备选方案）
+          if (emp.departmentPath) {
+            const departmentPath = selectedDepartment.value.departmentPath || selectedDepartment.value.departmentName
+            return emp.departmentPath === departmentPath
+          }
+
+          return false
+        })
+      }
     }
+  } else {
+    // 选中公司节点时，显示所有员工
+    employees = allEmployeesCache.value
   }
-  
+
   // 按搜索关键词过滤
   if (employeeSearchForm.search) {
-    employees = employees.filter(emp => 
-      emp.username.includes(employeeSearchForm.search) || 
+    employees = employees.filter(emp =>
+      emp.username.includes(employeeSearchForm.search) ||
       emp.loginAccount.includes(employeeSearchForm.search)
     )
   }
-  
+
   return employees
 })
 
@@ -655,10 +674,10 @@ const rules = {
 
 // 将扁平的部门数组构建成树形结构
 const buildDepartmentTree = (flatData) => {
-  // 先适配数据格式
+  // 先适配数据格式，保留所有原始数据包括employees
   const adaptedData = flatData.map(dept => ({
-    ...dept,
-    id: dept._id,           // 添加id字段兼容性
+    ...dept,                   // 保留所有原始数据，包括employees
+    id: dept._id,             // 添加id字段兼容性
     name: dept.departmentName, // 添加name字段兼容性
     code: dept.departmentCode, // 添加code字段兼容性
     createTime: dept.createdAt, // 添加createTime字段兼容性
@@ -713,10 +732,10 @@ const buildDepartmentTree = (flatData) => {
 
 // 适配API数据为页面格式（保留原函数用于其他地方）
 const adaptApiDataToPageFormat = (apiData) => {
-  // 如果数据已经是树形结构，直接适配格式
+  // 如果数据已经是树形结构，直接适配格式，保留所有原始数据
   return apiData.map(dept => ({
-    ...dept,
-    id: dept._id,           // 添加id字段兼容性
+    ...dept,                   // 保留所有原始数据，包括employees
+    id: dept._id,             // 添加id字段兼容性
     name: dept.departmentName, // 添加name字段兼容性
     code: dept.departmentCode, // 添加code字段兼容性
     createTime: dept.createdAt, // 添加createTime字段兼容性
@@ -752,32 +771,35 @@ const sortTreeDataDesc = (treeData) => {
 // 获取部门树形数据
 const getDepartmentTree = async () => {
   treeLoading.value = true
-  
+
   try {
-    // 尝试从API获取数据，添加倒序排序参数
+    // 尝试从API获取数据，确保包含员工信息
     const response = await departmentApi.getDepartmentTree({
       isActive: true,
       sortBy: 'createdAt',
-      sortOrder: 'desc'
+      sortOrder: 'desc',
+      includeEmployees: true, // 确保包含员工信息
+      includeChildren: true   // 确保包含下级部门
     })
-    
+
     if (response.success && response.data && Array.isArray(response.data)) {
       // 检查数据是否已经是树形结构（有children字段且不为空）
-      const hasTreeStructure = response.data.some((dept) => 
+      const hasTreeStructure = response.data.some((dept) =>
         dept.children && Array.isArray(dept.children) && dept.children.length > 0
       )
-      
+
       let processedData
-      
+
       if (hasTreeStructure) {
-        // 数据已经是树形结构，对其进行倒序排序
+        // 数据已经是树形结构，对其进行倒序排序，并保留employees信息
         processedData = sortTreeDataDesc(response.data)
       } else {
         // 数据是扁平结构，需要构建树形结构（buildDepartmentTree内部已经包含倒序排序）
+        // 这种情况下，employees信息已经包含在每个部门对象中
         processedData = buildDepartmentTree(response.data)
       }
 
-      // 保存处理后的树形数据
+      // 保存处理后的树形数据（包含employees）
       treeData.value = processedData
       
       // 扁平化所有部门用于上级部门选择器
@@ -801,7 +823,7 @@ const getDepartmentTree = async () => {
           _id: null,
           departmentName: '无（顶级部门）',
           departmentCode: '',
-          departmentPath: '',
+          departmentIds: [],
           level: 0,
           isActive: true,
           createdAt: '',
@@ -950,10 +972,11 @@ const handleAdd = async () => {
     form.parentId = null // null表示顶级部门
   } else {
     // 非管理员：必须在当前用户部门下创建子部门
-    const userDeptPath = userStore.userInfo?.departmentPath
-    if (userDeptPath) {
-      // 查找用户当前部门，设置为默认父部门
-      const userDept = findDepartmentByPath(treeData.value, userDeptPath)
+    const userDeptIds = userStore.userInfo?.departmentIds
+    if (userDeptIds && Array.isArray(userDeptIds) && userDeptIds.length > 0) {
+      // 使用用户的第一个部门作为默认父部门
+      const userDeptId = userDeptIds[0]
+      const userDept = findDepartmentById(treeData.value, userDeptId)
       if (userDept) {
         form.parentId = userDept._id
         parentDepartmentName.value = userDept.departmentName
@@ -961,9 +984,22 @@ const handleAdd = async () => {
         parentDepartmentName.value = '当前用户部门'
       }
     } else {
-      ElMessage.warning('您没有部门信息，无法创建部门，请联系管理员')
-      dialogVisible.value = false
-      return
+      // 兼容旧的departmentPath字段
+      const userDeptPath = userStore.userInfo?.departmentPath
+      if (userDeptPath) {
+        // 查找用户当前部门，设置为默认父部门
+        const userDept = findDepartmentByPath(treeData.value, userDeptPath)
+        if (userDept) {
+          form.parentId = userDept._id
+          parentDepartmentName.value = userDept.departmentName
+        } else {
+          parentDepartmentName.value = '当前用户部门'
+        }
+      } else {
+        ElMessage.warning('您没有部门信息，无法创建部门，请联系管理员')
+        dialogVisible.value = false
+        return
+      }
     }
   }
 }
@@ -1113,6 +1149,37 @@ const findDepartmentByPath = (departments, path) => {
     }
   }
   return null
+}
+
+// 根据部门ID数组获取部门名称
+const getDepartmentNameFromIds = (departmentIds) => {
+  if (!departmentIds || !Array.isArray(departmentIds) || departmentIds.length === 0) {
+    return ''
+  }
+
+  // 扁平化所有部门数据
+  const flattenDepartments = (depts) => {
+    let result = []
+    depts.forEach(dept => {
+      result.push(dept)
+      if (dept.children && dept.children.length > 0) {
+        result.push(...flattenDepartments(dept.children))
+      }
+    })
+    return result
+  }
+
+  const allDepartments = flattenDepartments(treeData.value)
+
+  // 查找对应的部门并返回名称数组
+  const departmentNames = departmentIds
+    .map(id => {
+      const dept = allDepartments.find(d => d._id === id || d.id === id)
+      return dept ? dept.departmentName : null
+    })
+    .filter(name => name !== null)
+
+  return departmentNames.join(', ')
 }
 
 // 提交表单
@@ -1295,10 +1362,9 @@ const handleConfirmAddEmployees = async () => {
   
   try {
     // 这里需要调用API将员工分配到部门
-    // 由于当前API结构不明确，这里使用模拟的方式
     const employeeIds = selectedEmployees.value.map(emp => emp._id)
-    const departmentPath = selectedDepartment.value.departmentPath;
-    if (departmentPath === '') {
+    const departmentId = selectedDepartment.value._id || selectedDepartment.value.id;
+    if (!departmentId) {
        ElMessage.error('请选择部门')
       return
     }
@@ -1306,10 +1372,10 @@ const handleConfirmAddEmployees = async () => {
        ElMessage.error('请选择员工')
       return
     }
-    
+
     await employeeApi.addUserToDepartment({
       userIds: employeeIds,
-      departmentPath: departmentPath
+      departmentIds: [departmentId]
     })
     
     ElMessage.success(`成功为部门"${selectedDepartment.value.departmentName}"添加${selectedEmployees.value.length}名员工`)
@@ -1404,10 +1470,10 @@ const removeEmployeeFromDepartment = async (employeeIds) => {
   removeEmployeeLoading.value = true
   
   try {
-    // 调用移除员工API - 将员工的departmentPath设为空
+    // 调用移除员工API - 将员工的departmentIds设为空数组
     for (const employeeId of employeeIds) {
       await employeeApi.updateEmployee(employeeId, {
-        departmentPath: ''
+        departmentIds: []
       })
     }
     

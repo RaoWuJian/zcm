@@ -7,12 +7,16 @@ const {
   updateTeamAccount,
   deleteTeamAccount,
   rechargeTeamAccount,
-  getTeamAccountRecords
+  getTeamAccountRecords,
+  getAvailableDepartments
 } = require('../controllers/teamAccountController');
 
 const { protect, authorize } = require('../middleware/auth');
 
 router.use(protect);
+
+// 获取可用部门列表（需要放在 /:id 路由之前）
+router.get('/available-departments', getAvailableDepartments);
 
 router.route('/')
   .get(getTeamAccounts)  // 查看团队账户列表不需要特殊权限
