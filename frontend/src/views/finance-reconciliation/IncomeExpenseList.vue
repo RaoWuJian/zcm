@@ -34,10 +34,10 @@
               <el-option label="支出" value="expense" />
             </el-select>
           </el-form-item>
-          <el-form-item label="团队账户" class="search-item">
+          <el-form-item label="公司账户" class="search-item">
             <el-select 
               v-model="searchForm.account" 
-              placeholder="全部账户" 
+              placeholder="全部公司账户" 
               clearable
               class="business-select"
               filterable
@@ -55,10 +55,10 @@
               </el-option>
             </el-select>
           </el-form-item>
-          <el-form-item label="公司账户" class="search-item">
+          <el-form-item label="团队账户" class="search-item">
             <el-select
               v-model="searchForm.companyAccountId"
-              placeholder="全部公司账户"
+              placeholder="全部团队账户"
               clearable
               class="business-select"
             >

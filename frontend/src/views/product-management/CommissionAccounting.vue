@@ -253,6 +253,7 @@
         :data="commissionStore.commissionAccountings"
         v-loading="commissionStore.loading"
         @selection-change="handleSelectionChange"
+        @sort-change="handleSortChange"
         stripe
         border
         style="width: 100%"
@@ -286,7 +287,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="netTransactionData" label="净成交数据" width="120" align="right">
+        <el-table-column prop="netTransactionData" label="净成交数据" width="120" align="right" sortable="custom">
           <template #default="{ row }">
             <span class="price">¥{{ row.netTransactionData?.toFixed(2) || '0.00' }}</span>
           </template>
@@ -297,22 +298,22 @@
             <span class="commission">{{ row.commission?.toFixed(2) || '0.00' }}%</span>
           </template>
         </el-table-column>
-        
-        <el-table-column prop="commissionProfit" label="佣金利润" width="120" align="right">
+
+        <el-table-column prop="commissionProfit" label="佣金利润" width="120" align="right" sortable="custom">
           <template #default="{ row }">
             <span :class="['price', row.commissionProfit >= 0 ? 'profit' : 'loss']">
               ¥{{ row.commissionProfit?.toFixed(2) || '0.00' }}
             </span>
           </template>
         </el-table-column>
-        
-        <el-table-column prop="dailyConsumption" label="今日消耗" width="120" align="right">
+
+        <el-table-column prop="dailyConsumption" label="今日消耗" width="120" align="right" sortable="custom">
           <template #default="{ row }">
             <span class="price">¥{{ row.dailyConsumption?.toFixed(2) || '0.00' }}</span>
           </template>
         </el-table-column>
-        
-        <el-table-column prop="netProfit" label="净利润" width="120" align="right">
+
+        <el-table-column prop="netProfit" label="净利润" width="120" align="right" sortable="custom">
           <template #default="{ row }">
             <span :class="['price', row.netProfit >= 0 ? 'profit' : 'loss']">
               ¥{{ row.netProfit?.toFixed(2) || '0.00' }}
@@ -1599,7 +1600,8 @@ const fetchAccountings = async () => {
   const params = {
     page: currentPage.value,
     limit: pageSize.value,
-    ...searchForm
+    ...searchForm,
+    ...sortParams
   }
 
   // 过滤空值
@@ -1688,9 +1690,25 @@ const handleRefresh = () => {
   fetchAccountings()
 }
 
+// 排序状态
+const sortParams = reactive({
+  sortField: '',
+  sortOrder: ''
+})
+
 // 选择变化
 const handleSelectionChange = (selection) => {
   selectedAccountings.value = selection
+}
+
+// 排序变化处理
+const handleSortChange = ({ prop, order }) => {
+  // 更新排序参数
+  sortParams.sortField = prop || ''
+  sortParams.sortOrder = order === 'ascending' ? 'asc' : order === 'descending' ? 'desc' : ''
+
+  // 重新获取数据
+  fetchAccountings()
 }
 
 // 编辑

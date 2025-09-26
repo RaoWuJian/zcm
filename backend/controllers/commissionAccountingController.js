@@ -190,7 +190,9 @@ const getCommissionAccountings = asyncHandler(async (req, res) => {
     productEndDate,
     minProfit,
     maxProfit,
-    search
+    search,
+    sortField,
+    sortOrder
   } = req.query;
   const user = req.user;
 
@@ -289,10 +291,31 @@ const getCommissionAccountings = asyncHandler(async (req, res) => {
   const limitNum = parseInt(limit, 10);
   const skip = (pageNum - 1) * limitNum;
 
+  // 构建排序条件
+  const buildSortOptions = () => {
+    // 允许排序的字段映射
+    const sortableFields = {
+      'netTransactionData': 'netTransactionData',
+      'commissionProfit': 'commissionProfit',
+      'dailyConsumption': 'dailyConsumption',
+      'netProfit': 'netProfit',
+      'createdAt': 'createdAt',
+      'productTime': 'productTime'
+    };
+
+    if (sortField && sortableFields[sortField]) {
+      const order = sortOrder === 'asc' ? 1 : -1;
+      return { [sortableFields[sortField]]: order };
+    }
+
+    // 默认按创建时间倒序排列
+    return { createdAt: -1 };
+  };
+
   const records = await CommissionAccounting.find(query)
     .populate('createdBy', 'username loginAccount')
     .populate('updatedBy', 'username loginAccount')
-    .sort({ createdAt: -1 })
+    .sort(buildSortOptions())
     .skip(skip)
     .limit(limitNum);
 
