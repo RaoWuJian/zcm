@@ -205,31 +205,31 @@
 
           </el-sub-menu>
 
-          <el-sub-menu index="/work-reports" v-if="hasAnyPermission([
-              'dailyDataReport:read',
-              'dailyDataReport:create',
-              'dailyDataReport:update',
-              'dailyDataReport:delete',
-              'dailyDataReport:export'
-            ])">
+          <el-sub-menu index="/work-reports">
             <template #title>
               <el-icon><Document /></el-icon>
               <span>工作报告</span>
             </template>
-            <el-menu-item index="/work-reports/daily-data" v-if="hasAnyPermission([
-              'dailyDataReport:read',
-              'dailyDataReport:create',
-              'dailyDataReport:update',
-              'dailyDataReport:delete'
-            ])">
-              <el-icon><List /></el-icon>
-              <template #title>日数据报表</template>
+            <el-menu-item index="/work-reports/daily-reports">
+              <el-icon><Document /></el-icon>
+              <template #title>日报管理</template>
             </el-menu-item>
-            <el-menu-item index="/work-reports/statistics" v-if="hasAnyPermission([
-              'dailyDataReport:read'
+            <el-menu-item index="/work-reports/report-statistics"v-if="hasAnyPermission([
+              'dailyDataReport:statistic',
             ])">
+              <el-icon><Setting /></el-icon>
+              <template #title>日数据统计</template>
+            </el-menu-item>
+            <el-menu-item index="/work-reports/campaign-categories"v-if="hasAnyPermission([
+              'dailyDataReport:typeSetting',
+            ])">
+              <el-icon><Setting /></el-icon>
+              <template #title>投放分类设置</template>
+            </el-menu-item>
+           
+            <el-menu-item index="/work-reports/promotion-calculator">
               <el-icon><DataAnalysis /></el-icon>
-              <template #title>数据统计</template>
+              <template #title>电商推广计算器</template>
             </el-menu-item>
           </el-sub-menu>
 
@@ -254,6 +254,9 @@
           </div>
           
           <div class="header-right">
+            <!-- 通知中心 -->
+            <NotificationCenter />
+
             <el-dropdown @command="handleCommand">
               <span class="user-dropdown">
                 <el-avatar :size="32">
@@ -283,10 +286,12 @@
 </template>
 
 <script setup >
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
+import { useNotificationStore } from '../stores/notification'
 import { ElMessage } from 'element-plus'
+import NotificationCenter from '@/components/NotificationCenter.vue'
 import {
   Odometer,
   User,
@@ -307,6 +312,7 @@ import hasAnyPermission from '@/utils/checkPermissions'
 
 const router = useRouter()
 const userStore = useUserStore()
+const notificationStore = useNotificationStore()
 
 // 初始化用户信息
 const isCollapsed = computed(() => userStore.isCollapsed)
@@ -316,7 +322,31 @@ const toggleSidebar = () => {
   userStore.toggleSidebar()
 }
 
-const handleCommand = (command) => {
+// 初始化通知系统
+onMounted(async () => {
+  try {
+    // 通知存储已在 main.js 中初始化，这里只需要请求权限
+
+    // 暂时禁用自动清理功能，避免误删通知
+    // notificationStore.cleanupProcessedIds()
+
+    // 请求通知权限
+    await notificationStore.requestNotificationPermission()
+
+    // 显示欢迎消息（只在没有未读通知时显示，避免干扰）
+    if (notificationStore.unreadCount === 0) {
+      notificationStore.addNotification({
+        title: '欢迎回来',
+        message: `您好，${userInfo.value?.username}！系统通知已开启。`,
+        type: 'success'
+      })
+    }
+  } catch (error) {
+    console.error('Failed to initialize notification system:', error)
+  }
+})
+
+const handleCommand = async (command) => {
   switch (command) {
     case 'profile':
       ElMessage.info('个人中心功能待开发')
@@ -325,9 +355,18 @@ const handleCommand = (command) => {
       router.push('/operation-logs')
       break
     case 'logout':
-      userStore.logout()
-      router.push('/login')
-      ElMessage.success('已退出登录')
+      try {
+        // 先执行退出登录
+        await userStore.logout()
+        // 确保状态清除后再跳转
+        await router.push('/login')
+        ElMessage.success('已退出登录')
+      } catch (error) {
+        console.error('退出登录失败:', error)
+        // 即使出错也要跳转到登录页
+        await router.push('/login')
+        ElMessage.success('已退出登录')
+      }
       break
   }
 }
@@ -419,6 +458,7 @@ const handleCommand = (command) => {
 .header-right {
   display: flex;
   align-items: center;
+  gap: 16px;
 }
 
 .user-dropdown {

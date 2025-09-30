@@ -162,6 +162,28 @@
           多选汇总 ({{ selectedRows.length }})
         </el-button>
         <el-button
+          type="success"
+          @click="handleBatchApprove('approved')"
+          :disabled="!canBatchApprove"
+          :icon="Check"
+          class="action-btn success"
+          v-if="hasAnyPermission(['finance:approve','finance:manage'])"
+        >
+          批量通过
+          <span v-if="pendingSelectedRows.length">({{ pendingSelectedRows.length }})</span>
+        </el-button>
+        <el-button
+          type="warning"
+          @click="handleBatchApprove('rejected')"
+          :disabled="!canBatchApprove"
+          :icon="Close"
+          class="action-btn warning"
+          v-if="hasAnyPermission(['finance:approve','finance:manage'])"
+        >
+          批量拒绝
+          <span v-if="pendingSelectedRows.length">({{ pendingSelectedRows.length }})</span>
+        </el-button>
+        <el-button
           type="danger"
           @click="handleBatchDelete"
           :disabled="!selectedRows.length"
@@ -881,7 +903,9 @@ import {
   User,
   TrendCharts,
   Minus,
-  Search
+  Search,
+  Check,
+  Close
 } from '@element-plus/icons-vue'
 import { financeApi, teamAccountApi, fileApi, recordTypeApi } from '@/api/index';
 import hasAnyPermission from '@/utils/checkPermissions'
@@ -1104,6 +1128,19 @@ const deletedImageIds = ref([])
 // 计算属性：小类是否必填
 const isSubCategoryRequired = computed(() => {
   return form.categoryId && subCategories.value.length > 0
+})
+
+// 计算属性：待审批的选中行
+const pendingSelectedRows = computed(() => {
+  return selectedRows.value.filter(row =>
+    row.approvalStatus === 'pending' && row.isSuperior
+  )
+})
+
+// 计算属性：是否可以批量审批
+const canBatchApprove = computed(() => {
+  return pendingSelectedRows.value.length > 0 &&
+         hasAnyPermission(['finance:approve', 'finance:manage'])
 })
 
 // 自定义验证函数：检查小类是否必填
@@ -1654,6 +1691,76 @@ const handleApprove = async (row, status) => {
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error(error?.message || '审批失败')
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+// 批量审批财务记录
+const handleBatchApprove = async (status) => {
+  try {
+    const actionText = status === 'approved' ? '通过' : '拒绝'
+    const pendingRows = pendingSelectedRows.value
+
+    if (pendingRows.length === 0) {
+      ElMessage.warning('没有可审批的记录')
+      return
+    }
+
+    const result = await ElMessageBox.prompt(
+      `确认批量${actionText}选中的 ${pendingRows.length} 条财务记录？`,
+      `批量${actionText}审批`,
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        inputPlaceholder: '请输入审批意见（可选）',
+        inputValidator: () => true // 允许空输入
+      }
+    )
+
+    loading.value = true
+
+    // 批量审批
+    const approvalPromises = pendingRows.map(row =>
+      financeApi.approveRecord(row._id || row.id, {
+        approvalStatus: status,
+        approvalComment: result.value || ''
+      })
+    )
+
+    const results = await Promise.allSettled(approvalPromises)
+
+    // 统计成功和失败的数量
+    const successCount = results.filter(result =>
+      result.status === 'fulfilled' && result.value.success
+    ).length
+    const failCount = results.length - successCount
+
+    if (successCount > 0) {
+      ElMessage.success(`批量${actionText}成功 ${successCount} 条记录${failCount > 0 ? `，失败 ${failCount} 条` : ''}`)
+
+      // 更新本地数据
+      pendingRows.forEach(row => {
+        const index = tableData.value.findIndex(item =>
+          (item._id || item.id) === (row._id || row.id)
+        )
+        if (index !== -1) {
+          tableData.value[index].approvalStatus = status
+        }
+      })
+
+      // 清空选中状态
+      selectedRows.value = []
+
+      // 重新加载数据以确保数据一致性
+      await initData()
+    } else {
+      ElMessage.error(`批量${actionText}失败`)
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error?.message || '批量审批失败')
     }
   } finally {
     loading.value = false

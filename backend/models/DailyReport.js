@@ -1,164 +1,276 @@
 const mongoose = require('mongoose');
 
 const dailyReportSchema = new mongoose.Schema({
-  // 日期
-  date: {
+  // 基本信息
+  reportDate: {
     type: Date,
     required: [true, '日期不能为空'],
     index: true
   },
-
-  // 组别
-  group: {
+  groupName: {
     type: String,
     required: [true, '组别不能为空'],
     trim: true,
-    maxlength: [50, '组别名称最多50个字符'],
-    index: true
+    maxlength: [100, '组别名称最多100个字符']
   },
 
-
-
-  // 投放产品
-  product: {
+  // 产品名称
+  productName: {
     type: String,
-    required: [true, '投放产品不能为空'],
+    required: [true, '产品名称不能为空'],
     trim: true,
-    maxlength: [100, '产品名称最多100个字符'],
+    maxlength: [200, '产品名称最多200个字符'],
     index: true
   },
 
-  // 推广费
+  // 投放分类
+  campaignMainCategory: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'CampaignCategory',
+    required: [true, '投放大类不能为空']
+  },
+  campaignSubCategory: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'CampaignCategory',
+    required: function() {
+      // 如果有子类可选，则必须选择
+      return this.campaignMainCategory && this.campaignSubCategory !== null;
+    }
+  },
+  
+  // 推广数据
   promotionCost: {
     type: Number,
     required: [true, '推广费不能为空'],
     min: [0, '推广费不能为负数'],
-    default: 0
+    validate: {
+      validator: function(v) {
+        return Number.isFinite(v) && v >= 0;
+      },
+      message: '推广费必须是有效的正数'
+    }
   },
-
-  // 总销售额
   totalSalesAmount: {
     type: Number,
     required: [true, '总销售额不能为空'],
     min: [0, '总销售额不能为负数'],
-    default: 0
+    validate: {
+      validator: function(v) {
+        return Number.isFinite(v) && v >= 0;
+      },
+      message: '总销售额必须是有效的正数'
+    }
   },
-
-  // 总销售数
-  totalSalesCount: {
+  totalSalesQuantity: {
     type: Number,
     required: [true, '总销售数不能为空'],
     min: [0, '总销售数不能为负数'],
-    default: 0
+    validate: {
+      validator: function(v) {
+        return Number.isInteger(v) && v >= 0;
+      },
+      message: '总销售数必须是非负整数'
+    }
   },
-
-  // 投放ROI (自动计算)
   roi: {
     type: Number,
-    default: 0,
-    min: [0, 'ROI不能为负数']
+    required: [true, '投放ROI不能为空'],
+    min: [0, 'ROI不能为负数'],
+    validate: {
+      validator: function(v) {
+        return Number.isFinite(v) && v >= 0;
+      },
+      message: 'ROI必须是有效的正数'
+    }
   },
+  
+  // 汇报人（多选）
+  reporters: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  }],
 
-  // 创建者信息（数据录入人）
-  createdBy: {
+
+  
+  // 提交人
+  submitter: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-
-  // 更新者信息
-  updatedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
-
-  // 汇报人（可以审批和删除）
-  reporter: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: [true, '汇报人不能为空']
-  },
-
-  // 抄送人列表（只能查看）
-  ccUsers: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  }],
-
-  // 审批状态
-  approvalStatus: {
+  
+  // 状态
+  status: {
     type: String,
-    enum: ['pending', 'approved', 'rejected'],
-    default: 'pending'
+    enum: ['draft', 'submitted', 'reviewed'],
+    default: 'submitted'
   },
-
-  // 审批人
-  approvedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
-
-  // 审批时间
-  approvedAt: {
-    type: Date
-  },
-
-  // 审批意见
-  approvalComment: {
-    type: String,
-    trim: true,
-    maxlength: [500, '审批意见最多500个字符'],
-    default: ''
-  },
-
-  // 已读状态记录
-  readStatus: [{
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true
-    },
-    readAt: {
-      type: Date,
-      default: Date.now
-    }
-  }],
-
+  
   // 备注
   remark: {
     type: String,
     trim: true,
     maxlength: [500, '备注最多500个字符'],
     default: ''
-  }
+  },
+  
+  // 时间戳
+  createdAt: {
+    type: Date,
+    default: Date.now,
+    index: true
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  },
+
+  // 已读状态管理 - 记录每个汇报人的已读状态
+  readStatus: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    isRead: {
+      type: Boolean,
+      default: false
+    },
+    readAt: {
+      type: Date,
+      default: null
+    }
+  }]
 }, {
   timestamps: true,
-  versionKey: false
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
 });
 
-// 计算ROI的中间件
+// 索引
+dailyReportSchema.index({ reportDate: -1, createdAt: -1 });
+dailyReportSchema.index({ submitter: 1, reportDate: -1 });
+dailyReportSchema.index({ reporters: 1, reportDate: -1 });
+dailyReportSchema.index({ groupName: 1, reportDate: -1 });
+
+// 虚拟字段：计算平均订单价值
+dailyReportSchema.virtual('avgOrderValue').get(function() {
+  if (this.totalSalesQuantity > 0) {
+    return (this.totalSalesAmount / this.totalSalesQuantity).toFixed(2);
+  }
+  return 0;
+});
+
+// 虚拟字段：计算单位获客成本
+dailyReportSchema.virtual('costPerAcquisition').get(function() {
+  if (this.totalSalesQuantity > 0) {
+    return (this.promotionCost / this.totalSalesQuantity).toFixed(2);
+  }
+  return 0;
+});
+
+// 中间件：更新时间
 dailyReportSchema.pre('save', function(next) {
-  // ROI = (总销售额 - 推广费) / 推广费 * 100
-  if (this.promotionCost > 0) {
-    this.roi = ((this.totalSalesAmount - this.promotionCost) / this.promotionCost * 100);
-    // 保留两位小数
-    this.roi = Math.round(this.roi * 100) / 100;
-  } else {
-    this.roi = 0;
+  this.updatedAt = Date.now();
+  next();
+});
+
+// 中间件：验证汇报人不能为空
+dailyReportSchema.pre('save', function(next) {
+  if (!this.reporters || this.reporters.length === 0) {
+    const error = new Error('至少需要选择一个汇报人');
+    error.name = 'ValidationError';
+    return next(error);
   }
   next();
 });
 
-// 实例方法：标记为已读
+// 中间件：初始化阅读状态
+dailyReportSchema.pre('save', function(next) {
+  // 如果是新文档且有汇报人，初始化阅读状态
+  if (this.isNew && this.reporters && this.reporters.length > 0) {
+    this.readStatus = this.reporters.map(reporterId => ({
+      user: reporterId,
+      isRead: false,
+      readAt: null
+    }));
+  }
+
+  // 如果汇报人列表发生变化，更新阅读状态
+  if (this.isModified('reporters') && !this.isNew) {
+    const currentReporters = this.reporters.map(id => id.toString());
+    const existingStatuses = this.readStatus || [];
+
+    // 移除不再是汇报人的用户状态
+    this.readStatus = existingStatuses.filter(status =>
+      currentReporters.includes(status.user.toString())
+    );
+
+    // 为新增的汇报人添加未读状态
+    currentReporters.forEach(reporterId => {
+      const hasStatus = this.readStatus.some(status =>
+        status.user.toString() === reporterId
+      );
+      if (!hasStatus) {
+        this.readStatus.push({
+          user: reporterId,
+          isRead: false,
+          readAt: null
+        });
+      }
+    });
+  }
+
+  next();
+});
+
+// 静态方法：获取日期范围内的报告
+dailyReportSchema.statics.getReportsByDateRange = function(startDate, endDate, options = {}) {
+  const query = {
+    reportDate: {
+      $gte: startDate,
+      $lte: endDate
+    }
+  };
+  
+  if (options.submitter) {
+    query.submitter = options.submitter;
+  }
+  
+  if (options.groupName) {
+    query.groupName = new RegExp(options.groupName, 'i');
+  }
+  
+  return this.find(query)
+    .populate('campaignMainCategory', 'name')
+    .populate('campaignSubCategory', 'name')
+    .populate('reporters', 'username')
+    .populate('submitter', 'username')
+    .sort({ reportDate: -1, createdAt: -1 });
+};
+
+
+
+// 实例方法：检查是否可以编辑
+dailyReportSchema.methods.canEdit = function(userId) {
+  return this.submitter.toString() === userId.toString() && this.status === 'submitted';
+};
+
+// 实例方法：标记用户已读
 dailyReportSchema.methods.markAsRead = function(userId) {
-  // 检查用户是否已经标记为已读
-  const existingRead = this.readStatus.find(status =>
-    status.user.toString() === userId.toString()
+  const userIdStr = userId.toString();
+  const existingStatus = this.readStatus.find(status =>
+    status.user.toString() === userIdStr
   );
 
-  if (!existingRead) {
+  if (existingStatus) {
+    existingStatus.isRead = true;
+    existingStatus.readAt = new Date();
+  } else {
     this.readStatus.push({
       user: userId,
+      isRead: true,
       readAt: new Date()
     });
   }
@@ -167,203 +279,72 @@ dailyReportSchema.methods.markAsRead = function(userId) {
 };
 
 // 实例方法：检查用户是否已读
-dailyReportSchema.methods.isReadBy = function(userId) {
-  return this.readStatus.some(status =>
-    status.user.toString() === userId.toString()
+dailyReportSchema.methods.isReadByUser = function(userId) {
+  const userIdStr = userId.toString();
+  const status = this.readStatus.find(status =>
+    status.user.toString() === userIdStr
   );
+  return status ? status.isRead : false;
 };
 
-// 实例方法：检查用户是否可以删除
-dailyReportSchema.methods.canDeleteBy = function(userId) {
-  // 汇报人可以删除
-  if (this.reporter.toString() === userId.toString()) {
-    return true;
-  }
-
-  // 如果未审批，创建者也可以删除
-  if (this.approvalStatus === 'pending' && this.createdBy.toString() === userId.toString()) {
-    return true;
-  }
-
-  return false;
-};
-
-// 实例方法：检查用户是否可以审批
-dailyReportSchema.methods.canApproveBy = function(userId) {
-  // 只有汇报人可以审批，且状态为待审批
-  return this.reporter.toString() === userId.toString() && this.approvalStatus === 'pending';
-};
-
-// 实例方法：检查用户是否可以编辑
-dailyReportSchema.methods.canEditBy = function(userId) {
-  // 已审批的记录不能编辑
-  if (this.approvalStatus === 'approved') {
-    return false;
-  }
-
-  // 创建者和汇报人可以编辑
-  return this.createdBy.toString() === userId.toString() ||
-         this.reporter.toString() === userId.toString();
-};
-
-// 复合索引，提高查询性能
-dailyReportSchema.index({ date: -1, group: 1 });
-dailyReportSchema.index({ date: -1, name: 1 });
-dailyReportSchema.index({ date: -1, product: 1 });
-dailyReportSchema.index({ createdBy: 1, date: -1 });
-dailyReportSchema.index({ reporter: 1, date: -1 });
-dailyReportSchema.index({ ccUsers: 1, date: -1 });
-dailyReportSchema.index({ approvalStatus: 1, date: -1 });
-
-// 静态方法：获取统计数据
-dailyReportSchema.statics.getStatistics = async function(filter = {}) {
-  const pipeline = [
-    { $match: filter },
-    {
-      $group: {
-        _id: null,
-        totalRecords: { $sum: 1 },
-        totalPromotionCost: { $sum: '$promotionCost' },
-        totalSalesAmount: { $sum: '$totalSalesAmount' },
-        totalSalesCount: { $sum: '$totalSalesCount' },
-        avgROI: { $avg: '$roi' }
-      }
-    }
-  ];
-
-  const result = await this.aggregate(pipeline);
-  return result[0] || {
-    totalRecords: 0,
-    totalPromotionCost: 0,
-    totalSalesAmount: 0,
-    totalSalesCount: 0,
-    avgROI: 0
+// 实例方法：获取已读统计
+dailyReportSchema.methods.getReadStats = function() {
+  const totalReporters = this.reporters.length;
+  const readCount = this.readStatus.filter(status => status.isRead).length;
+  return {
+    totalReporters,
+    readCount,
+    unreadCount: totalReporters - readCount,
+    readPercentage: totalReporters > 0 ? Math.round((readCount / totalReporters) * 100) : 0
   };
 };
 
-// 静态方法：按组别统计
-dailyReportSchema.statics.getGroupStatistics = async function(filter = {}) {
-  const pipeline = [
-    { $match: filter },
-    {
-      $group: {
-        _id: '$group',
-        totalRecords: { $sum: 1 },
-        totalPromotionCost: { $sum: '$promotionCost' },
-        totalSalesAmount: { $sum: '$totalSalesAmount' },
-        totalSalesCount: { $sum: '$totalSalesCount' },
-        avgROI: { $avg: '$roi' }
-      }
-    },
-    { $sort: { totalSalesAmount: -1 } }
-  ];
+// 实例方法：获取详细的已读状态
+dailyReportSchema.methods.getDetailedReadStatus = function() {
+  return this.reporters.map(reporterId => {
+    const reporterIdStr = reporterId.toString();
+    const status = this.readStatus.find(status =>
+      status.user.toString() === reporterIdStr
+    );
 
-  return await this.aggregate(pipeline);
-};
-
-// 静态方法：按日期统计
-dailyReportSchema.statics.getDateStatistics = async function(filter = {}) {
-  const pipeline = [
-    { $match: filter },
-    {
-      $group: {
-        _id: {
-          $dateToString: { format: '%Y-%m-%d', date: '$date' }
-        },
-        totalRecords: { $sum: 1 },
-        totalPromotionCost: { $sum: '$promotionCost' },
-        totalSalesAmount: { $sum: '$totalSalesAmount' },
-        totalSalesCount: { $sum: '$totalSalesCount' },
-        avgROI: { $avg: '$roi' }
-      }
-    },
-    { $sort: { _id: -1 } }
-  ];
-
-  return await this.aggregate(pipeline);
-};
-
-// 静态方法：获取总体统计
-dailyReportSchema.statics.getStatistics = function(filter = {}) {
-  return this.aggregate([
-    { $match: filter },
-    {
-      $group: {
-        _id: null,
-        totalReports: { $sum: 1 },
-        totalPromotionCost: { $sum: '$promotionCost' },
-        totalSalesAmount: { $sum: '$totalSalesAmount' },
-        totalSalesCount: { $sum: '$totalSalesCount' },
-        averageROI: { $avg: '$roi' }
-      }
-    }
-  ]).then(results => results[0] || {
-    totalReports: 0,
-    totalPromotionCost: 0,
-    totalSalesAmount: 0,
-    totalSalesCount: 0,
-    averageROI: 0
+    return {
+      user: reporterId,
+      isRead: status ? status.isRead : false,
+      readAt: status ? status.readAt : null
+    };
   });
 };
 
-// 静态方法：按组别统计
-dailyReportSchema.statics.getGroupStatistics = function(filter = {}) {
-  return this.aggregate([
-    { $match: filter },
-    {
-      $group: {
-        _id: '$group',
-        totalReports: { $sum: 1 },
-        totalPromotionCost: { $sum: '$promotionCost' },
-        totalSalesAmount: { $sum: '$totalSalesAmount' },
-        totalSalesCount: { $sum: '$totalSalesCount' },
-        averageROI: { $avg: '$roi' }
-      }
-    },
-    {
-      $project: {
-        _id: 0,
-        group: '$_id',
-        totalReports: 1,
-        totalPromotionCost: 1,
-        totalSalesAmount: 1,
-        totalSalesCount: 1,
-        averageROI: 1
-      }
-    },
-    { $sort: { totalSalesAmount: -1 } }
-  ]);
+// 实例方法：初始化所有汇报人的已读状态
+dailyReportSchema.methods.initializeReadStatus = function() {
+  this.readStatus = this.reporters.map(reporterId => ({
+    user: reporterId,
+    isRead: false,
+    readAt: null
+  }));
+  return this.save();
 };
 
-// 静态方法：按日期统计
-dailyReportSchema.statics.getDateStatistics = function(filter = {}) {
-  return this.aggregate([
-    { $match: filter },
-    {
-      $group: {
-        _id: {
-          $dateToString: { format: '%Y-%m-%d', date: '$date' }
-        },
-        totalReports: { $sum: 1 },
-        totalPromotionCost: { $sum: '$promotionCost' },
-        totalSalesAmount: { $sum: '$totalSalesAmount' },
-        totalSalesCount: { $sum: '$totalSalesCount' },
-        averageROI: { $avg: '$roi' }
-      }
-    },
-    {
-      $project: {
-        _id: 0,
-        date: '$_id',
-        totalReports: 1,
-        totalPromotionCost: 1,
-        totalSalesAmount: 1,
-        totalSalesCount: 1,
-        averageROI: 1
-      }
-    },
-    { $sort: { date: -1 } }
-  ]);
+// 实例方法：发送通知给汇报人
+dailyReportSchema.methods.sendNotificationToReporters = function() {
+  // 这个方法将在控制器中调用通知系统
+  return {
+    type: 'daily_report',
+    reportId: this._id,
+    submitterName: this.submitter.username,
+    reportDate: this.reportDate,
+    groupName: this.groupName,
+    reporters: this.reporters
+  };
 };
 
 module.exports = mongoose.model('DailyReport', dailyReportSchema);
+
+
+
+
+
+
+
+
+

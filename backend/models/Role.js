@@ -21,10 +21,8 @@ const roleSchema = new mongoose.Schema({
       'user:create',          // 创建员工账号
       'user:update',          // 编辑员工信息
       'user:delete',          // 删除员工账号
-      // 'user:manage',          // 管理员工
 
       // 部门管理权限
-      // 'department:read',          // 查看部门信息
       'department:create',        // 创建部门
       'department:update',        // 编辑部门信息
       'department:delete',        // 删除部门
@@ -35,7 +33,6 @@ const roleSchema = new mongoose.Schema({
       'role:create',         // 创建角色
       'role:update',         // 编辑角色权限
       'role:delete',         // 删除角色
-      // 'role:manage',         // 角色管理
 
       // 商品列表权限
       // 'product:read',        // 查看商品信息
@@ -75,7 +72,6 @@ const roleSchema = new mongoose.Schema({
       'shipment:approve',     // 审批发货记录
 
       // 财务管理权限
-      // 'finance:read',         // 查看财务信息
       'finance:create',       // 创建收支记录
       'finance:update',       // 编辑收支记录
       'finance:delete',       // 删除收支记录
@@ -87,12 +83,13 @@ const roleSchema = new mongoose.Schema({
       'finance:team_create',    // 创建团队账户
       'finance:team_update',    // 编辑团队账户
       'finance:team_delete',    // 删除团队账户
-      // 'finance:team_manage',  // 团队财务管理
 
       // 日数据报表权限
       'dailyDataReport:create',   // 创建日数据报表
       'dailyDataReport:update',   // 编辑日数据报表
       'dailyDataReport:delete',   // 删除日数据报表
+      'dailyDataReport:statistic',// 统计日数据报表
+      'dailyDataReport:typeSetting',//日数据报表投放分类设置
     ]
   }],
 

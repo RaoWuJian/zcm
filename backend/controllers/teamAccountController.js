@@ -121,7 +121,7 @@ const createTeamAccount = asyncHandler(async (req, res) => {
 const getTeamAccounts = asyncHandler(async (req, res) => {
   const {
     page = 1,
-    limit = 10,
+    limit = 100,
     search,
     isActive
   } = req.query;

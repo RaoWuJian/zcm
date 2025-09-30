@@ -151,20 +151,32 @@ const routes = [
         path: 'work-reports',
         name: 'WorkReports',
         component: () => import('../views/work-reports/index.vue'),
-        redirect: '/work-reports/daily-data',
+        redirect: '/work-reports/promotion-calculator',
         meta: { title: '工作报告', icon: 'Document' },
         children: [
           {
-            path: 'daily-data',
-            name: 'DailyDataReports',
-            component: () => import('../views/work-reports/DailyReports.vue'),
-            meta: { title: '日数据报表', icon: 'List' }
+            path: 'promotion-calculator',
+            name: 'PromotionCalculator',
+            component: () => import('../views/work-reports/PromotionCalculator.vue'),
+            meta: { title: '传统电商推广计算器', icon: 'Calculator' }
           },
           {
-            path: 'statistics',
-            name: 'DailyDataStatistics',
-            component: () => import('../views/work-reports/Statistics.vue'),
-            meta: { title: '数据统计', icon: 'DataAnalysis' }
+            path: 'daily-reports',
+            name: 'DailyReports',
+            component: () => import('../views/work-reports/DailyReportList.vue'),
+            meta: { title: '日报管理', icon: 'Document' }
+          },
+          {
+            path: 'report-statistics',
+            name: 'ReportStatistics',
+            component: () => import('../views/work-reports/ReportStatistics.vue'),
+            meta: { title: '汇报统计', icon: 'DataAnalysis' }
+          },
+          {
+            path: 'campaign-categories',
+            name: 'CampaignCategorySettings',
+            component: () => import('../views/work-reports/CampaignCategorySettings.vue'),
+            meta: { title: '投放分类设置', icon: 'Setting' }
           }
         ]
       },
@@ -209,16 +221,21 @@ const router = createRouter({
 router.beforeEach((to, _from, next) => {
   const userStore = useUserStore()
 
-  // 检查用户登录状态和鉴权状态
-  const isAuthenticated = userStore.isLoggedIn && userStore.checkAuthStatus()
+  // 检查用户登录状态
+  const isAuthenticated = userStore.checkAuthStatus()
+
+  console.log(`路由守卫: 访问 ${to.path}, 认证状态: ${isAuthenticated}`)
 
   if (to.meta.requiresAuth && !isAuthenticated) {
     // 需要认证但未登录，跳转到登录页
+    console.log('需要认证但未登录，跳转到登录页')
     next('/login')
   } else if (to.path === '/login' && isAuthenticated) {
     // 已登录用户访问登录页，跳转到仪表盘
+    console.log('已登录用户访问登录页，跳转到仪表盘')
     next('/dashboard')
   } else {
+    console.log('路由守卫通过')
     next()
   }
 })

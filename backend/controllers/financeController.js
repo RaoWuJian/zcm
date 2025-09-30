@@ -148,10 +148,25 @@ const getFinances = asyncHandler(async (req, res) => {
   if (!user.isAdmin) {
     const accessibleUserQuery = await DepartmentPermissionManager.buildAccessibleUserQuery(user);
     Object.assign(query, accessibleUserQuery);
-    console.log(accessibleUserQuery)
+
+    // 非管理员用户也需要支持teamId筛选，但需要确保该团队在用户权限范围内
+    if (teamId) {
+      // 检查用户是否有权限访问指定的团队账户
+      const teamAccount = await TeamAccount.findById(teamId).populate('departmentId');
+      if (teamAccount && teamAccount.departmentId) {
+        const hasAccess = await DepartmentPermissionManager.hasAccessToTeamAccount(user, teamAccount);
+        if (hasAccess) {
+          query.teamId = teamId;
+        } else {
+        }
+      }
+    }
   } else {
     // 管理员用户，如果指定了teamId则使用
-    if (teamId) query.teamId = teamId;
+    if (teamId) {
+      query.teamId = teamId;
+      console.log('管理员用户添加teamId筛选:', teamId);
+    }
   }
 
   // 日期范围查询

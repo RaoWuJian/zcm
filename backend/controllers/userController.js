@@ -681,7 +681,8 @@ const getUsersForReport = asyncHandler(async (req, res) => {
     }
 
     const users = await User.find(query)
-      .select('username loginAccount')
+      .select('username loginAccount departmentIds')
+      .populate('departmentIds', 'departmentName')
       .sort({ username: 1 })
       .limit(parseInt(limit));
 
@@ -700,6 +701,122 @@ const getUsersForReport = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    获取上级部门人员
+// @route   GET /api/users/superiors
+// @access  Private
+const getSuperiorUsers = asyncHandler(async (req, res) => {
+  try {
+    console.log('获取上级用户推荐 - 用户ID:', req.user._id);
+    const currentUser = await User.findById(req.user._id).populate('departmentIds');
+    console.log('当前用户:', currentUser?.username, '部门数量:', currentUser?.departmentIds?.length);
+
+    const superiorUsers = [];
+
+    // 1. 首先添加所有管理员用户（管理员可以作为任何人的汇报人）
+    const adminUsers = await User.find({
+      isAdmin: true,
+      isActive: true,
+      _id: { $ne: currentUser._id } // 排除当前用户自己
+    }).select('username loginAccount');
+
+    superiorUsers.push(...adminUsers.map(user => ({
+      _id: user._id,
+      username: user.username,
+      loginAccount: user.loginAccount,
+      relation: '管理员',
+      departmentName: '系统管理员'
+    })));
+
+    // 2. 如果用户有部门信息，继续查找部门上级
+    if (currentUser && currentUser.departmentIds && currentUser.departmentIds.length > 0) {
+      // 获取当前用户所在的部门
+      for (const department of currentUser.departmentIds) {
+
+        // 获取直属上级部门的人员
+        if (department.parentId) {
+          try {
+            const parentDept = await Department.findById(department.parentId);
+
+            if (parentDept) {
+              const parentUsers = await User.find({
+                departmentIds: parentDept._id,
+                isActive: true,
+                _id: { $ne: currentUser._id } // 排除当前用户自己
+              }).select('username loginAccount departmentIds');
+
+              superiorUsers.push(...parentUsers.map(user => ({
+                _id: user._id,
+                username: user.username,
+                loginAccount: user.loginAccount,
+                relation: '上级部门',
+                departmentName: parentDept.departmentName
+              })));
+
+              // 获取上上级部门的人员
+              if (parentDept.parentId) {
+                try {
+                  const grandParentDept = await Department.findById(parentDept.parentId);
+
+                  if (grandParentDept) {
+                    const grandParentUsers = await User.find({
+                      departmentIds: grandParentDept._id,
+                      isActive: true,
+                      _id: { $ne: currentUser._id } // 排除当前用户自己
+                    }).select('username loginAccount departmentIds');
+
+                    superiorUsers.push(...grandParentUsers.map(user => ({
+                      _id: user._id,
+                      username: user.username,
+                      loginAccount: user.loginAccount,
+                      relation: '上上级部门',
+                      departmentName: grandParentDept.departmentName
+                    })));
+                  }
+                } catch (grandParentError) {
+                  console.error('获取上上级部门失败:', grandParentError);
+                  // 继续处理，不中断整个流程
+                }
+              }
+            }
+          } catch (parentError) {
+            console.error('获取上级部门失败:', parentError);
+            // 继续处理，不中断整个流程
+          }
+        } else {
+          console.log('部门没有上级部门');
+        }
+      }
+    } else {
+      console.log('用户没有部门信息，只返回管理员用户');
+    }
+
+    // 去重并按部门分组
+    const uniqueUsers = [];
+    const userMap = new Map();
+
+    superiorUsers.forEach(user => {
+      const key = user._id.toString();
+      if (!userMap.has(key)) {
+        userMap.set(key, user);
+        uniqueUsers.push(user);
+      }
+    });
+
+    console.log('最终返回的上级用户数量:', uniqueUsers.length);
+    res.json({
+      success: true,
+      data: uniqueUsers
+    });
+
+  } catch (error) {
+    console.error('获取上级人员失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取上级人员失败'
+    });
+  }
+});
+
 // @desc    用户登出
 // @route   POST /api/users/logout
 // @access  Private
@@ -708,6 +825,69 @@ const logout = asyncHandler(async (req, res) => {
     success: true,
     message: '登出成功'
   });
+});
+
+// @desc    获取所有用户用于日报汇报人选择（支持远程搜索）
+// @route   GET /api/users/reporters
+// @access  Private
+const getReporters = asyncHandler(async (req, res) => {
+  const {
+    search = '',
+    limit = 50,
+    isActive = 'true'
+  } = req.query;
+  const user = req.user;
+  // 构建查询条件
+  let query = {
+     _id: { $ne: user.id },
+  };
+
+  // 只获取活跃用户
+  if (isActive === 'true') {
+    query.isActive = true;
+  }
+
+  // 搜索条件
+  if (search) {
+    query.$or = [
+      { username: { $regex: search, $options: 'i' } },
+      { loginAccount: { $regex: search, $options: 'i' } },
+      { remark: { $regex: search, $options: 'i' } }
+    ];
+  }
+
+  try {
+    // 获取用户列表，只返回必要字段
+    const users = await User.find(query)
+      .select('_id username loginAccount remark departmentIds isActive')
+      .populate('departmentIds', 'departmentName')
+      .sort({ username: 1 })
+      .limit(parseInt(limit));
+
+    // 格式化返回数据
+    const formattedUsers = users.map(user => ({
+      _id: user._id,
+      username: user.username,
+      loginAccount: user.loginAccount,
+      remark: user.remark,
+      departmentNames: user.departmentIds?.map(dept => dept.departmentName).join(', ') || '',
+      isActive: user.isActive
+    }));
+
+    res.json({
+      success: true,
+      data: formattedUsers,
+      count: formattedUsers.length,
+      message: search ? `搜索到 ${formattedUsers.length} 个用户` : `获取到 ${formattedUsers.length} 个用户`
+    });
+  } catch (error) {
+    console.error('获取汇报人列表失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取汇报人列表失败',
+      error: error.message
+    });
+  }
 });
 
 module.exports = {
@@ -724,5 +904,7 @@ module.exports = {
   getUserStats,
   addUserToDepartment,
   getNoDepartmentUser,
-  getUsersForReport
+  getUsersForReport,
+  getSuperiorUsers,
+  getReporters
 };

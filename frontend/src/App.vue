@@ -5,12 +5,14 @@
 </template>
 
 <script setup >
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from './stores/user'
+import { useNotificationStore } from './stores/notification'
 
 const router = useRouter()
 const userStore = useUserStore()
+const notificationStore = useNotificationStore()
 
 // 处理认证失败的自定义事件
 const handleAuthLogout = () => {
@@ -18,9 +20,13 @@ const handleAuthLogout = () => {
   router.push('/login')
 }
 
+
 onMounted(() => {
   // 监听认证失败事件
   window.addEventListener('auth-logout', handleAuthLogout)
+  
+  // 请求通知权限
+  notificationStore.requestNotificationPermission()
 })
 
 onUnmounted(() => {

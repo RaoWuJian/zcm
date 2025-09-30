@@ -1,46 +1,80 @@
 const express = require('express');
+const router = express.Router();
 const {
   getDailyReports,
   getDailyReport,
   createDailyReport,
   updateDailyReport,
   deleteDailyReport,
-  batchDeleteDailyReports,
-  markAsRead,
-  approveDailyReport,
-  getStatistics
+  getProductNameSuggestions,
+  getUnreadNotifications,
+  markDailyReportAsRead,
+  getDailyReportReadStatus,
+  getDailyReportStatistics,
+  exportDailyReports
 } = require('../controllers/dailyReportController');
-const { protect, authorize } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 
-const router = express.Router();
+// 获取产品名称建议（需要放在 /:id 路由之前）
+router.get('/suggestions/product-names',
+  protect,
+  getProductNameSuggestions
+);
 
-// 所有路由都需要认证
-router.use(protect);
+// 获取未读通知
+router.get('/notifications/unread',
+  protect,
+  getUnreadNotifications
+);
 
-// 获取统计数据
-router.get('/statistics', getStatistics);
+// 获取日报统计数据
+router.get('/statistics/summary',
+  protect,
+  getDailyReportStatistics
+);
 
-// 导出数据
-router.get('/export', authorize('dailyDataReport:export'), getDailyReports);
+// 导出日报数据
+router.get('/export/data',
+  protect,
+  exportDailyReports
+);
 
-// 批量删除
-router.delete('/batch', authorize('dailyDataReport:delete'), batchDeleteDailyReports);
+// 获取日报列表
+router.get('/',
+  protect,
+  getDailyReports
+);
 
-// 标记为已读
-router.put('/:id/read', markAsRead);
+// 获取单个日报详情
+router.get('/:id',
+  protect,
+  getDailyReport
+);
 
-// 审批（汇报人可以审批，不需要特殊权限）
-router.put('/:id/approve', approveDailyReport);
 
-// 获取日数据报表列表和创建新记录
-router.route('/')
-  .get(getDailyReports)
-  .post(authorize('dailyDataReport:create'), createDailyReport);
 
-// 获取、更新、删除特定记录
-router.route('/:id')
-  .get(getDailyReport)
-  .put(authorize('dailyDataReport:update'), updateDailyReport)
-  .delete(authorize('dailyDataReport:delete'), deleteDailyReport);
+// 创建日报
+router.post('/',
+  protect,
+  createDailyReport
+);
+
+// 更新日报
+router.put('/:id',
+  protect,
+  updateDailyReport
+);
+
+// 删除日报
+router.delete('/:id',
+  protect,
+  deleteDailyReport
+);
+
+// 标记日报为已读
+router.post('/:id/read', protect, markDailyReportAsRead);
+
+// 获取日报已读状态
+router.get('/:id/read-status', protect, getDailyReportReadStatus);
 
 module.exports = router;

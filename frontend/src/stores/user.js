@@ -96,19 +96,42 @@ export const useUserStore = defineStore('user', {
     },
     
     // 登录
-    login(token, userInfo) {
+    async login(token, userInfo) {
       this.token = token
       this.userInfo = userInfo
       localStorage.setItem('token', token)
       localStorage.setItem('userInfo', JSON.stringify(userInfo))
+
+      // 登录成功后初始化WebSocket连接
+      try {
+        const websocketService = (await import('@/services/websocketService')).default
+        await websocketService.initialize()
+        console.log('WebSocket service initialized after login')
+      } catch (error) {
+        console.error('Failed to initialize WebSocket service after login:', error)
+      }
     },
     
     // 退出登录
-    logout() {
+    async logout() {
+      console.log('开始执行退出登录...')
+
+      // 断开WebSocket连接
+      try {
+        const websocketService = (await import('@/services/websocketService')).default
+        websocketService.destroy()
+        console.log('WebSocket service destroyed after logout')
+      } catch (error) {
+        console.error('Error destroying WebSocket service:', error)
+      }
+
+      // 清除状态
       this.token = ''
       this.userInfo = null
       localStorage.removeItem('token')
       localStorage.removeItem('userInfo')
+
+      console.log('退出登录完成，状态已清除')
     },
     
     // 切换侧边栏
@@ -174,17 +197,28 @@ export const useUserStore = defineStore('user', {
       const token = localStorage.getItem('token')
       const userInfo = localStorage.getItem('userInfo')
 
+      console.log('检查认证状态:', { hasToken: !!token, hasUserInfo: !!userInfo })
+
       if (!token || !userInfo) {
-        this.logout()
+        console.log('没有token或用户信息，清除状态')
+        // 直接清除状态，不调用logout避免无限递归
+        this.token = ''
+        this.userInfo = null
         return false
       }
 
       // 检查 token 是否过期
       if (isTokenExpired(token)) {
-        this.logout()
+        console.log('Token已过期，清除状态')
+        // 直接清除状态，不调用logout避免无限递归
+        this.token = ''
+        this.userInfo = null
+        localStorage.removeItem('token')
+        localStorage.removeItem('userInfo')
         return false
       }
 
+      console.log('认证状态有效')
       return true
     }
   }

@@ -13,7 +13,9 @@ const {
   getUserStats,
   addUserToDepartment,
   getNoDepartmentUser,
-  getUsersForReport
+  getUsersForReport,
+  getSuperiorUsers,
+  getReporters
 } = require('../controllers/userController');
 const { protect, authorize, protectOwnerOrAdmin } = require('../middleware/auth');
 const { logOperation, saveOriginalData } = require('../middleware/operationLog');
@@ -87,7 +89,11 @@ router
 router.get('/getNoDepartmentUser', authorize('department:manageEmployee'), getNoDepartmentUser)
 
 // 获取用户列表用于汇报人和抄送人选择
-router.get('/for-report', protect, getUsersForReport)
+router.get('/for-report', getUsersForReport)
+router.get('/superiors', getSuperiorUsers)
+
+// 获取所有用户用于日报汇报人选择（支持远程搜索）
+router.get('/reporters', getReporters)
 
 // 批量添加用户到部门
 router.put('/add-to-department',

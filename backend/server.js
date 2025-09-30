@@ -83,6 +83,8 @@ const inventoryRecordRoutes = require('./routes/inventoryRecords');
 const shipmentRecordRoutes = require('./routes/shipmentRecords');
 const recordTypeRoutes = require('./routes/recordType');
 const dailyReportRoutes = require('./routes/dailyReports');
+const campaignCategoryRoutes = require('./routes/campaignCategories');
+const notificationRoutes = require('./routes/notifications');
 
 // 根路由
 app.get('/', (req, res) => {
@@ -91,23 +93,6 @@ app.get('/', (req, res) => {
     message: '招财猫系统API服务运行中',
     version: '1.0.0',
     timestamp: new Date().toISOString(),
-    endpoints: {
-      users: '/api/users',
-      departments: '/api/departments',
-      finance: '/api/finance',
-      teamAccounts: '/api/team-accounts',
-      products: '/api/products',
-      budget: '/api/budget',
-      commissionAccounting: '/api/commission-accounting',
-      operationalProducts: '/api/operational-products',
-      files: '/api/files',
-      roles: '/api/roles',
-      operationLogs: '/api/operation-logs',
-      inventory: '/api/inventory',
-      inventoryRecords: '/api/inventory-records',
-      shipmentRecords: '/api/shipment-records',
-      dailyDataReports: '/api/daily-data-reports'
-    }
   });
 });
 
@@ -127,7 +112,9 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/inventory-records', inventoryRecordRoutes);
 app.use('/api/shipment-records', shipmentRecordRoutes);
 app.use('/api/record-types', recordTypeRoutes);
-app.use('/api/daily-data-reports', dailyReportRoutes);
+app.use('/api/daily-reports', dailyReportRoutes);
+app.use('/api/campaign-categories', campaignCategoryRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // 健康检查端点
 app.get('/health', (req, res) => {
@@ -146,8 +133,31 @@ app.use(notFound);
 // 全局错误处理中间件 - 必须在最后
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  // 服务器启动成功
+const server = require('http').createServer(app);
+
+// 初始化WebSocket服务
+const websocketService = require('./services/websocketService');
+websocketService.initialize(server);
+
+server.listen(PORT, () => {
+  console.log(`服务器运行在端口 ${PORT}`);
 });
 
-module.exports = app;
+// 优雅关闭
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  websocketService.close();
+  server.close(() => {
+    console.log('Process terminated');
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully');
+  websocketService.close();
+  server.close(() => {
+    console.log('Process terminated');
+  });
+});
+
+module.exports = { app, server, websocketService };

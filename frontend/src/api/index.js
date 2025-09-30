@@ -60,9 +60,19 @@ export const employeeApi = {
     return api.get('/users/getNoDepartmentUser')
   },
 
+  // 获取所有用户用于日报汇报人选择（支持远程搜索）
+  getReporters: (params) => {
+    return api.get('/users/reporters', { params })
+  },
+
   // 获取用户列表用于汇报人和抄送人选择
   getUsersForReport: (params) => {
     return api.get('/users/for-report', { params })
+  },
+
+  // 获取上级部门人员（用于智能推荐汇报人）
+  getSuperiorUsers: () => {
+    return api.get('/users/superiors')
   },
 
   // 批量添加用户到部门
@@ -694,50 +704,124 @@ export const recordTypeApi = {
   }
 }
 
-// 日数据报表API
-export const dailyReportApi = {
-  // 获取日数据报表列表
-  getDailyDataReports: (params) => {
-    return api.get('/daily-data-reports', { params })
+// 投放分类管理API
+export const campaignCategoryApi = {
+  // 获取所有大类及其子类（用于下拉选择）
+  getCategoriesWithChildren: () => {
+    return api.get('/campaign-categories/tree')
   },
 
-  // 获取日数据报表详情
-  getDailyDataReport: (id) => {
-    return api.get(`/daily-data-reports/${id}`)
+  // 获取所有大类
+  getMainCategories: () => {
+    return api.get('/campaign-categories/main')
   },
 
-  // 创建日数据报表
-  createDailyDataReport: (data) => {
-    return api.post('/daily-data-reports', data)
+  // 获取指定大类的子类
+  getSubCategories: (mainCategoryId) => {
+    return api.get(`/campaign-categories/main/${mainCategoryId}/sub`)
   },
 
-  // 更新日数据报表
-  updateDailyDataReport: (id, data) => {
-    return api.put(`/daily-data-reports/${id}`, data)
+  // 获取分类列表（分页管理）
+  getCategories: (params) => {
+    return api.get('/campaign-categories', { params })
   },
 
-  // 删除日数据报表
-  deleteDailyDataReport: (id) => {
-    return api.delete(`/daily-data-reports/${id}`)
+  // 获取单个分类详情
+  getCategory: (id) => {
+    return api.get(`/campaign-categories/categories/${id}`)
   },
 
-  // 批量删除日数据报表
-  batchDeleteDailyDataReports: (ids) => {
-    return api.delete('/daily-data-reports/batch', { data: { ids } })
+  // 创建大类
+  createCategory: (data) => {
+    return api.post('/campaign-categories/categories', data)
   },
 
-  // 标记为已读
-  markAsRead: (id) => {
-    return api.put(`/daily-data-reports/${id}/read`)
+  // 更新大类
+  updateCategory: (id, data) => {
+    return api.put(`/campaign-categories/categories/${id}`, data)
   },
 
-  // 审批日数据报表
-  approveDailyDataReport: (id, data) => {
-    return api.put(`/daily-data-reports/${id}/approve`, data)
+  // 删除大类
+  deleteCategory: (id) => {
+    return api.delete(`/campaign-categories/categories/${id}`)
   },
 
-  // 获取统计数据
-  getStatistics: (params) => {
-    return api.get('/daily-data-reports/statistics', { params })
+  // 添加小类
+  addSubCategory: (categoryId, data) => {
+    return api.post(`/campaign-categories/categories/${categoryId}/subcategories`, data)
+  },
+
+  // 更新小类
+  updateSubCategory: (categoryId, subCategoryId, data) => {
+    return api.put(`/campaign-categories/categories/${categoryId}/subcategories/${subCategoryId}`, data)
+  },
+
+  // 删除小类
+  deleteSubCategory: (categoryId, subCategoryId) => {
+    return api.delete(`/campaign-categories/categories/${categoryId}/subcategories/${subCategoryId}`)
+  },
+
+  // 批量更新排序
+  updateCategoriesOrder: (categories) => {
+    return api.put('/campaign-categories/batch/order', { categories })
   }
 }
+
+// 日报管理API
+export const dailyReportApi = {
+  // 获取日报列表
+  getDailyReports: (params) => {
+    return api.get('/daily-reports', { params })
+  },
+
+  // 获取单个日报详情
+  getDailyReport: (id) => {
+    return api.get(`/daily-reports/${id}`)
+  },
+
+  // 创建日报
+  createDailyReport: (data) => {
+    return api.post('/daily-reports', data)
+  },
+
+  // 更新日报
+  updateDailyReport: (id, data) => {
+    return api.put(`/daily-reports/${id}`, data)
+  },
+
+  // 删除日报
+  deleteDailyReport: (id) => {
+    return api.delete(`/daily-reports/${id}`)
+  },
+
+  // 获取产品名称建议
+  getProductNameSuggestions: () => {
+    return api.get('/daily-reports/suggestions/product-names')
+  },
+
+  // 获取未读通知
+  getUnreadNotifications: () => {
+    return api.get('/daily-reports/notifications/unread')
+  },
+
+  // 标记日报为已读
+  markDailyReportAsRead: (reportId) => {
+    return api.post(`/daily-reports/${reportId}/read`)
+  },
+
+  // 获取日报已读状态
+  getDailyReportReadStatus: (reportId) => {
+    return api.get(`/daily-reports/${reportId}/read-status`)
+  },
+
+  // 获取日报统计数据
+  getDailyReportStatistics: (params) => {
+    return api.get('/daily-reports/statistics/summary', { params })
+  },
+
+  // 导出日报数据
+  exportDailyReports: (params) => {
+    return api.get('/daily-reports/export/data', { params })
+  }
+}
+

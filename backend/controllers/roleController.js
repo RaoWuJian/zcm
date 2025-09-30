@@ -381,12 +381,13 @@ const getAvailablePermissions = asyncHandler(async (req, res) => {
       'finance:team_create',    // 创建团队账户
       'finance:team_update',    // 编辑团队账户
       'finance:team_delete',    // 删除团队账户
-      // 'finance:team_manage',  // 团队财务管理
-
+      
       // 日数据报表权限
       'dailyDataReport:create',   // 创建日数据报表
       'dailyDataReport:update',   // 编辑日数据报表
       'dailyDataReport:delete',   // 删除日数据报表
+      'dailyDataReport:statistic',// 统计日数据报表
+      'dailyDataReport:typeSetting',//日数据报表投放分类设置
   ];
 
   // 权限分类和标签映射
@@ -456,9 +457,12 @@ const getAvailablePermissions = asyncHandler(async (req, res) => {
     'finance:team_delete': { label: '删除团队账户', category: '团队账户' },
 
     // 日数据报表权限
-    'dailyDataReport:create': { label: '创建日数据报表', category: '工作日报' },
-    'dailyDataReport:update': { label: '编辑日数据报表', category: '工作日报' },
-    'dailyDataReport:delete': { label: '删除日数据报表', category: '工作日报' },
+    'dailyDataReport:create': { label: '创建报表', category: '工作报告' },
+    'dailyDataReport:update': { label: '编辑报表', category: '工作报告' },
+    'dailyDataReport:delete': { label: '删除报表', category: '工作报告' },
+    'dailyDataReport:statistic': { label: '统计报表', category: '工作报告' },
+    'dailyDataReport:typeSetting': { label: '投放分类设置', category: '工作报告' },
+
   };
 
   const permissions = permissionEnums.map(key => ({

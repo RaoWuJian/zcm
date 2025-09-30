@@ -226,7 +226,7 @@ const searchForm = reactive({
 // 分页
 const pagination = reactive({
   page: 1,
-  size: 12,
+  size: 10,
   total: 0
 })
 
@@ -268,7 +268,7 @@ const getRoleList = async () => {
     const response = await roleApi.getRoles(params)
     if (response.success && response.data) {
       const roles = response.data.data || response.data.list || response.data
-      const total = response.data.total || response.data.count || roles.length
+      const total = response.pagination.totalRoles || 0
 
       tableData.value = roles
       pagination.total = total
