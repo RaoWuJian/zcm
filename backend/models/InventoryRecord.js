@@ -85,10 +85,19 @@ const inventoryRecordSchema = new mongoose.Schema({
         required: true
     },
 
-    // 操作时间
+    // 操作时间（系统记录时间）
     operatedAt: {
         type: Date,
         default: Date.now
+    },
+
+    // 出库/入库日期（用户指定的业务日期）
+    operationDate: {
+        type: Date,
+        required: function() {
+            // 只有出库和入库操作需要指定日期
+            return this.operationType === 'in' || this.operationType === 'out';
+        }
     },
 
     // 创建时间

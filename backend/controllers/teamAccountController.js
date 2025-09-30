@@ -123,7 +123,9 @@ const getTeamAccounts = asyncHandler(async (req, res) => {
     page = 1,
     limit = 100,
     search,
-    isActive
+    isActive,
+    sortBy = 'createdAt',
+    sortOrder = 'desc'
   } = req.query;
   const user = req.user;
 
@@ -205,11 +207,21 @@ const getTeamAccounts = asyncHandler(async (req, res) => {
 
   const skip = (page - 1) * limit;
 
+  // 构建排序对象
+  const sortObject = {};
+  const validSortFields = ['name', 'amount', 'createdAt', 'updatedAt'];
+
+  if (validSortFields.includes(sortBy)) {
+    sortObject[sortBy] = sortOrder === 'asc' ? 1 : -1;
+  } else {
+    sortObject.createdAt = -1; // 默认按创建时间降序
+  }
+
   const teamAccounts = await TeamAccount.find(finalQuery)
     .populate('departmentId', 'departmentName departmentCode level')
     .populate('createdBy', 'username loginAccount')
     .populate('updatedBy', 'username loginAccount')
-    .sort({ createdAt: -1 })
+    .sort(sortObject)
     .skip(skip)
     .limit(Number(limit));
 

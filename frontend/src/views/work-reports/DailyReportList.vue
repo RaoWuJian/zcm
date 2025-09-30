@@ -15,6 +15,32 @@
     <div class="search-card business-style">
       <el-form :model="filterForm" class="business-search-form">
         <div class="search-fields">
+          <el-form-item label="报告类型" class="search-item">
+            <el-select
+              v-model="filterForm.reportType"
+              placeholder="选择报告类型"
+              clearable
+              class="business-select"
+              @change="handleReportTypeChange"
+            >
+              <el-option label="日报" value="daily" />
+              <el-option label="时段报告" value="hourly" />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="时段" class="search-item" v-if="filterForm.reportType === 'hourly'">
+            <el-select
+              v-model="filterForm.reportHour"
+              placeholder="选择时段"
+              clearable
+              class="business-select"
+            >
+              <el-option label="14:00" value="14:00" />
+              <el-option label="19:00" value="19:00" />
+              <el-option label="24:00" value="24:00" />
+            </el-select>
+          </el-form-item>
+
           <el-form-item label="产品名称" class="search-item">
             <el-input
               v-model="filterForm.productName"
@@ -74,6 +100,26 @@
               />
             </el-select>
           </el-form-item>
+
+          <el-form-item label="汇报对象" class="search-item">
+            <el-select
+              v-model="filterForm.reporter"
+              placeholder="选择汇报对象"
+              clearable
+              filterable
+              remote
+              :remote-method="searchFilterReporters"
+              class="business-select"
+            >
+              <el-option
+                v-for="user in filterReporterOptions"
+                :key="user._id"
+                :label="user.username"
+                :value="user._id"
+              />
+            </el-select>
+          </el-form-item>
+
           <el-form-item label="日期范围" class="search-item">
             <el-date-picker
               v-model="dateRange"
@@ -154,53 +200,74 @@
           @selection-change="handleSelectionChange"
         >
         <el-table-column type="selection" width="50" />
-        
+
         <el-table-column prop="reportDate" label="日期" width="110" sortable>
           <template #default="{ row }">
             {{ formatDate(row.reportDate) }}
           </template>
         </el-table-column>
 
-        <el-table-column prop="groupName" label="组别" width="100" />
-
-        <el-table-column prop="productName" label="产品名称" width="150" />
-
-        <el-table-column label="投放分类" min-width="150">
-          <template #default="{ row }">
-            <div class="category-info">
-              <el-tag type="primary" size="small">{{ row.campaignMainCategory?.name }}</el-tag>
-              <el-tag v-if="row.campaignSubCategory" size="small" class="sub-tag">
-                {{ row.campaignSubCategory.name }}
-              </el-tag>
-            </div>
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="promotionCost" label="推广费" width="120">
-          <template #default="{ row }">
-            {{ formatCurrency(row.promotionCost) }}
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="totalSalesAmount" label="总销售额" width="120">
-          <template #default="{ row }">
-            {{ formatCurrency(row.totalSalesAmount) }}
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="totalSalesQuantity" label="总销售数" width="100">
-          <template #default="{ row }">
-            {{ row.totalSalesQuantity }}件
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="roi" label="投放ROI" width="100">
+        <el-table-column label="报告类型" width="100">
           <template #default="{ row }">
             <el-tag
-              :type="row.roi >= 1 ? 'success' : 'warning'"
+              :type="row.reportType === 'daily' ? 'primary' : 'success'"
               size="small"
             >
-              {{ formatROI(row.roi) }}
+              {{ row.reportType === 'daily' ? '日报' : '时段报告' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="时段" width="80">
+          <template #default="{ row }">
+            <span v-if="row.reportType === 'hourly'">{{ row.reportHour }}</span>
+            <span v-else style="color: #c0c4cc;">-</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="groupName" label="组别" width="100" />
+
+        <el-table-column label="产品名称" min-width="180">
+          <template #default="{ row }">
+            <div v-if="row.products && row.products.length > 0">
+              <el-tag
+                v-for="(product, index) in row.products"
+                :key="index"
+                size="small"
+                style="margin-right: 5px; margin-bottom: 3px;"
+              >
+                {{ product.productName }}
+              </el-tag>
+            </div>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="推广费" width="120">
+          <template #default="{ row }">
+            {{ formatCurrency(row.totalPromotionCost || 0) }}
+          </template>
+        </el-table-column>
+
+        <el-table-column label="总销售额" width="120">
+          <template #default="{ row }">
+            {{ formatCurrency(row.totalSalesAmountSum || 0) }}
+          </template>
+        </el-table-column>
+
+        <el-table-column label="总销售数" width="100">
+          <template #default="{ row }">
+            {{ row.totalSalesQuantitySum || 0 }}件
+          </template>
+        </el-table-column>
+
+        <el-table-column label="平均ROI" width="100">
+          <template #default="{ row }">
+            <el-tag
+              :type="(row.avgROI || 0) >= 1 ? 'success' : 'warning'"
+              size="small"
+            >
+              {{ formatROI(row.avgROI || 0) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -280,7 +347,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="250" fixed="right">
+        <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row }">
             <el-button
               type="primary"
@@ -292,9 +359,9 @@
               查看
             </el-button>
 
-            <el-button 
-              type="warning" 
-              size="small" 
+            <el-button
+              type="warning"
+              size="small"
               @click="editReport(row)"
               :icon="Edit"
               v-if="canEdit(row) && hasAnyPermission(['dailyDataReport:update'])"
@@ -302,9 +369,9 @@
             >
               编辑
             </el-button>
-            <el-button 
-              type="danger" 
-              size="small" 
+            <el-button
+              type="danger"
+              size="small"
               @click="deleteReport(row)"
               :icon="Delete"
               v-if="canDelete(row) && hasAnyPermission(['dailyDataReport:delete'])"
@@ -336,44 +403,39 @@
     <el-dialog
       v-model="showDetailDialog"
       title="日报详情"
-      width="800px"
+      width="900px"
       :close-on-click-modal="false"
+      max-height="600px"
+      append-to-body
     >
       <div v-if="currentReport" class="report-detail">
+        <!-- 基本信息 -->
+        <el-divider content-position="left">
+          <span style="font-weight: 600; color: #409eff;">基本信息</span>
+        </el-divider>
         <el-descriptions :column="2" border>
+          <el-descriptions-item label="报告类型">
+            <el-tag
+              :type="currentReport.reportType === 'daily' ? 'primary' : 'success'"
+              size="small"
+            >
+              {{ currentReport.reportType === 'daily' ? '日报' : '时段报告' }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="时段">
+            <span v-if="currentReport.reportType === 'hourly'">{{ currentReport.reportHour }}</span>
+            <span v-else style="color: #c0c4cc;">-</span>
+          </el-descriptions-item>
           <el-descriptions-item label="日期">
             {{ formatDate(currentReport.reportDate) }}
           </el-descriptions-item>
           <el-descriptions-item label="组别">
             {{ currentReport.groupName }}
           </el-descriptions-item>
-          <el-descriptions-item label="投放大类">
-            {{ currentReport.campaignMainCategory?.name }}
-          </el-descriptions-item>
-          <el-descriptions-item label="投放小类">
-            {{ currentReport.campaignSubCategory?.name || '无' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="推广费">
-            {{ formatCurrency(currentReport.promotionCost) }}
-          </el-descriptions-item>
-          <el-descriptions-item label="总销售额">
-            {{ formatCurrency(currentReport.totalSalesAmount) }}
-          </el-descriptions-item>
-          <el-descriptions-item label="总销售数">
-            {{ currentReport.totalSalesQuantity }}件
-          </el-descriptions-item>
-          <el-descriptions-item label="投放ROI">
-            <el-tag 
-              :type="currentReport.roi >= 1 ? 'success' : 'warning'"
-              size="small"
-            >
-              {{ formatROI(currentReport.roi) }}
-            </el-tag>
-          </el-descriptions-item>
           <el-descriptions-item label="汇报人" :span="2">
             <div class="reporters-detail">
-              <el-tag 
-                v-for="reporter in currentReport.reporters" 
+              <el-tag
+                v-for="reporter in currentReport.reporters"
                 :key="reporter._id"
                 class="reporter-tag"
               >
@@ -387,23 +449,90 @@
           <el-descriptions-item label="提交时间">
             {{ formatDateTime(currentReport.createdAt) }}
           </el-descriptions-item>
-
-
           <el-descriptions-item label="备注" :span="2" v-if="currentReport.remark">
             {{ currentReport.remark }}
           </el-descriptions-item>
         </el-descriptions>
+
+        <!-- 产品列表 -->
+        <el-divider content-position="left">
+          <span style="font-weight: 600; color: #409eff;">产品列表</span>
+        </el-divider>
+
+        <div class="product-detail-records" v-if="currentReport.products && currentReport.products.length > 0">
+          <div
+            v-for="(product, index) in currentReport.products"
+            :key="index"
+            class="product-detail-item"
+          >
+            <div class="record-header">
+              <span class="record-title">产品 {{ index + 1 }}：{{ product.productName }}</span>
+            </div>
+
+            <el-row :gutter="20">
+              <el-col :span="24">
+                <div class="detail-field">
+                  <span class="detail-label">产品名称：</span>
+                  <span class="detail-value">{{ product.productName }}</span>
+                </div>
+              </el-col>
+            </el-row>
+
+            <el-row :gutter="20">
+              <el-col :span="12">
+                <div class="detail-field">
+                  <span class="detail-label">投放大类：</span>
+                  <span class="detail-value">{{ product.campaignMainCategory?.name || '-' }}</span>
+                </div>
+              </el-col>
+              <el-col :span="12">
+                <div class="detail-field">
+                  <span class="detail-label">投放小类：</span>
+                  <span class="detail-value">{{ product.campaignSubCategory?.name || '无' }}</span>
+                </div>
+              </el-col>
+            </el-row>
+
+            <el-row :gutter="20">
+              <el-col :span="12">
+                <div class="detail-field">
+                  <span class="detail-label">推广费：</span>
+                  <span class="detail-value">{{ formatCurrency(product.promotionCost || 0) }}</span>
+                </div>
+              </el-col>
+              <el-col :span="12">
+                <div class="detail-field">
+                  <span class="detail-label">总销售额：</span>
+                  <span class="detail-value">{{ formatCurrency(product.totalSalesAmount || 0) }}</span>
+                </div>
+              </el-col>
+            </el-row>
+
+            <el-row :gutter="20">
+              <el-col :span="12">
+                <div class="detail-field">
+                  <span class="detail-label">总销售数：</span>
+                  <span class="detail-value">{{ product.totalSalesQuantity || 0 }}件</span>
+                </div>
+              </el-col>
+              <el-col :span="12">
+                <div class="detail-field">
+                  <span class="detail-label">投放ROI：</span>
+                  <el-tag
+                    :type="(product.roi || 0) >= 1 ? 'success' : 'warning'"
+                    size="small"
+                  >
+                    {{ formatROI(product.roi || 0) }}
+                  </el-tag>
+                </div>
+              </el-col>
+            </el-row>
+          </div>
+        </div>
       </div>
 
       <template #footer>
         <el-button @click="showDetailDialog = false">关闭</el-button>
-        <el-button 
-          type="primary" 
-          @click="editReport(currentReport)"
-          v-if="canEdit(currentReport)"
-        >
-          编辑
-        </el-button>
       </template>
     </el-dialog>
 
@@ -411,13 +540,10 @@
     <el-dialog
       v-model="showAddDialog"
       :title="isEditMode ? '编辑日报' : '新增日报'"
-      width="800px"
-      style="max-height: 80vh; overflow: auto;"
-      :close-on-click-modal="false"
-      :close-on-press-escape="false"
+      width="900px"
       @close="handleAddDialogClose"
+      max-height="600px"
       append-to-body
-      class="record-dialog"
     >
       <el-form
         ref="reportFormRef"
@@ -425,6 +551,40 @@
         :rules="reportRules"
         label-width="120px"
       >
+        <!-- 公共字段区域 -->
+        <el-divider content-position="left">
+          <span style="font-weight: bold; font-size: 16px;">基本信息</span>
+        </el-divider>
+
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="报告类型" prop="reportType" required>
+              <el-select
+                v-model="reportForm.reportType"
+                placeholder="请选择报告类型"
+                style="width: 100%"
+                @change="handleFormReportTypeChange"
+              >
+                <el-option label="日报" value="daily" />
+                <el-option label="时段报告" value="hourly" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12" v-if="reportForm.reportType === 'hourly'">
+            <el-form-item label="时段" prop="reportHour" required>
+              <el-select
+                v-model="reportForm.reportHour"
+                placeholder="请选择时段"
+                style="width: 100%"
+              >
+                <el-option label="14:00" value="14:00" />
+                <el-option label="19:00" value="19:00" />
+                <el-option label="24:00" value="24:00" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="日期" prop="reportDate" required>
@@ -445,112 +605,6 @@
                 placeholder="请输入组别名称"
                 maxlength="100"
                 show-word-limit
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="24">
-            <el-form-item label="产品名称" prop="productName" required>
-              <el-autocomplete
-                v-model="reportForm.productName"
-                placeholder="请输入产品名称"
-                style="width: 100%"
-                :fetch-suggestions="queryProductNameSuggestions"
-                :trigger-on-focus="false"
-                maxlength="200"
-                show-word-limit
-                clearable
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="投放大类" prop="campaignMainCategory" required>
-              <el-select
-                v-model="reportForm.campaignMainCategory"
-                placeholder="请选择投放大类"
-                style="width: 100%"
-                @change="onMainCategoryChange"
-                filterable
-              >
-                <el-option
-                  v-for="category in mainCategories"
-                  :key="category._id"
-                  :label="category.name"
-                  :value="category._id"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="投放小类" prop="campaignSubCategory">
-              <el-select
-                v-model="reportForm.campaignSubCategory"
-                placeholder="请选择投放小类"
-                style="width: 100%"
-                :disabled="!subCategories.length"
-                clearable
-                filterable
-              >
-                <el-option
-                  v-for="category in subCategories"
-                  :key="category._id"
-                  :label="category.name"
-                  :value="category._id"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="推广费" prop="promotionCost" required>
-              <el-input
-                v-model="reportForm.promotionCost"
-                placeholder="请输入推广费"
-                style="width: 100%;"
-                @input="(value) => handleNumberInput('promotionCost', value)"
-              >
-                <template #append>元</template>
-              </el-input>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="总销售额" prop="totalSalesAmount" required>
-              <el-input
-                v-model="reportForm.totalSalesAmount"
-                placeholder="请输入总销售额"
-                style="width: 100%;"
-                @input="(value) => handleNumberInput('totalSalesAmount', value)"
-              >
-                <template #append>元</template>
-              </el-input>
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="总销售数" prop="totalSalesQuantity" required>
-              <el-input
-                v-model="reportForm.totalSalesQuantity"
-                placeholder="请输入总销售数"
-                style="width: 100%;"
-                @input="(value) => handleIntegerInput('totalSalesQuantity', value)"
-              >
-                <template #append>件</template>
-              </el-input>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="投放ROI" prop="roi" required>
-              <el-input
-                v-model="reportForm.roi"
-                placeholder="请输入投放ROI"
-                style="width: 100%;"
-                @input="(value) => handleNumberInput('roi', value)"
               />
             </el-form-item>
           </el-col>
@@ -595,7 +649,7 @@
               <el-input
                 v-model="reportForm.remarks"
                 type="textarea"
-                :rows="4"
+                :rows="3"
                 placeholder="请输入备注信息（可选）"
                 maxlength="500"
                 show-word-limit
@@ -603,6 +657,141 @@
             </el-form-item>
           </el-col>
         </el-row>
+
+        <!-- 产品列表区域 -->
+        <el-divider content-position="left">
+          <span style="font-weight: 600; color: #409eff;">产品列表</span>
+        </el-divider>
+
+        <div class="product-records">
+          <div
+            v-for="(product, index) in reportForm.products"
+            :key="index"
+            class="product-record-item"
+          >
+            <div class="record-header">
+              <span class="record-title">产品 {{ index + 1 }}</span>
+              <el-button
+                v-if="reportForm.products.length > 1"
+                type="danger"
+                size="small"
+                @click="removeProduct(index)"
+                :icon="Delete"
+                circle
+              />
+            </div>
+
+          <el-row :gutter="20">
+            <el-col :span="24">
+              <el-form-item label="产品名称" required>
+                <el-autocomplete
+                  v-model="product.productName"
+                  placeholder="请输入产品名称"
+                  style="width: 100%"
+                  :fetch-suggestions="queryProductNameSuggestions"
+                  :trigger-on-focus="false"
+                  maxlength="200"
+                  clearable
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <el-row :gutter="20">
+            <el-col :span="12">
+              <el-form-item label="投放大类" required>
+                <el-select
+                  v-model="product.campaignMainCategory"
+                  placeholder="请选择投放大类"
+                  style="width: 100%"
+                  @change="onProductMainCategoryChange(index, $event)"
+                  filterable
+                >
+                  <el-option
+                    v-for="category in mainCategories"
+                    :key="category._id"
+                    :label="category.name"
+                    :value="category._id"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="投放小类">
+                <el-select
+                  v-model="product.campaignSubCategory"
+                  placeholder="请选择投放小类"
+                  style="width: 100%"
+                  :disabled="!productSubCategories[index] || !productSubCategories[index].length"
+                  clearable
+                  filterable
+                >
+                  <el-option
+                    v-for="category in productSubCategories[index]"
+                    :key="category._id"
+                    :label="category.name"
+                    :value="category._id"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <el-row :gutter="20">
+            <el-col :span="12">
+              <el-form-item label="推广费" required>
+                <el-input
+                  v-model="product.promotionCost"
+                  placeholder="请输入推广费"
+                  style="width: 100%;"
+                >
+                  <template #append>元</template>
+                </el-input>
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="总销售额" required>
+                <el-input
+                  v-model="product.totalSalesAmount"
+                  placeholder="请输入总销售额"
+                  style="width: 100%;"
+                >
+                  <template #append>元</template>
+                </el-input>
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <el-row :gutter="20">
+            <el-col :span="12">
+              <el-form-item label="总销售数" required>
+                <el-input
+                  v-model="product.totalSalesQuantity"
+                  placeholder="请输入总销售数"
+                  style="width: 100%;"
+                >
+                  <template #append>件</template>
+                </el-input>
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="投放ROI" required>
+                <el-input
+                  v-model="product.roi"
+                  placeholder="请输入投放ROI"
+                  style="width: 100%;"
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
+          </div>
+
+          <div class="add-record-btn">
+            <el-button type="dashed" @click="addProduct" :icon="Plus" style="width: 100%;">
+              添加产品
+            </el-button>
+          </div>
+        </div>
       </el-form>
 
       <template #footer>
@@ -626,7 +815,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, Plus, View, Edit, Delete, Document, EditPen, Message } from '@element-plus/icons-vue'
+import { Search, Refresh, Plus, View, Edit, Delete, Document, EditPen, Message, Download } from '@element-plus/icons-vue'
 import { useDailyReportStore } from '@/stores/dailyReport'
 import { useCampaignCategoryStore } from '@/stores/campaignCategory'
 import { useUserStore } from '@/stores/user'
@@ -635,6 +824,7 @@ import { employeeApi, dailyReportApi } from '@/api/index'
 import { debounce } from 'lodash-es'
 import { numberValidators } from '@/utils/inputValidation'
 import hasAnyPermission from '@/utils/checkPermissions'
+import * as XLSX from 'xlsx'
 
 const router = useRouter()
 const route = useRoute()
@@ -650,6 +840,7 @@ const showAddDialog = ref(false)
 const currentReport = ref(null)
 const selectedReports = ref([])
 const userOptions = ref([])
+const filterReporterOptions = ref([])
 const dateRange = ref([])
 const productNameSuggestions = ref([])
 
@@ -667,32 +858,75 @@ const editingReportId = ref(null)
 
 // 过滤表单
 const filterForm = reactive({
+  reportType: '',
+  reportHour: '',
   groupName: '',
   mainCategory: '',
   submitter: '',
+  reporter: '',
   productName: '',
   keyword: '',
   startDate: '',
   endDate: ''
 })
 
+// 处理报告类型变化
+const handleReportTypeChange = (value) => {
+  // 如果切换到日报，清空时段筛选
+  if (value !== 'hourly') {
+    filterForm.reportHour = ''
+  }
+}
+
 // 日报表单数据
 const reportForm = reactive({
+  // 公共字段
+  reportType: 'daily',
+  reportHour: '',
   reportDate: new Date(),
   groupName: '',
-  productName: '',
-  campaignMainCategory: '',
-  campaignSubCategory: '',
-  promotionCost: '',
-  totalSalesAmount: '',
-  totalSalesQuantity: '',
-  roi: '',
   reporters: [],
-  remarks: ''
+  remarks: '',
+
+  // 产品列表
+  products: [
+    {
+      productName: '',
+      campaignMainCategory: '',
+      campaignSubCategory: '',
+      promotionCost: '',
+      totalSalesAmount: '',
+      totalSalesQuantity: '',
+      roi: ''
+    }
+  ]
 })
+
+// 处理表单报告类型变化
+const handleFormReportTypeChange = (value) => {
+  // 如果切换到日报，清空时段
+  if (value !== 'hourly') {
+    reportForm.reportHour = ''
+  }
+}
 
 // 表单验证规则
 const reportRules = {
+  reportType: [
+    { required: true, message: '请选择报告类型', trigger: 'change' }
+  ],
+  reportHour: [
+    {
+      validator: (rule, value, callback) => {
+        if (reportForm.reportType === 'hourly' && !value) {
+          callback(new Error('时段报告必须选择时段'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'change'
+    }
+  ],
   reportDate: [
     { required: true, message: '请选择日期', trigger: 'change' }
   ],
@@ -700,88 +934,74 @@ const reportRules = {
     { required: true, message: '请输入组别名称', trigger: 'blur' },
     { min: 1, max: 100, message: '组别名称长度在1到100个字符', trigger: 'blur' }
   ],
-  productName: [
-    { required: true, message: '请输入产品名称', trigger: 'blur' },
-    { min: 1, max: 200, message: '产品名称长度在1到200个字符', trigger: 'blur' }
-  ],
-  campaignMainCategory: [
-    { required: true, message: '请选择投放大类', trigger: 'change' }
-  ],
-  promotionCost: [
-    { required: true, message: '请输入推广费', trigger: 'blur' },
-    { 
-      validator: (rule, value, callback) => {
-        if (value === '' || value === null || value === undefined) {
-          callback(new Error('请输入推广费'))
-        } else {
-          const numValue = parseFloat(value)
-          if (isNaN(numValue) || numValue < 0) {
-            callback(new Error('推广费必须是大于等于0的数字'))
-          } else {
-            callback()
-          }
-        }
-      }, 
-      trigger: 'blur' 
-    }
-  ],
-  totalSalesAmount: [
-    { required: true, message: '请输入总销售额', trigger: 'blur' },
-    { 
-      validator: (rule, value, callback) => {
-        if (value === '' || value === null || value === undefined) {
-          callback(new Error('请输入总销售额'))
-        } else {
-          const numValue = parseFloat(value)
-          if (isNaN(numValue) || numValue < 0) {
-            callback(new Error('总销售额必须是大于等于0的数字'))
-          } else {
-            callback()
-          }
-        }
-      }, 
-      trigger: 'blur' 
-    }
-  ],
-  totalSalesQuantity: [
-    { required: true, message: '请输入总销售数', trigger: 'blur' },
-    { 
-      validator: (rule, value, callback) => {
-        if (value === '' || value === null || value === undefined) {
-          callback(new Error('请输入总销售数'))
-        } else {
-          const numValue = parseInt(value)
-          if (isNaN(numValue) || numValue < 0 || !Number.isInteger(numValue)) {
-            callback(new Error('总销售数必须是大于等于0的整数'))
-          } else {
-            callback()
-          }
-        }
-      }, 
-      trigger: 'blur' 
-    }
-  ],
-  roi: [
-    { required: true, message: '请输入ROI', trigger: 'blur' },
-    { 
-      validator: (rule, value, callback) => {
-        if (value === '' || value === null || value === undefined) {
-          callback(new Error('请输入ROI'))
-        } else {
-          const numValue = parseFloat(value)
-          if (isNaN(numValue) || numValue < 0) {
-            callback(new Error('ROI必须是大于等于0的数字'))
-          } else {
-            callback()
-          }
-        }
-      }, 
-      trigger: 'blur' 
-    }
-  ],
   reporters: [
     { required: true, type: 'array', min: 1, message: '请选择至少一个汇报人', trigger: 'change' }
   ]
+}
+
+// 验证产品列表
+const validateProducts = () => {
+  if (!reportForm.products || reportForm.products.length === 0) {
+    ElMessage.error('至少需要添加一个产品')
+    return false
+  }
+
+  for (let i = 0; i < reportForm.products.length; i++) {
+    const product = reportForm.products[i]
+    const index = i + 1
+
+    if (!product.productName || product.productName.trim() === '') {
+      ElMessage.error(`产品${index}：请输入产品名称`)
+      return false
+    }
+
+    if (!product.campaignMainCategory) {
+      ElMessage.error(`产品${index}：请选择投放大类`)
+      return false
+    }
+
+    if (product.promotionCost === '' || product.promotionCost === null || product.promotionCost === undefined) {
+      ElMessage.error(`产品${index}：请输入推广费`)
+      return false
+    }
+    const promotionCost = parseFloat(product.promotionCost)
+    if (isNaN(promotionCost) || promotionCost < 0) {
+      ElMessage.error(`产品${index}：推广费必须是大于等于0的数字`)
+      return false
+    }
+
+    if (product.totalSalesAmount === '' || product.totalSalesAmount === null || product.totalSalesAmount === undefined) {
+      ElMessage.error(`产品${index}：请输入总销售额`)
+      return false
+    }
+    const totalSalesAmount = parseFloat(product.totalSalesAmount)
+    if (isNaN(totalSalesAmount) || totalSalesAmount < 0) {
+      ElMessage.error(`产品${index}：总销售额必须是大于等于0的数字`)
+      return false
+    }
+
+    if (product.totalSalesQuantity === '' || product.totalSalesQuantity === null || product.totalSalesQuantity === undefined) {
+      ElMessage.error(`产品${index}：请输入总销售数`)
+      return false
+    }
+    const totalSalesQuantity = parseInt(product.totalSalesQuantity)
+    if (isNaN(totalSalesQuantity) || totalSalesQuantity < 0 || !Number.isInteger(totalSalesQuantity)) {
+      ElMessage.error(`产品${index}：总销售数必须是大于等于0的整数`)
+      return false
+    }
+
+    if (product.roi === '' || product.roi === null || product.roi === undefined) {
+      ElMessage.error(`产品${index}：请输入ROI`)
+      return false
+    }
+    const roi = parseFloat(product.roi)
+    if (isNaN(roi) || roi < 0) {
+      ElMessage.error(`产品${index}：ROI必须是大于等于0的数字`)
+      return false
+    }
+  }
+
+  return true
 }
 
 // 计算属性
@@ -888,35 +1108,86 @@ const queryProductNameSuggestions = (queryString, callback) => {
   callback(results)
 }
 
+// 产品管理方法
+// 添加产品
+const addProduct = () => {
+  reportForm.products.push({
+    productName: '',
+    campaignMainCategory: '',
+    campaignSubCategory: '',
+    promotionCost: '',
+    totalSalesAmount: '',
+    totalSalesQuantity: '',
+    roi: ''
+  })
+}
+
+// 删除产品
+const removeProduct = (index) => {
+  if (reportForm.products.length <= 1) {
+    ElMessage.warning('至少需要保留一个产品')
+    return
+  }
+  reportForm.products.splice(index, 1)
+}
+
+// 每个产品的子分类列表
+const productSubCategories = ref([])
+
+// 初始化产品子分类数组
+const initProductSubCategories = () => {
+  productSubCategories.value = reportForm.products.map(() => [])
+}
+
+// 产品大类变化处理
+const onProductMainCategoryChange = (productIndex, categoryId) => {
+  const product = reportForm.products[productIndex]
+  product.campaignSubCategory = ''
+
+  if (!categoryId) {
+    productSubCategories.value[productIndex] = []
+    return
+  }
+
+  const category = mainCategories.value.find(cat => cat._id === categoryId)
+  if (category && category.subCategories) {
+    productSubCategories.value[productIndex] = category.subCategories.filter(sub => sub.isActive)
+  } else {
+    productSubCategories.value[productIndex] = []
+  }
+}
+
 // 提交日报
 const submitReport = async () => {
   try {
     const valid = await reportFormRef.value.validate()
     if (!valid) return
 
-    submittingReport.value = true
-
-    // 检查投放大类是否选择
-    if (!reportForm.campaignMainCategory) {
-      ElMessage.error('请选择投放大类')
+    // 验证产品列表
+    if (!validateProducts()) {
       return
     }
 
+    submittingReport.value = true
+
     // 构建提交数据
     const submitData = {
+      reportType: reportForm.reportType,
+      reportHour: reportForm.reportType === 'hourly' ? reportForm.reportHour : null,
       reportDate: reportForm.reportDate,
       groupName: reportForm.groupName.trim(),
-      productName: reportForm.productName.trim(),
-      campaignMainCategory: reportForm.campaignMainCategory,
-      campaignSubCategory: reportForm.campaignSubCategory || null,
-      promotionCost: parseFloat(reportForm.promotionCost) || 0,
-      totalSalesAmount: parseFloat(reportForm.totalSalesAmount) || 0,
-      totalSalesQuantity: parseInt(reportForm.totalSalesQuantity) || 0,
-      roi: parseFloat(reportForm.roi) || 0,
       reporters: reportForm.reporters,
-      remark: reportForm.remarks?.trim() || ''
+      remark: reportForm.remarks?.trim() || '',
+      products: reportForm.products.map(product => ({
+        productName: product.productName.trim(),
+        campaignMainCategory: product.campaignMainCategory,
+        campaignSubCategory: product.campaignSubCategory || null,
+        promotionCost: parseFloat(product.promotionCost) || 0,
+        totalSalesAmount: parseFloat(product.totalSalesAmount) || 0,
+        totalSalesQuantity: parseInt(product.totalSalesQuantity) || 0,
+        roi: parseFloat(product.roi) || 0
+      }))
     }
-
 
     let result
     if (isEditMode.value && editingReportId.value) {
@@ -950,24 +1221,31 @@ const submitReport = async () => {
 // 重置日报表单
 const resetReportForm = () => {
   reportFormRef.value?.resetFields()
-  subCategories.value = []
+  productSubCategories.value = []
   // 清除编辑模式
   isEditMode.value = false
   editingReportId.value = null
   // 不清空 reporterOptions，保留已加载的选项
   Object.assign(reportForm, {
+    reportType: 'daily',
+    reportHour: '',
     reportDate: new Date(),
     groupName: '',
-    productName: '',
-    campaignMainCategory: '',
-    campaignSubCategory: '',
-    promotionCost: '',
-    totalSalesAmount: '',
-    totalSalesQuantity: '',
-    roi: '',
     reporters: [],
-    remarks: ''
+    remarks: '',
+    products: [
+      {
+        productName: '',
+        campaignMainCategory: '',
+        campaignSubCategory: '',
+        promotionCost: '',
+        totalSalesAmount: '',
+        totalSalesQuantity: '',
+        roi: ''
+      }
+    ]
   })
+  initProductSubCategories()
 }
 
 // 关闭新增对话框
@@ -992,6 +1270,20 @@ const fetchReports = async (params = {}) => {
       limit: pagination.value.pageSize,
       ...filterForm,
       ...params
+    }
+
+    // 处理日期范围，添加时间部分
+    if (queryParams.startDate) {
+      // 开始日期设置为 00:00:00
+      const startDate = new Date(queryParams.startDate)
+      startDate.setHours(0, 0, 0, 0)
+      queryParams.startDate = startDate.toISOString()
+    }
+    if (queryParams.endDate) {
+      // 结束日期设置为 23:59:59
+      const endDate = new Date(queryParams.endDate)
+      endDate.setHours(23, 59, 59, 999)
+      queryParams.endDate = endDate.toISOString()
     }
 
     // 根据当前Tab添加过滤条件
@@ -1032,7 +1324,7 @@ const handleDateRangeChange = (dates) => {
   }
 }
 
-// 搜索用户
+// 搜索用户（提交人）
 const searchUsers = async (query) => {
   if (!query) {
     userOptions.value = []
@@ -1054,6 +1346,28 @@ const searchUsers = async (query) => {
   }
 }
 
+// 搜索汇报对象（用于筛选）
+const searchFilterReporters = async (query) => {
+  if (!query) {
+    filterReporterOptions.value = []
+    return
+  }
+
+  try {
+    const response = await employeeApi.getReporters({
+      search: query,
+      limit: 50,
+      isActive: true
+    })
+
+    if (response.success) {
+      filterReporterOptions.value = response.data || []
+    }
+  } catch (error) {
+    console.error('搜索汇报对象失败:', error)
+  }
+}
+
 // 搜索
 const handleSearch = () => {
   pagination.value.current = 1
@@ -1067,6 +1381,15 @@ const resetFilter = () => {
   })
   dateRange.value = []
   userOptions.value = []
+  filterReporterOptions.value = []
+
+  // 重置为默认的当天日期范围
+  const today = new Date()
+  const todayStr = today.toISOString().split('T')[0]
+  dateRange.value = [todayStr, todayStr]
+  filterForm.startDate = todayStr
+  filterForm.endDate = todayStr
+
   pagination.value.current = 1
   fetchReports({}, false) // 重置时不需要重新获取统计信息
 }
@@ -1155,27 +1478,46 @@ const editReport = async (report) => {
 
       // 填充表单数据
       Object.assign(reportForm, {
+        reportType: reportData.reportType || 'daily',
+        reportHour: reportData.reportHour || '',
         reportDate: new Date(reportData.reportDate),
         groupName: reportData.groupName || '',
-        productName: reportData.productName || '',
-        campaignMainCategory: reportData.campaignMainCategory?._id || '',
-        campaignSubCategory: reportData.campaignSubCategory?._id || '',
-        promotionCost: reportData.promotionCost?.toString() || '',
-        totalSalesAmount: reportData.totalSalesAmount?.toString() || '',
-        totalSalesQuantity: reportData.totalSalesQuantity?.toString() || '',
-        roi: reportData.roi?.toString() || '',
         reporters: reportData.reporters?.map(r => r._id) || [],
-        remarks: reportData.remark || ''
+        remarks: reportData.remark || '',
+        products: reportData.products?.map(product => ({
+          productName: product.productName || '',
+          campaignMainCategory: product.campaignMainCategory?._id || '',
+          campaignSubCategory: product.campaignSubCategory?._id || '',
+          promotionCost: product.promotionCost?.toString() || '',
+          totalSalesAmount: product.totalSalesAmount?.toString() || '',
+          totalSalesQuantity: product.totalSalesQuantity?.toString() || '',
+          roi: product.roi?.toString() || ''
+        })) || [
+          {
+            productName: '',
+            campaignMainCategory: '',
+            campaignSubCategory: '',
+            promotionCost: '',
+            totalSalesAmount: '',
+            totalSalesQuantity: '',
+            roi: ''
+          }
+        ]
       })
 
       // 设置编辑模式
       editingReportId.value = report._id
       isEditMode.value = true
 
-      // 如果有大类，加载对应的小类
-      if (reportData.campaignMainCategory?._id) {
-        onMainCategoryChange(reportData.campaignMainCategory._id)
-      }
+      // 初始化产品子分类
+      initProductSubCategories()
+
+      // 为每个产品加载对应的小类
+      reportForm.products.forEach((product, index) => {
+        if (product.campaignMainCategory) {
+          onProductMainCategoryChange(index, product.campaignMainCategory)
+        }
+      })
 
       // 显示弹窗
       showAddDialog.value = true
@@ -1257,6 +1599,13 @@ const initData = async () => {
     // 确保activeTab设置为我创建的
     activeTab.value = 'my-reports'
 
+    // 设置默认日期范围为当天
+    const today = new Date()
+    const todayStr = today.toISOString().split('T')[0]
+    dateRange.value = [todayStr, todayStr]
+    filterForm.startDate = todayStr
+    filterForm.endDate = todayStr
+
     // 并行执行基础数据获取和日报数据获取
     await Promise.all([
       // 基础数据获取
@@ -1265,7 +1614,7 @@ const initData = async () => {
         campaignCategoryStore.fetchCategoriesWithChildren(),
         loadDefaultReporters()
       ]),
-      // 日报数据获取
+      // 日报数据获取（带上默认日期范围）
       fetchReports()
     ])
 
@@ -1325,6 +1674,9 @@ onMounted(async () => {
   if (!userStore.user) {
     await userStore.fetchUserInfo()
   }
+
+  // 初始化产品子分类数组
+  initProductSubCategories()
 
   await initData()
 
@@ -1817,6 +2169,95 @@ onMounted(async () => {
 
 .remarks-text:hover {
   color: #409eff;
+}
+
+/* 产品列表样式 - 参考批量新增核算佣金 */
+.product-records {
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.product-record-item {
+  border: 1px solid #e4e7ed;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 20px;
+  background-color: #fafafa;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+.product-record-item:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  border-color: #409eff;
+}
+
+.record-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.record-title {
+  font-weight: 600;
+  color: #303133;
+  font-size: 14px;
+}
+
+.add-record-btn {
+  margin-top: 16px;
+}
+
+.add-record-btn .el-button {
+  border: 2px dashed #c0c4cc;
+  background-color: #fafafa;
+  color: #909399;
+  transition: all 0.3s;
+}
+
+.add-record-btn .el-button:hover {
+  border-color: #409eff;
+  color: #409eff;
+  background-color: #ecf5ff;
+}
+
+/* 详情对话框产品列表样式 */
+.product-detail-records {
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.product-detail-item {
+  border: 1px solid #e4e7ed;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+  background-color: #fafafa;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.detail-field {
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+}
+
+.detail-label {
+  font-weight: 500;
+  color: #606266;
+  min-width: 90px;
+  font-size: 14px;
+}
+
+.detail-value {
+  color: #303133;
+  font-size: 14px;
 }
 
 </style>

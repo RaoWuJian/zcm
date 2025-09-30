@@ -82,6 +82,33 @@
               />
             </el-select>
           </el-form-item>
+
+          <el-form-item label="报告类型" class="search-item">
+            <el-select
+              v-model="searchForm.reportType"
+              placeholder="选择报告类型"
+              clearable
+              @change="handleReportTypeChange"
+              style="width: 120px"
+            >
+              <el-option label="日报" value="daily" />
+              <el-option label="时段报告" value="hourly" />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="时段" class="search-item" v-if="searchForm.reportType === 'hourly'">
+            <el-select
+              v-model="searchForm.reportHour"
+              placeholder="选择时段"
+              clearable
+              @change="handleSearchChange"
+              style="width: 100px"
+            >
+              <el-option label="14:00" value="14:00" />
+              <el-option label="19:00" value="19:00" />
+              <el-option label="24:00" value="24:00" />
+            </el-select>
+          </el-form-item>
         </div>
 
         <div class="search-actions">
@@ -163,6 +190,33 @@
                 <div class="stats-info">
                   <div class="stats-value">{{ formatCurrency(summary.totalPromotionCost) }}</div>
                   <div class="stats-label">总推广费用</div>
+                </div>
+              </div>
+            </el-col>
+          </el-row>
+
+          <!-- 报告类型统计 -->
+          <el-row :gutter="20" style="margin-top: 20px;">
+            <el-col :span="12">
+              <div class="stats-item">
+                <div class="stats-icon primary">
+                  <el-icon><Document /></el-icon>
+                </div>
+                <div class="stats-info">
+                  <div class="stats-value">{{ summary.dailyReportsCount || 0 }}</div>
+                  <div class="stats-label">日报数量</div>
+                </div>
+              </div>
+            </el-col>
+
+            <el-col :span="12">
+              <div class="stats-item">
+                <div class="stats-icon success">
+                  <el-icon><Document /></el-icon>
+                </div>
+                <div class="stats-info">
+                  <div class="stats-value">{{ summary.hourlyReportsCount || 0 }}</div>
+                  <div class="stats-label">时段报告数量</div>
                 </div>
               </div>
             </el-col>
@@ -288,7 +342,9 @@ const total = ref(0)
 const searchForm = reactive({
   groupName: '',
   productName: '',
-  categoryId: ''
+  categoryId: '',
+  reportType: '',
+  reportHour: ''
 })
 
 // Store
@@ -323,8 +379,14 @@ const fetchStatistics = async () => {
     }
 
     if (dateRange.value && dateRange.value.length === 2) {
-      params.startDate = dateRange.value[0]
-      params.endDate = dateRange.value[1]
+      // 处理日期范围，添加时间部分
+      const startDate = new Date(dateRange.value[0])
+      startDate.setHours(0, 0, 0, 0)
+      params.startDate = startDate.toISOString()
+
+      const endDate = new Date(dateRange.value[1])
+      endDate.setHours(23, 59, 59, 999)
+      params.endDate = endDate.toISOString()
     }
 
     const response = await dailyReportApi.getDailyReportStatistics(params)
@@ -352,6 +414,15 @@ const handleDateRangeChange = () => {
   handleSearchChange()
 }
 
+// 处理报告类型变化
+const handleReportTypeChange = (value) => {
+  // 如果切换到日报，清空时段筛选
+  if (value !== 'hourly') {
+    searchForm.reportHour = ''
+  }
+  handleSearchChange()
+}
+
 // 重置筛选条件
 const resetFilters = () => {
   dateRange.value = []
@@ -360,6 +431,8 @@ const resetFilters = () => {
   searchForm.groupName = ''
   searchForm.productName = ''
   searchForm.categoryId = ''
+  searchForm.reportType = ''
+  searchForm.reportHour = ''
   currentPage.value = 1 // 重置页码
   fetchStatistics()
 }
@@ -376,27 +449,123 @@ const handleCurrentChange = (newPage) => {
   fetchStatistics()
 }
 
-// 导出详细数据
+// 导出详细数据（全局导出 - 应用所有搜索条件）
 const exportData = async () => {
   exportLoading.value = true
   try {
+    // 收集所有搜索条件
     const params = {
-      ...searchForm
+      ...searchForm,
+      limit: 10000 // 获取大量数据用于导出
     }
 
+    // 添加日期范围
     if (dateRange.value && dateRange.value.length === 2) {
-      params.startDate = dateRange.value[0]
-      params.endDate = dateRange.value[1]
+      // 处理日期范围，添加时间部分
+      const startDate = new Date(dateRange.value[0])
+      startDate.setHours(0, 0, 0, 0)
+      params.startDate = startDate.toISOString()
+
+      const endDate = new Date(dateRange.value[1])
+      endDate.setHours(23, 59, 59, 999)
+      params.endDate = endDate.toISOString()
     }
 
-    const response = await dailyReportApi.exportDailyReports(params)
-    if (response.success) {
-      // 创建Excel文件并下载
-      const ws = XLSX.utils.json_to_sheet(response.data)
+    console.log('全局导出参数:', params)
+
+    // 调用获取日报列表的API
+    const response = await dailyReportApi.getDailyReports(params)
+    if (response.success && response.data && response.data.length > 0) {
+      // 创建工作表数据
+      const wsData = []
+
+      // 添加表头
+      wsData.push(['日期', '组别/名字', '产品', '推广费', '总销售额', '转化数', 'ROI', '备注'])
+
+      // 添加数据行
+      const merges = [] // 用于存储合并单元格信息
+      let currentRow = 1 // 从第二行开始（第一行是表头）
+
+      // 遍历每个日报
+      response.data.forEach(report => {
+        const dateKey = formatDate(report.reportDate)
+        const groupKey = report.groupName || '-'
+        const remark = report.remark || '-'
+        const products = report.products || []
+
+        const startRow = currentRow
+        const productCount = products.length
+
+        if (productCount === 0) {
+          // 如果没有产品，添加一行空数据
+          wsData.push([dateKey, groupKey, '-', 0, 0, 0, 0, remark])
+          currentRow++
+        } else {
+          // 添加每个产品的数据
+          products.forEach((product, index) => {
+            wsData.push([
+              index === 0 ? dateKey : '', // 只在第一行显示日期
+              index === 0 ? groupKey : '', // 只在第一行显示组别
+              product.productName || '-',
+              product.promotionCost || 0,
+              product.totalSalesAmount || 0,
+              product.totalSalesQuantity || 0,
+              product.roi || 0,
+              index === 0 ? remark : '' // 只在第一行显示备注
+            ])
+            currentRow++
+          })
+
+          // 如果有多个产品，需要合并日期、组别和备注单元格
+          if (productCount > 1) {
+            const endRow = currentRow - 1
+            // 合并日期列 (A列)
+            merges.push({ s: { r: startRow, c: 0 }, e: { r: endRow, c: 0 } })
+            // 合并组别列 (B列)
+            merges.push({ s: { r: startRow, c: 1 }, e: { r: endRow, c: 1 } })
+            // 合并备注列 (H列)
+            merges.push({ s: { r: startRow, c: 7 }, e: { r: endRow, c: 7 } })
+          }
+        }
+      })
+
+      // 创建工作表
+      const ws = XLSX.utils.aoa_to_sheet(wsData)
+
+      // 应用合并单元格
+      if (merges.length > 0) {
+        ws['!merges'] = merges
+      }
+
+      // 设置列宽
+      ws['!cols'] = [
+        { wch: 12 }, // 日期
+        { wch: 15 }, // 组别/名字
+        { wch: 20 }, // 产品
+        { wch: 12 }, // 推广费
+        { wch: 12 }, // 总销售额
+        { wch: 10 }, // 转化数
+        { wch: 12 }, // ROI
+        { wch: 30 }  // 备注
+      ]
+
+      // 创建工作簿
       const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, '日报详细数据')
-      XLSX.writeFile(wb, response.filename || '日报详细数据.xlsx')
+      XLSX.utils.book_append_sheet(wb, ws, '详细数据')
+
+      // 生成文件名
+      let fileName = '统计数据_详细明细'
+      if (dateRange.value && dateRange.value.length === 2) {
+        fileName += `_${dateRange.value[0]}_至_${dateRange.value[1]}`
+      } else {
+        fileName += `_${new Date().toLocaleDateString().replace(/\//g, '-')}`
+      }
+      fileName += '.xlsx'
+
+      XLSX.writeFile(wb, fileName)
       ElMessage.success('数据导出成功')
+    } else {
+      ElMessage.warning('没有可导出的数据')
     }
   } catch (error) {
     console.error('导出数据失败:', error)
@@ -435,7 +604,9 @@ const exportRowData = async (row) => {
   exportLoading.value = true
   try {
     // 构建针对该行的筛选条件，只使用该行特定的筛选条件
-    const params = {}
+    const params = {
+      limit: 10000 // 获取大量数据用于导出
+    }
 
     // 根据统计维度添加特定的筛选条件
     if (groupBy.value === 'group') {
@@ -447,6 +618,7 @@ const exportRowData = async (row) => {
         params.submitterId = row._id.reporterId
       } else {
         ElMessage.error('无效的汇报人信息')
+        exportLoading.value = false
         return
       }
     } else if (groupBy.value === 'category') {
@@ -455,20 +627,32 @@ const exportRowData = async (row) => {
         params.categoryId = row._id.categoryId
       } else {
         ElMessage.error('无效的投放类别信息')
+        exportLoading.value = false
         return
       }
     } else if (groupBy.value === 'time') {
       // 只导出该时间段的数据
       const timeStr = row._id
       if (timeUnit.value === 'day') {
-        params.startDate = timeStr
-        params.endDate = timeStr
+        // 处理日期范围，添加时间部分
+        const startDate = new Date(timeStr)
+        startDate.setHours(0, 0, 0, 0)
+        params.startDate = startDate.toISOString()
+
+        const endDate = new Date(timeStr)
+        endDate.setHours(23, 59, 59, 999)
+        params.endDate = endDate.toISOString()
       } else if (timeUnit.value === 'month') {
         // 处理月的时间范围
         const [year, month] = timeStr.split('-')
-        params.startDate = `${year}-${month}-01`
+        const startDate = new Date(`${year}-${month}-01`)
+        startDate.setHours(0, 0, 0, 0)
+        params.startDate = startDate.toISOString()
+
         const lastDay = new Date(year, month, 0).getDate()
-        params.endDate = `${year}-${month}-${lastDay.toString().padStart(2, '0')}`
+        const endDate = new Date(`${year}-${month}-${lastDay.toString().padStart(2, '0')}`)
+        endDate.setHours(23, 59, 59, 999)
+        params.endDate = endDate.toISOString()
       } else {
         // 周的处理暂时使用原始时间字符串
         params.timeFilter = timeStr
@@ -477,14 +661,107 @@ const exportRowData = async (row) => {
 
     // 如果当前有全局时间范围筛选，且不是时间维度统计，则保留时间筛选
     if (dateRange.value && dateRange.value.length === 2 && groupBy.value !== 'time') {
-      params.startDate = dateRange.value[0]
-      params.endDate = dateRange.value[1]
+      // 处理日期范围，添加时间部分
+      const startDate = new Date(dateRange.value[0])
+      startDate.setHours(0, 0, 0, 0)
+      params.startDate = startDate.toISOString()
+
+      const endDate = new Date(dateRange.value[1])
+      endDate.setHours(23, 59, 59, 999)
+      params.endDate = endDate.toISOString()
     }
 
-    const response = await dailyReportApi.exportDailyReports(params)
-    if (response.success) {
-      // 创建Excel文件并下载
-      const ws = XLSX.utils.json_to_sheet(response.data)
+    // 应用全局的报告类型和时段筛选
+    if (searchForm.reportType) {
+      params.reportType = searchForm.reportType
+    }
+    if (searchForm.reportHour) {
+      params.reportHour = searchForm.reportHour
+    }
+    // 应用其他全局筛选条件（如果需要）
+    if (searchForm.productName) {
+      params.productName = searchForm.productName
+    }
+
+    console.log('行级导出参数:', params)
+
+    // 调用获取日报列表的API
+    const response = await dailyReportApi.getDailyReports(params)
+    if (response.success && response.data && response.data.length > 0) {
+      // 创建工作表数据
+      const wsData = []
+
+      // 添加表头
+      wsData.push(['日期', '组别/名字', '产品', '推广费', '总销售额', '转化数', 'ROI', '备注'])
+
+      // 添加数据行
+      const merges = [] // 用于存储合并单元格信息
+      let currentRow = 1 // 从第二行开始（第一行是表头）
+
+      // 遍历每个日报
+      response.data.forEach(report => {
+        const dateKey = formatDate(report.reportDate)
+        const groupKey = report.groupName || '-'
+        const remark = report.remark || '-'
+        const products = report.products || []
+
+        const startRow = currentRow
+        const productCount = products.length
+
+        if (productCount === 0) {
+          // 如果没有产品，添加一行空数据
+          wsData.push([dateKey, groupKey, '-', 0, 0, 0, 0, remark])
+          currentRow++
+        } else {
+          // 添加每个产品的数据
+          products.forEach((product, index) => {
+            wsData.push([
+              index === 0 ? dateKey : '', // 只在第一行显示日期
+              index === 0 ? groupKey : '', // 只在第一行显示组别
+              product.productName || '-',
+              product.promotionCost || 0,
+              product.totalSalesAmount || 0,
+              product.totalSalesQuantity || 0,
+              product.roi || 0,
+              index === 0 ? remark : '' // 只在第一行显示备注
+            ])
+            currentRow++
+          })
+
+          // 如果有多个产品，需要合并日期、组别和备注单元格
+          if (productCount > 1) {
+            const endRow = currentRow - 1
+            // 合并日期列 (A列)
+            merges.push({ s: { r: startRow, c: 0 }, e: { r: endRow, c: 0 } })
+            // 合并组别列 (B列)
+            merges.push({ s: { r: startRow, c: 1 }, e: { r: endRow, c: 1 } })
+            // 合并备注列 (H列)
+            merges.push({ s: { r: startRow, c: 7 }, e: { r: endRow, c: 7 } })
+          }
+        }
+      })
+
+      // 创建工作表
+      const ws = XLSX.utils.aoa_to_sheet(wsData)
+
+      // 应用合并单元格
+      if (merges.length > 0) {
+        ws['!merges'] = merges
+      }
+
+      // 设置列宽
+      ws['!cols'] = [
+        { wch: 12 }, // 日期
+        { wch: 15 }, // 组别/名字
+        { wch: 20 }, // 产品
+        { wch: 12 }, // 推广费
+        { wch: 12 }, // 总销售额
+        { wch: 10 }, // 转化数
+        { wch: 12 }, // ROI
+        { wch: 30 }  // 备注
+      ]
+
+      // 创建工作簿
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, '详细数据')
 
@@ -494,12 +771,27 @@ const exportRowData = async (row) => {
 
       XLSX.writeFile(wb, fileName)
       ElMessage.success('数据导出成功')
+    } else {
+      ElMessage.warning('没有可导出的数据')
     }
   } catch (error) {
     console.error('导出行数据失败:', error)
     ElMessage.error('导出数据失败')
   } finally {
     exportLoading.value = false
+  }
+}
+
+// 格式化日期
+const formatDate = (date) => {
+  if (!date) return '-'
+  try {
+    const d = new Date(date)
+    const month = d.getMonth() + 1
+    const day = d.getDate()
+    return `${month}月${day}号`
+  } catch (error) {
+    return '-'
   }
 }
 
@@ -669,16 +961,11 @@ const getGroupColumnValue = (row) => {
   padding: 20px;
 }
 
-.stats-cards {
-  display: flex;
-  gap: 20px;
-}
-
 .stats-item {
   display: flex;
   align-items: center;
-  padding: 16px;
   background: #f9fafb;
+  padding: 16px;
   border-radius: 8px;
   border: 1px solid #e5e7eb;
 }

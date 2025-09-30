@@ -19,12 +19,14 @@ const getDailyReports = async (req, res) => {
       keyword,
       isMyReports,
       isReportsToMe,
+      reportType,
+      reportHour,
       countOnly
     } = req.query;
 
     // 构建查询条件
     let query = {};
-    
+
     // 获取当前用户ID
     const currentUserId = req.user?._id || req.user?.id;
 
@@ -35,6 +37,16 @@ const getDailyReports = async (req, res) => {
     } else if (isReportsToMe === 'true' && currentUserId) {
       // 汇报给我的日报
       query.reporters = currentUserId;
+    }
+
+    // 报告类型过滤
+    if (reportType && ['daily', 'hourly'].includes(reportType)) {
+      query.reportType = reportType;
+    }
+
+    // 时段过滤（仅当报告类型为hourly时有效）
+    if (reportHour && ['14:00', '19:00', '24:00'].includes(reportHour)) {
+      query.reportHour = reportHour;
     }
     
     // 日期范围过滤
@@ -61,12 +73,12 @@ const getDailyReports = async (req, res) => {
 
     // 产品名称过滤
     if (productName) {
-      query.productName = new RegExp(productName, 'i');
+      query['products.productName'] = new RegExp(productName, 'i');
     }
 
     // 关键字搜索（备注字段）
     if (keyword) {
-      query.remarks = new RegExp(keyword, 'i');
+      query.remark = new RegExp(keyword, 'i');
     }
 
     // 如果只需要数量，直接返回
@@ -84,8 +96,8 @@ const getDailyReports = async (req, res) => {
     // 执行查询
     const [reports, total] = await Promise.all([
       DailyReport.find(query)
-        .populate('campaignMainCategory', 'name')
-        .populate('campaignSubCategory', 'name')
+        .populate('products.campaignMainCategory', 'name')
+        .populate('products.campaignSubCategory', 'name')
         .populate('reporters', 'username')
         .populate('submitter', 'username')
         .sort({ reportDate: -1, createdAt: -1 })
@@ -125,8 +137,8 @@ const getDailyReport = async (req, res) => {
     const currentUserId = req.user?._id || req.user?.id;
 
     const report = await DailyReport.findById(id)
-      .populate('campaignMainCategory', 'name')
-      .populate('campaignSubCategory', 'name')
+      .populate('products.campaignMainCategory', 'name')
+      .populate('products.campaignSubCategory', 'name')
       .populate('reporters', 'username')
       .populate('submitter', 'username');
 
@@ -161,34 +173,58 @@ const createDailyReport = async (req, res) => {
     const {
       reportDate,
       groupName,
-      productName,
-      campaignMainCategory,
-      campaignSubCategory,
-      promotionCost,
-      totalSalesAmount,
-      totalSalesQuantity,
-      roi,
+      products,
       reporters,
-      remark
+      remark,
+      reportType = 'daily',
+      reportHour
     } = req.body;
 
-    // 验证投放分类（新的嵌套结构）
-    const mainCategory = await CampaignCategory.findById(campaignMainCategory);
-    if (!mainCategory || !mainCategory.isActive) {
+    // 验证报告类型
+    if (!['daily', 'hourly'].includes(reportType)) {
       return res.status(400).json({
         success: false,
-        message: '投放大类不存在或无效'
+        message: '报告类型必须是daily或hourly'
       });
     }
 
-    // 如果选择了小类，验证小类是否属于该大类
-    if (campaignSubCategory) {
-      const subCategory = mainCategory.subCategories.id(campaignSubCategory);
-      if (!subCategory || !subCategory.isActive) {
+    // 验证时段报告必须有reportHour
+    if (reportType === 'hourly') {
+      if (!reportHour || !['14:00', '19:00', '24:00'].includes(reportHour)) {
         return res.status(400).json({
           success: false,
-          message: '投放小类不存在或与大类不匹配'
+          message: '时段报告必须指定有效的报告时段（14:00、19:00或24:00）'
         });
+      }
+    }
+
+    // 验证产品列表
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: '至少需要添加一个产品'
+      });
+    }
+
+    // 验证每个产品的投放分类
+    for (const product of products) {
+      const mainCategory = await CampaignCategory.findById(product.campaignMainCategory);
+      if (!mainCategory || !mainCategory.isActive) {
+        return res.status(400).json({
+          success: false,
+          message: `产品"${product.productName}"的投放大类不存在或无效`
+        });
+      }
+
+      // 如果选择了小类，验证小类是否属于该大类
+      if (product.campaignSubCategory) {
+        const subCategory = mainCategory.subCategories.id(product.campaignSubCategory);
+        if (!subCategory || !subCategory.isActive) {
+          return res.status(400).json({
+            success: false,
+            message: `产品"${product.productName}"的投放小类不存在或与大类不匹配`
+          });
+        }
       }
     }
 
@@ -209,17 +245,24 @@ const createDailyReport = async (req, res) => {
       });
     }
 
+    // 处理产品数据
+    const processedProducts = products.map(product => ({
+      productName: product.productName,
+      campaignMainCategory: product.campaignMainCategory,
+      campaignSubCategory: product.campaignSubCategory || null,
+      promotionCost: parseFloat(product.promotionCost),
+      totalSalesAmount: parseFloat(product.totalSalesAmount),
+      totalSalesQuantity: parseInt(product.totalSalesQuantity),
+      roi: parseFloat(product.roi)
+    }));
+
     // 创建日报
     const dailyReport = new DailyReport({
       reportDate: new Date(reportDate),
       groupName,
-      productName,
-      campaignMainCategory,
-      campaignSubCategory: campaignSubCategory || null,
-      promotionCost: parseFloat(promotionCost),
-      totalSalesAmount: parseFloat(totalSalesAmount),
-      totalSalesQuantity: parseInt(totalSalesQuantity),
-      roi: parseFloat(roi),
+      reportType,
+      reportHour: reportType === 'hourly' ? reportHour : null,
+      products: processedProducts,
       reporters,
       submitter: req.user._id,
       remark: remark || '',
@@ -233,23 +276,24 @@ const createDailyReport = async (req, res) => {
 
     // 填充关联数据
     await dailyReport.populate([
-      { path: 'campaignMainCategory', select: 'name' },
-      { path: 'campaignSubCategory', select: 'name' },
+      { path: 'products.campaignMainCategory', select: 'name' },
+      { path: 'products.campaignSubCategory', select: 'name' },
       { path: 'reporters', select: 'username' },
       { path: 'submitter', select: 'username' }
     ]);
 
     // 发送通知给汇报人
+    const productNames = dailyReport.products.map(p => p.productName).join('、');
     const notificationData = {
       type: 'daily_report_submitted',
       title: '新的日报提交',
-      message: `${req.user.username}提交了${dailyReport.productName}的日报，请查看`,
+      message: `${req.user.username}提交了${productNames}的日报，请查看`,
       data: {
         reportId: dailyReport._id,
         submitterName: req.user.username,
         reportDate: dailyReport.reportDate,
         groupName: dailyReport.groupName,
-        productName: dailyReport.productName
+        productNames: productNames
       },
       recipients: reporters,
       action: {
@@ -270,7 +314,7 @@ const createDailyReport = async (req, res) => {
         submitterName: req.user.username,
         reportDate: dailyReport.reportDate,
         groupName: dailyReport.groupName,
-        productName: dailyReport.productName,
+        productName: productNames,
         creator: req.user._id
       });
 
@@ -345,46 +389,60 @@ const updateDailyReport = async (req, res) => {
     const {
       reportDate,
       groupName,
-      productName,
-      campaignMainCategory,
-      campaignSubCategory,
-      promotionCost,
-      totalSalesAmount,
-      totalSalesQuantity,
-      roi,
+      products,
       reporters,
-      remark
+      remark,
+      reportType,
+      reportHour
     } = req.body;
 
-    // 验证投放分类（新的嵌套结构）
-    if (campaignMainCategory) {
-      const mainCategory = await CampaignCategory.findById(campaignMainCategory);
-      if (!mainCategory || !mainCategory.isActive) {
+    // 验证报告类型
+    if (reportType && !['daily', 'hourly'].includes(reportType)) {
+      return res.status(400).json({
+        success: false,
+        message: '报告类型必须是daily或hourly'
+      });
+    }
+
+    // 验证时段报告必须有reportHour
+    if (reportType === 'hourly') {
+      if (!reportHour || !['14:00', '19:00', '24:00'].includes(reportHour)) {
         return res.status(400).json({
           success: false,
-          message: '投放大类不存在或无效'
+          message: '时段报告必须指定有效的报告时段（14:00、19:00或24:00）'
         });
       }
     }
 
-    // 如果选择了小类，验证小类是否属于该大类
-    if (campaignSubCategory) {
-      const mainCategoryId = campaignMainCategory || report.campaignMainCategory;
-      const mainCategory = await CampaignCategory.findById(mainCategoryId);
-      
-      if (!mainCategory) {
+    // 验证产品列表
+    if (products) {
+      if (!Array.isArray(products) || products.length === 0) {
         return res.status(400).json({
           success: false,
-          message: '投放大类不存在'
+          message: '至少需要添加一个产品'
         });
       }
-      
-      const subCategory = mainCategory.subCategories.id(campaignSubCategory);
-      if (!subCategory || !subCategory.isActive) {
-        return res.status(400).json({
-          success: false,
-          message: '投放小类不存在或与大类不匹配'
-        });
+
+      // 验证每个产品的投放分类
+      for (const product of products) {
+        const mainCategory = await CampaignCategory.findById(product.campaignMainCategory);
+        if (!mainCategory || !mainCategory.isActive) {
+          return res.status(400).json({
+            success: false,
+            message: `产品"${product.productName}"的投放大类不存在或无效`
+          });
+        }
+
+        // 如果选择了小类，验证小类是否属于该大类
+        if (product.campaignSubCategory) {
+          const subCategory = mainCategory.subCategories.id(product.campaignSubCategory);
+          if (!subCategory || !subCategory.isActive) {
+            return res.status(400).json({
+              success: false,
+              message: `产品"${product.productName}"的投放小类不存在或与大类不匹配`
+            });
+          }
+        }
       }
     }
 
@@ -410,23 +468,35 @@ const updateDailyReport = async (req, res) => {
     const updateData = {};
     if (reportDate) updateData.reportDate = new Date(reportDate);
     if (groupName) updateData.groupName = groupName;
-    if (productName) updateData.productName = productName;
-    if (campaignMainCategory) updateData.campaignMainCategory = campaignMainCategory;
-    if (campaignSubCategory !== undefined) updateData.campaignSubCategory = campaignSubCategory || null;
-    if (promotionCost !== undefined) updateData.promotionCost = parseFloat(promotionCost);
-    if (totalSalesAmount !== undefined) updateData.totalSalesAmount = parseFloat(totalSalesAmount);
-    if (totalSalesQuantity !== undefined) updateData.totalSalesQuantity = parseInt(totalSalesQuantity);
-    if (roi !== undefined) updateData.roi = parseFloat(roi);
     if (reporters) updateData.reporters = reporters;
     if (remark !== undefined) updateData.remark = remark;
+    if (reportType) updateData.reportType = reportType;
+    if (reportType === 'hourly' && reportHour) {
+      updateData.reportHour = reportHour;
+    } else if (reportType === 'daily') {
+      updateData.reportHour = null;
+    }
+
+    // 处理产品数据
+    if (products) {
+      updateData.products = products.map(product => ({
+        productName: product.productName,
+        campaignMainCategory: product.campaignMainCategory,
+        campaignSubCategory: product.campaignSubCategory || null,
+        promotionCost: parseFloat(product.promotionCost),
+        totalSalesAmount: parseFloat(product.totalSalesAmount),
+        totalSalesQuantity: parseInt(product.totalSalesQuantity),
+        roi: parseFloat(product.roi)
+      }));
+    }
 
     const updatedReport = await DailyReport.findByIdAndUpdate(
       id,
       updateData,
       { new: true, runValidators: true }
     ).populate([
-      { path: 'campaignMainCategory', select: 'name' },
-      { path: 'campaignSubCategory', select: 'name' },
+      { path: 'products.campaignMainCategory', select: 'name' },
+      { path: 'products.campaignSubCategory', select: 'name' },
       { path: 'reporters', select: 'username' },
       { path: 'submitter', select: 'username' }
     ]);
@@ -693,6 +763,8 @@ const getDailyReportStatistics = async (req, res) => {
       reporters,
       categoryId,
       productName,
+      reportType,
+      reportHour,
       page = 1,
       limit = 20
     } = req.query;
@@ -701,6 +773,16 @@ const getDailyReportStatistics = async (req, res) => {
     const matchConditions = {
       reporters: userId // 只查询汇报给当前用户的日报
     };
+
+    // 报告类型过滤
+    if (reportType && ['daily', 'hourly'].includes(reportType)) {
+      matchConditions.reportType = reportType;
+    }
+
+    // 时段过滤
+    if (reportHour && ['14:00', '19:00', '24:00'].includes(reportHour)) {
+      matchConditions.reportHour = reportHour;
+    }
 
     // 时间范围筛选
     if (startDate || endDate) {
@@ -718,10 +800,10 @@ const getDailyReportStatistics = async (req, res) => {
       matchConditions.groupName = new RegExp(groupName, 'i');
     }
     if (categoryId) {
-      matchConditions.campaignMainCategory = new mongoose.Types.ObjectId(categoryId);
+      matchConditions['products.campaignMainCategory'] = new mongoose.Types.ObjectId(categoryId);
     }
     if (productName) {
-      matchConditions.productName = new RegExp(productName, 'i');
+      matchConditions['products.productName'] = new RegExp(productName, 'i');
     }
 
     let pipeline = [
@@ -855,6 +937,17 @@ const getDailyReportStatistics = async (req, res) => {
       }
     ]);
 
+    // 获取按报告类型的统计
+    const reportTypeStats = await DailyReport.aggregate([
+      { $match: matchConditions },
+      {
+        $group: {
+          _id: '$reportType',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
     const summary = totalStats[0] || {
       totalReports: 0,
       totalPromotionCost: 0,
@@ -863,6 +956,10 @@ const getDailyReportStatistics = async (req, res) => {
       uniqueGroups: []
     };
 
+    // 添加报告类型统计
+    const dailyReportsCount = reportTypeStats.find(s => s._id === 'daily')?.count || 0;
+    const hourlyReportsCount = reportTypeStats.find(s => s._id === 'hourly')?.count || 0;
+
     res.json({
       success: true,
       data: {
@@ -870,7 +967,9 @@ const getDailyReportStatistics = async (req, res) => {
         summary: {
           ...summary,
           uniqueReportersCount: summary.uniqueReporters.length,
-          uniqueGroupsCount: summary.uniqueGroups.length
+          uniqueGroupsCount: summary.uniqueGroups.length,
+          dailyReportsCount,
+          hourlyReportsCount
         },
         total: totalCount,
         page: pageNum,
@@ -890,49 +989,94 @@ const getDailyReportStatistics = async (req, res) => {
 // 导出日报详细数据
 const exportDailyReports = async (req, res) => {
   try {
-    const userId = req.user._id || req.user.id;
     const {
       startDate,
       endDate,
       groupName,
       submitterId,
-      reporters,
-      categoryId,
+      reporter,
+      reportType,
+      reportHour,
       productName,
+      mainCategory,
+      keyword,
+      isMyReports,
+      isReportsToMe,
       format = 'excel'
     } = req.query;
 
-    // 构建查询条件
-    const queryConditions = {
-      reporters: userId
-    };
+    // 获取当前用户ID
+    const currentUserId = req.user?._id || req.user?.id;
 
+    // 构建查询条件（与列表查询保持一致）
+    let query = {};
+
+    // Tab过滤条件
+    if (isMyReports === 'true' && currentUserId) {
+      query.submitter = currentUserId;
+    } else if (isReportsToMe === 'true' && currentUserId) {
+      query.reporters = currentUserId;
+    }
+
+    // 报告类型过滤
+    if (reportType && ['daily', 'hourly'].includes(reportType)) {
+      query.reportType = reportType;
+    }
+
+    // 时段过滤
+    if (reportHour && ['14:00', '19:00', '24:00'].includes(reportHour)) {
+      query.reportHour = reportHour;
+    }
+
+    // 日期范围过滤
     if (startDate || endDate) {
-      queryConditions.reportDate = {};
+      query.reportDate = {};
       if (startDate) {
-        queryConditions.reportDate.$gte = new Date(startDate);
+        query.reportDate.$gte = new Date(startDate);
       }
       if (endDate) {
-        queryConditions.reportDate.$lte = new Date(endDate);
+        query.reportDate.$lte = new Date(endDate);
       }
     }
 
+    // 组别过滤
     if (groupName) {
-      queryConditions.groupName = new RegExp(groupName, 'i');
+      query.groupName = new RegExp(groupName, 'i');
     }
+
+    // 提交人过滤
     if (submitterId) {
       try {
-        queryConditions.submitter = new mongoose.Types.ObjectId(submitterId);
+        query.submitter = new mongoose.Types.ObjectId(submitterId);
       } catch (error) {
         return res.status(400).json({
           success: false,
-          message: '无效的汇报人ID'
+          message: '无效的提交人ID'
         });
       }
     }
-    if (categoryId) {
+
+    // 汇报对象过滤
+    if (reporter) {
       try {
-        queryConditions.campaignMainCategory = new mongoose.Types.ObjectId(categoryId);
+        query.reporters = new mongoose.Types.ObjectId(reporter);
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          message: '无效的汇报对象ID'
+        });
+      }
+    }
+
+    // 产品名称过滤
+    if (productName) {
+      query['products.productName'] = new RegExp(productName, 'i');
+    }
+
+    // 投放大类过滤
+    if (mainCategory) {
+      try {
+        query['products.campaignMainCategory'] = new mongoose.Types.ObjectId(mainCategory);
       } catch (error) {
         return res.status(400).json({
           success: false,
@@ -940,36 +1084,95 @@ const exportDailyReports = async (req, res) => {
         });
       }
     }
-    if (productName) {
-      queryConditions.productName = new RegExp(productName, 'i');
+
+    // 关键字搜索
+    if (keyword) {
+      query.remark = new RegExp(keyword, 'i');
     }
-
-    console.log('最终查询条件:', queryConditions);
-
-    const reports = await DailyReport.find(queryConditions)
+    // 查询报告数据
+    const reports = await DailyReport.find(query)
       .populate('submitter', 'username')
-      .populate('campaignMainCategory', 'name')
-      .populate('campaignSubCategory', 'name')
-      .sort({ reportDate: -1 });
+      .populate('reporters', 'username')
+      .populate('products.campaignMainCategory', 'name')
+      .populate('products.campaignSubCategory', 'name')
+      .sort({ reportDate: -1, createdAt: -1 });
 
-    console.log('查询到的报告数量:', reports.length);
+    // 格式化导出数据 - 每个产品一行
+    const exportData = [];
+    reports.forEach(report => {
+      // 安全处理日期
+      let reportDateStr = '-';
+      if (report.reportDate) {
+        try {
+          reportDateStr = new Date(report.reportDate).toLocaleDateString('zh-CN');
+        } catch (error) {
+          console.error('日期格式化失败:', error);
+          reportDateStr = String(report.reportDate);
+        }
+      }
 
-    // 格式化导出数据
-    const exportData = reports.map(report => ({
-      '汇报日期': report.reportDate.toLocaleDateString('zh-CN'),
-      '汇报人': report.submitter?.username || '未知',
-      '组别': report.groupName,
-      '产品名称': report.productName,
-      '投放大类': report.campaignMainCategory?.name || '未分类',
-      '投放子类': report.campaignSubCategory?.name || '无',
-      '推广费用': report.promotionCost,
-      '转化数': report.conversions,
-      '转化率': report.conversionRate ? `${report.conversionRate}%` : '0%',
-      '客单价': report.averageOrderValue || 0,
-      '总销售额': report.totalRevenue || 0,
-      '投入产出比': report.roas || 0,
-      '创建时间': report.createdAt.toLocaleString('zh-CN')
-    }));
+      const baseInfo = {
+        '汇报日期': reportDateStr,
+        '报告类型': report.reportType === 'daily' ? '日报' : '时段报告',
+        '时段': report.reportType === 'hourly' ? (report.reportHour || '-') : '-',
+        '提交人': report.submitter?.username || '未知',
+        '汇报对象': report.reporters?.map(r => r.username).join(', ') || '未知',
+        '组别': report.groupName || '-'
+      };
+
+      // 如果有产品数据，每个产品一行
+      if (report.products && report.products.length > 0) {
+        report.products.forEach(product => {
+          // 安全处理创建时间
+          let createdAtStr = '-';
+          if (report.createdAt) {
+            try {
+              createdAtStr = new Date(report.createdAt).toLocaleString('zh-CN');
+            } catch (error) {
+              console.error('创建时间格式化失败:', error);
+              createdAtStr = String(report.createdAt);
+            }
+          }
+
+          exportData.push({
+            ...baseInfo,
+            '产品名称': product.productName || '-',
+            '投放大类': product.campaignMainCategory?.name || '未分类',
+            '投放子类': product.campaignSubCategory?.name || '无',
+            '推广费用': product.promotionCost || 0,
+            '总销售额': product.totalSalesAmount || 0,
+            '总销售数': product.totalSalesQuantity || 0,
+            'ROI': product.roi || 0,
+            '备注': report.remark || '',
+            '创建时间': createdAtStr
+          });
+        });
+      } else {
+        // 如果没有产品数据，也要导出基本信息
+        let createdAtStr = '-';
+        if (report.createdAt) {
+          try {
+            createdAtStr = new Date(report.createdAt).toLocaleString('zh-CN');
+          } catch (error) {
+            console.error('创建时间格式化失败:', error);
+            createdAtStr = String(report.createdAt);
+          }
+        }
+
+        exportData.push({
+          ...baseInfo,
+          '产品名称': '-',
+          '投放大类': '-',
+          '投放子类': '-',
+          '推广费用': 0,
+          '总销售额': 0,
+          '总销售数': 0,
+          'ROI': 0,
+          '备注': report.remark || '',
+          '创建时间': createdAtStr
+        });
+      }
+    });
 
     res.json({
       success: true,

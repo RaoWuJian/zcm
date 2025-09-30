@@ -545,7 +545,7 @@ const deleteInventory = asyncHandler(async (req, res) => {
 // @route   POST /api/inventory/:id/out
 // @access  Private
 const inventoryOut = asyncHandler(async (req, res) => {
-  const { quantity, reason } = req.body;
+  const { quantity, reason, operationDate } = req.body;
 
   if (!quantity || quantity <= 0) {
     return res.status(400).json({
@@ -558,6 +558,13 @@ const inventoryOut = asyncHandler(async (req, res) => {
     return res.status(400).json({
       success: false,
       message: '出库原因不能为空'
+    });
+  }
+
+  if (!operationDate) {
+    return res.status(400).json({
+      success: false,
+      message: '出库日期不能为空'
     });
   }
 
@@ -599,6 +606,7 @@ const inventoryOut = asyncHandler(async (req, res) => {
     quantityBefore,
     quantityAfter,
     reason: reason.trim(),
+    operationDate: new Date(operationDate), // 出库日期
     externalCode: inventory.externalCode,
     internalCode: inventory.internalCode,
     productName: inventory.productName,
@@ -624,7 +632,7 @@ const inventoryOut = asyncHandler(async (req, res) => {
 // @route   POST /api/inventory/:id/in
 // @access  Private
 const inventoryIn = asyncHandler(async (req, res) => {
-  const { quantity, reason } = req.body;
+  const { quantity, reason, operationDate } = req.body;
 
   if (!quantity || quantity <= 0) {
     return res.status(400).json({
@@ -637,6 +645,13 @@ const inventoryIn = asyncHandler(async (req, res) => {
     return res.status(400).json({
       success: false,
       message: '入库原因不能为空'
+    });
+  }
+
+  if (!operationDate) {
+    return res.status(400).json({
+      success: false,
+      message: '入库日期不能为空'
     });
   }
 
@@ -671,6 +686,7 @@ const inventoryIn = asyncHandler(async (req, res) => {
     quantityBefore,
     quantityAfter,
     reason: reason.trim(),
+    operationDate: new Date(operationDate), // 入库日期
     externalCode: inventory.externalCode,
     internalCode: inventory.internalCode,
     productName: inventory.productName,

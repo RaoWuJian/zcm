@@ -17,6 +17,10 @@ class WebSocketService {
     this.activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click']
     this.notificationStore = null
     this.userStore = null
+    this.isDestroyed = false // 添加销毁标志
+
+    // 绑定方法到实例，确保可以正确移除监听器
+    this.handleUserActivity = this.handleUserActivity.bind(this)
   }
 
   // 初始化WebSocket连接
@@ -39,6 +43,12 @@ class WebSocketService {
 
   // 建立WebSocket连接
   async connect() {
+    // 如果服务已销毁，不再尝试连接
+    if (this.isDestroyed) {
+      console.log('WebSocket service is destroyed, skipping connection')
+      return
+    }
+
     if (this.isConnecting || this.isConnected) {
       return
     }
@@ -207,7 +217,7 @@ class WebSocketService {
   setupActivityDetection() {
     // 监听用户活动事件
     this.activityEvents.forEach(event => {
-      document.addEventListener(event, this.handleUserActivity.bind(this), true)
+      document.addEventListener(event, this.handleUserActivity, true)
     })
 
     // 定期检查用户活跃度
@@ -218,10 +228,22 @@ class WebSocketService {
 
   // 处理用户活动
   handleUserActivity() {
+    // 如果服务已销毁，不处理任何活动
+    if (this.isDestroyed) {
+      return
+    }
+
     this.updateActivity()
-    
+
     // 如果用户重新活跃且未连接，尝试重连
     if (!this.isConnected && !this.isConnecting) {
+      // 检查是否有 token，没有 token 说明用户未登录
+      const token = localStorage.getItem('token')
+      if (!token) {
+        console.log('No token found, skipping reconnection')
+        return
+      }
+
       console.log('User became active, attempting to reconnect...')
       this.connect().catch(error => {
         console.error('Reconnection failed:', error)
@@ -270,6 +292,12 @@ class WebSocketService {
 
   // 安排重连
   scheduleReconnect() {
+    // 如果服务已销毁，不再重连
+    if (this.isDestroyed) {
+      console.log('WebSocket service is destroyed, skipping reconnection')
+      return
+    }
+
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.log('Max reconnection attempts reached')
       return
@@ -281,6 +309,12 @@ class WebSocketService {
     console.log(`Scheduling reconnection attempt ${this.reconnectAttempts} in ${delay}ms`)
 
     setTimeout(() => {
+      // 再次检查是否已销毁
+      if (this.isDestroyed) {
+        console.log('WebSocket service was destroyed during reconnection delay')
+        return
+      }
+
       if (!this.isConnected && !this.isConnecting) {
         this.connect().catch(error => {
           console.error('Reconnection failed:', error)
@@ -318,19 +352,43 @@ class WebSocketService {
 
   // 销毁服务
   destroy() {
+    console.log('Destroying WebSocket service...')
+
+    // 设置销毁标志，防止任何重连尝试
+    this.isDestroyed = true
+
+    // 清理连接
     this.cleanup()
-    
-    // 移除活动监听器
+
+    // 移除活动监听器（使用绑定的方法引用）
     this.activityEvents.forEach(event => {
-      document.removeEventListener(event, this.handleUserActivity.bind(this), true)
+      document.removeEventListener(event, this.handleUserActivity, true)
     })
-    
+
+    // 清理定时器
     if (this.activityTimeout) {
       clearInterval(this.activityTimeout)
       this.activityTimeout = null
     }
-    
+
+    // 重置重连计数
+    this.reconnectAttempts = 0
+
     console.log('WebSocket service destroyed')
+  }
+
+  // 重新初始化服务（用于重新登录后）
+  reinitialize() {
+    console.log('Reinitializing WebSocket service...')
+
+    // 重置销毁标志
+    this.isDestroyed = false
+
+    // 重置重连计数
+    this.reconnectAttempts = 0
+
+    // 重新初始化
+    this.initialize()
   }
 
   // 获取连接状态

@@ -374,7 +374,6 @@
         :rules="accountingRules"
         label-width="120px"
       >
-      
         <el-form-item label="产品名称" prop="name">
           <el-autocomplete
             v-model="accountingForm.name"

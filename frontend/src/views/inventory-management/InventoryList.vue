@@ -321,6 +321,7 @@
                 :min="0"
                 :precision="0"
                 style="width: 100%"
+                :disabled="editingInventory"
                 placeholder="请输入当前库存数量"
               />
             </el-form-item>
@@ -414,6 +415,15 @@
         <el-form-item label="当前库存">
           <span>{{ currentInventory?.currentQuantity }}</span>
         </el-form-item>
+        <el-form-item label="入库日期" required>
+          <el-date-picker
+            v-model="inForm.operationDate"
+            type="date"
+            placeholder="请选择入库日期"
+            style="width: 100%"
+            value-format="YYYY-MM-DD"
+          />
+        </el-form-item>
         <el-form-item label="入库数量" required>
           <el-input
             v-model.number="inForm.quantity"
@@ -455,6 +465,15 @@
         </el-form-item>
         <el-form-item label="当前库存">
           <span>{{ currentInventory?.currentQuantity }}</span>
+        </el-form-item>
+        <el-form-item label="出库日期" required>
+          <el-date-picker
+            v-model="outForm.operationDate"
+            type="date"
+            placeholder="请选择出库日期"
+            style="width: 100%"
+            value-format="YYYY-MM-DD"
+          />
         </el-form-item>
         <el-form-item label="出库数量" required>
           <el-input
@@ -658,6 +677,14 @@
               <el-tag :type="getOperationTypeTagType(row.operationType)">
                 {{ getOperationTypeText(row.operationType) }}
               </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="operationDate" label="出入库日期" width="120" align="center">
+            <template #default="{ row }">
+              <span v-if="row.operationType === 'in' || row.operationType === 'out'">
+                {{ formatDate(row.operationDate, 'date') }}
+              </span>
+              <span v-else>-</span>
             </template>
           </el-table-column>
           <el-table-column prop="quantity" label="数量变化" width="120" align="center">
@@ -941,13 +968,15 @@ const outLoading = ref(false)
 // 入库表单
 const inForm = reactive({
   quantity: null,
-  reason: ''
+  reason: '',
+  operationDate: null
 })
 
 // 出库表单
 const outForm = reactive({
   quantity: null,
-  reason: ''
+  reason: '',
+  operationDate: null
 })
 
 // 多选相关
@@ -1037,9 +1066,21 @@ const inventoryRules = {
 }
 
 // 工具函数
-const formatDate = (dateString) => {
+const formatDate = (dateString, format = 'datetime') => {
   if (!dateString) return '-'
-  return new Date(dateString).toLocaleDateString('zh-CN')
+  const date = new Date(dateString)
+
+  if (format === 'date') {
+    // 只显示日期，格式：2024-01-01
+    return date.toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).replace(/\//g, '-')
+  }
+
+  // 默认显示日期和时间
+  return date.toLocaleDateString('zh-CN')
 }
 
 const getQuantityTagType = (quantity) => {
@@ -1484,6 +1525,7 @@ const handleInventoryIn = (inventory) => {
   currentInventory.value = inventory
   inForm.quantity = null
   inForm.reason = ''
+  inForm.operationDate = new Date().toISOString().split('T')[0] // 默认今天
   showInDialog.value = true
 }
 
@@ -1499,12 +1541,18 @@ const confirmInventoryIn = async () => {
     return
   }
 
+  if (!inForm.operationDate) {
+    ElMessage.error('请选择入库日期')
+    return
+  }
+
   inLoading.value = true
 
   try {
     const result = await inventoryStore.inventoryIn(currentInventory.value._id, {
       quantity: Number(inForm.quantity),
-      reason: inForm.reason.trim()
+      reason: inForm.reason.trim(),
+      operationDate: inForm.operationDate
     })
 
     if (result.success) {
@@ -1526,6 +1574,7 @@ const handleInventoryOut = (inventory) => {
   currentInventory.value = inventory
   outForm.quantity = null
   outForm.reason = ''
+  outForm.operationDate = new Date().toISOString().split('T')[0] // 默认今天
   showOutDialog.value = true
 }
 
@@ -1546,12 +1595,18 @@ const confirmInventoryOut = async () => {
     return
   }
 
+  if (!outForm.operationDate) {
+    ElMessage.error('请选择出库日期')
+    return
+  }
+
   outLoading.value = true
 
   try {
     const result = await inventoryStore.inventoryOut(currentInventory.value._id, {
       quantity: Number(outForm.quantity),
-      reason: outForm.reason.trim()
+      reason: outForm.reason.trim(),
+      operationDate: outForm.operationDate
     })
 
     if (result.success) {

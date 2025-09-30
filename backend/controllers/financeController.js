@@ -32,6 +32,72 @@ const isUserSuperiorToCreator = async (currentUser, recordCreator) => {
   return hasAccess;
 };
 
+/**
+ * 检查当前用户是否有权限删除财务记录
+ * @param {Object} currentUser - 当前用户对象
+ * @param {Object} finance - 财务记录对象
+ * @returns {Object} - { hasPermission: boolean, message: string }
+ */
+const canDeleteFinanceRecord = async (currentUser, finance) => {
+  // 管理员拥有所有权限
+  if (currentUser.isAdmin) {
+    return { hasPermission: true, message: '' };
+  }
+
+  const recordCreator = finance.createdBy;
+
+  // 检查是否是创建者本人
+  const isCreator = currentUser.id === recordCreator.id ||
+                    currentUser._id.toString() === recordCreator._id.toString();
+
+  // 如果是已审批的记录
+  if (finance.approvalStatus === 'approved') {
+    // 创建者不能删除已审批的记录
+    if (isCreator) {
+      return {
+        hasPermission: false,
+        message: '已审批的记录只能由上级部门人员删除'
+      };
+    }
+
+    // 检查是否是上级部门人员
+    const hasAccess = await DepartmentPermissionManager.hasAccessToRecord(
+      currentUser,
+      { createdBy: recordCreator }
+    );
+
+    if (!hasAccess) {
+      return {
+        hasPermission: false,
+        message: '已审批的记录只能由上级部门人员删除'
+      };
+    }
+
+    return { hasPermission: true, message: '' };
+  }
+
+  // 如果是未审批的记录（pending 或 rejected）
+  // 创建者本人可以删除
+  if (isCreator) {
+    return { hasPermission: true, message: '' };
+  }
+
+  // 上级部门人员也可以删除
+  const hasAccess = await DepartmentPermissionManager.hasAccessToRecord(
+    currentUser,
+    { createdBy: recordCreator }
+  );
+
+  if (!hasAccess) {
+    return {
+      hasPermission: false,
+      message: '只能删除自己创建的记录或下级部门人员创建的记录'
+    };
+  }
+
+  return { hasPermission: true, message: '' };
+};
+
 // @desc    创建财务记录
 // @route   POST /api/finance
 // @access  Private
@@ -130,7 +196,8 @@ const getFinances = asyncHandler(async (req, res) => {
     name,
     companyAccountId,
     categoryId,
-    subCategoryId
+    subCategoryId,
+    createdBy
   } = req.query;
   const user = req.user;
 
@@ -143,11 +210,28 @@ const getFinances = asyncHandler(async (req, res) => {
   if (companyAccountId) query.companyAccountId = companyAccountId;
   if (categoryId) query['recordType.categoryId'] = categoryId;
   if (subCategoryId) query['recordType.subCategoryId'] = subCategoryId;
+  // 注意：createdBy 的处理移到了权限检查部分
 
   // 获取用户有权限查看的财务记录
   if (!user.isAdmin) {
     const accessibleUserQuery = await DepartmentPermissionManager.buildAccessibleUserQuery(user);
-    Object.assign(query, accessibleUserQuery);
+
+    // 如果指定了操作人筛选，需要检查该操作人是否在用户权限范围内
+    if (createdBy) {
+      const accessibleUserIds = await DepartmentPermissionManager.getAccessibleUserIds(user);
+      const accessibleUserIdStrings = accessibleUserIds.map(id => id.toString());
+
+      if (accessibleUserIdStrings.includes(createdBy.toString())) {
+        // 操作人在权限范围内，使用操作人筛选
+        query.createdBy = createdBy;
+      } else {
+        // 操作人不在权限范围内，返回空结果
+        query.createdBy = { $in: [] }; // 确保返回空结果
+      }
+    } else {
+      // 没有指定操作人，应用权限查询条件
+      Object.assign(query, accessibleUserQuery);
+    }
 
     // 非管理员用户也需要支持teamId筛选，但需要确保该团队在用户权限范围内
     if (teamId) {
@@ -162,13 +246,17 @@ const getFinances = asyncHandler(async (req, res) => {
       }
     }
   } else {
+    // 管理员用户，如果指定了操作人筛选则直接使用
+    if (createdBy) {
+      query.createdBy = createdBy;
+    }
+
     // 管理员用户，如果指定了teamId则使用
     if (teamId) {
       query.teamId = teamId;
-      console.log('管理员用户添加teamId筛选:', teamId);
     }
   }
-
+  
   // 日期范围查询
   if (startDate || endDate) {
     query.occurredAt = {};
@@ -216,6 +304,7 @@ const getFinances = asyncHandler(async (req, res) => {
     .limit(Number(limit));
 
   const total = await Finance.countDocuments(query);
+
   const list = await Promise.all((finances || []).map(async item => {
     const financeObj = item.toObject();
     financeObj.isSuperior = await isUserSuperiorToCreator(user, financeObj.createdBy);
@@ -414,16 +503,13 @@ const deleteFinance = asyncHandler(async (req, res) => {
     });
   }
 
-  // 如果已审批，需要检查权限
-  if (finance.approvalStatus === 'approved') {
-    // 检查当前用户是否为记录创建者的上级部门人员
-    const hasPermission = await isUserSuperiorToCreator(req.user, finance.createdBy);
-    if (!hasPermission) {
-      return res.status(403).json({
-        success: false,
-        message: '已审批的记录只能由上级部门人员删除'
-      });
-    }
+  // 检查删除权限（包括已审批和未审批的记录）
+  const permissionCheck = await canDeleteFinanceRecord(req.user, finance);
+  if (!permissionCheck.hasPermission) {
+    return res.status(403).json({
+      success: false,
+      message: permissionCheck.message
+    });
   }
 
   try {
@@ -740,19 +826,19 @@ const batchDeleteFinance = asyncHandler(async (req, res) => {
     _id: { $in: ids }
   }).populate('teamId').populate('createdBy');
 
-  // 检查已审批记录的权限
-  const approvedRecords = recordsToDelete.filter(record => record.approvalStatus === 'approved');
-
-  // 验证用户是否有权限删除已审批的记录
-  for (const record of approvedRecords) {
-    const hasPermission = await isUserSuperiorToCreator(req.user, record.createdBy);
-    if (!hasPermission) {
+  // 检查每条记录的删除权限（包括已审批和未审批的记录）
+  for (const record of recordsToDelete) {
+    const permissionCheck = await canDeleteFinanceRecord(req.user, record);
+    if (!permissionCheck.hasPermission) {
       return res.status(403).json({
         success: false,
-        message: `记录 "${record.name}" 已审批，只能由上级部门人员删除`
+        message: `记录 "${record.name}" ${permissionCheck.message}`
       });
     }
   }
+
+  // 筛选出已审批的记录，需要恢复账户余额
+  const approvedRecords = recordsToDelete.filter(record => record.approvalStatus === 'approved');
 
   for (const record of approvedRecords) {
     const teamAccount = record.teamId;

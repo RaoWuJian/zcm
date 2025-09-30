@@ -34,9 +34,7 @@ userStore.initUserInfo().then(async (result) => {
 
   // 初始化通知存储（从本地存储加载）
   try {
-    console.log('Initializing notification store...')
     await notificationStore.initialize()
-    console.log('Notification store initialized successfully')
   } catch (error) {
     console.error('Failed to initialize notification store:', error)
   }

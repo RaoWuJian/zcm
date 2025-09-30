@@ -1,29 +1,14 @@
 const mongoose = require('mongoose');
 
-const dailyReportSchema = new mongoose.Schema({
-  // 基本信息
-  reportDate: {
-    type: Date,
-    required: [true, '日期不能为空'],
-    index: true
-  },
-  groupName: {
-    type: String,
-    required: [true, '组别不能为空'],
-    trim: true,
-    maxlength: [100, '组别名称最多100个字符']
-  },
-
-  // 产品名称
+// 产品条目子模式
+const productItemSchema = new mongoose.Schema({
   productName: {
     type: String,
     required: [true, '产品名称不能为空'],
     trim: true,
-    maxlength: [200, '产品名称最多200个字符'],
-    index: true
+    maxlength: [200, '产品名称最多200个字符']
   },
-
-  // 投放分类
+  
   campaignMainCategory: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'CampaignCategory',
@@ -32,13 +17,8 @@ const dailyReportSchema = new mongoose.Schema({
   campaignSubCategory: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'CampaignCategory',
-    required: function() {
-      // 如果有子类可选，则必须选择
-      return this.campaignMainCategory && this.campaignSubCategory !== null;
-    }
+    default: null
   },
-  
-  // 推广数据
   promotionCost: {
     type: Number,
     required: [true, '推广费不能为空'],
@@ -83,6 +63,60 @@ const dailyReportSchema = new mongoose.Schema({
       message: 'ROI必须是有效的正数'
     }
   },
+}, { _id: true });
+
+const dailyReportSchema = new mongoose.Schema({
+  // 基本信息（公共字段）
+  reportDate: {
+    type: Date,
+    required: [true, '日期不能为空'],
+    index: true
+  },
+  groupName: {
+    type: String,
+    required: [true, '组别不能为空'],
+    trim: true,
+    maxlength: [100, '组别名称最多100个字符']
+  },
+
+  // 报告类型：日报或时段报告
+  reportType: {
+    type: String,
+    enum: ['daily', 'hourly'],
+    default: 'daily',
+    required: [true, '报告类型不能为空'],
+    index: true
+  },
+
+  // 时段（仅时段报告需要）
+  reportHour: {
+    type: String,
+    enum: ['14:00', '19:00', '24:00'],
+    default: null,
+    validate: {
+      validator: function(v) {
+        // 如果是时段报告，reportHour必须有值
+        if (this.reportType === 'hourly') {
+          return v !== null && v !== undefined && v !== '';
+        }
+        // 如果是日报，reportHour应该为null
+        return true;
+      },
+      message: '时段报告必须指定报告时段'
+    }
+  },
+
+  // 产品列表（支持多个产品）
+  products: {
+    type: [productItemSchema],
+    required: [true, '至少需要添加一个产品'],
+    validate: {
+      validator: function(v) {
+        return Array.isArray(v) && v.length > 0;
+      },
+      message: '至少需要添加一个产品'
+    }
+  },
   
   // 汇报人（多选）
   reporters: [{
@@ -91,8 +125,6 @@ const dailyReportSchema = new mongoose.Schema({
     required: true
   }],
 
-
-  
   // 提交人
   submitter: {
     type: mongoose.Schema.Types.ObjectId,
@@ -153,21 +185,33 @@ dailyReportSchema.index({ reportDate: -1, createdAt: -1 });
 dailyReportSchema.index({ submitter: 1, reportDate: -1 });
 dailyReportSchema.index({ reporters: 1, reportDate: -1 });
 dailyReportSchema.index({ groupName: 1, reportDate: -1 });
+dailyReportSchema.index({ 'products.productName': 1, reportDate: -1 });
+dailyReportSchema.index({ reportType: 1, reportDate: -1 });
+dailyReportSchema.index({ reportType: 1, reportHour: 1, reportDate: -1 });
 
-// 虚拟字段：计算平均订单价值
-dailyReportSchema.virtual('avgOrderValue').get(function() {
-  if (this.totalSalesQuantity > 0) {
-    return (this.totalSalesAmount / this.totalSalesQuantity).toFixed(2);
-  }
-  return 0;
+// 虚拟字段：计算总推广费
+dailyReportSchema.virtual('totalPromotionCost').get(function() {
+  if (!this.products || this.products.length === 0) return 0;
+  return this.products.reduce((sum, product) => sum + (product.promotionCost || 0), 0);
 });
 
-// 虚拟字段：计算单位获客成本
-dailyReportSchema.virtual('costPerAcquisition').get(function() {
-  if (this.totalSalesQuantity > 0) {
-    return (this.promotionCost / this.totalSalesQuantity).toFixed(2);
-  }
-  return 0;
+// 虚拟字段：计算总销售额
+dailyReportSchema.virtual('totalSalesAmountSum').get(function() {
+  if (!this.products || this.products.length === 0) return 0;
+  return this.products.reduce((sum, product) => sum + (product.totalSalesAmount || 0), 0);
+});
+
+// 虚拟字段：计算总销售数
+dailyReportSchema.virtual('totalSalesQuantitySum').get(function() {
+  if (!this.products || this.products.length === 0) return 0;
+  return this.products.reduce((sum, product) => sum + (product.totalSalesQuantity || 0), 0);
+});
+
+// 虚拟字段：计算平均ROI
+dailyReportSchema.virtual('avgROI').get(function() {
+  if (!this.products || this.products.length === 0) return 0;
+  const totalROI = this.products.reduce((sum, product) => sum + (product.roi || 0), 0);
+  return (totalROI / this.products.length).toFixed(2);
 });
 
 // 中间件：更新时间
@@ -233,18 +277,18 @@ dailyReportSchema.statics.getReportsByDateRange = function(startDate, endDate, o
       $lte: endDate
     }
   };
-  
+
   if (options.submitter) {
     query.submitter = options.submitter;
   }
-  
+
   if (options.groupName) {
     query.groupName = new RegExp(options.groupName, 'i');
   }
-  
+
   return this.find(query)
-    .populate('campaignMainCategory', 'name')
-    .populate('campaignSubCategory', 'name')
+    .populate('products.campaignMainCategory', 'name')
+    .populate('products.campaignSubCategory', 'name')
     .populate('reporters', 'username')
     .populate('submitter', 'username')
     .sort({ reportDate: -1, createdAt: -1 });

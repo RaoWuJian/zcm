@@ -95,6 +95,7 @@
         style="width: 100%"
         :header-cell-style="{ background: '#fafbfc', color: '#1f2329', fontWeight: '600' }"
         @selection-change="handleSelectionChange"
+        @sort-change="handleSortChange"
         max-height="600"
       >
         <el-table-column type="selection" width="50" />
@@ -126,7 +127,7 @@
             <span class="expense-text">-¥{{ (row.monthlyExpense || 0).toLocaleString() }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="余额" width="150">
+        <el-table-column label="余额" width="150" sortable="custom" prop="amount">
           <template #default="{ row }">
             <div class="amount-cell" :class="row.amount >= 0 ? 'positive' : 'negative'">
               ¥{{ row.amount.toLocaleString() }}
@@ -692,6 +693,12 @@ const pagination = reactive({
   total: 0
 })
 
+// 排序信息
+const sortInfo = reactive({
+  sortBy: '',
+  sortOrder: ''
+})
+
 // 交易记录分页信息
 const recordPagination = reactive({
   currentPage: 1,
@@ -825,6 +832,12 @@ const getTeamAccounts = async () => {
     }
     if (searchKeywords.length > 0) {
       params.search = searchKeywords.join(' ')
+    }
+
+    // 添加排序参数
+    if (sortInfo.sortBy) {
+      params.sortBy = sortInfo.sortBy
+      params.sortOrder = sortInfo.sortOrder
     }
 
     const response = await teamAccountApi.getTeamAccounts(params)
@@ -1493,6 +1506,23 @@ const handleSizeChange = async (size) => {
 const handleCurrentChange = async (page) => {
   pagination.currentPage = page
   await getTeamAccounts() // 重新请求数据
+}
+
+// 排序变化处理
+const handleSortChange = async ({ column, prop, order }) => {
+  if (!prop || !order) {
+    // 取消排序
+    sortInfo.sortBy = ''
+    sortInfo.sortOrder = ''
+  } else {
+    // 设置排序
+    sortInfo.sortBy = prop
+    sortInfo.sortOrder = order === 'ascending' ? 'asc' : 'desc'
+  }
+
+  // 重置到第一页并重新请求数据
+  pagination.currentPage = 1
+  await getTeamAccounts()
 }
 
 // 交易记录相关方法

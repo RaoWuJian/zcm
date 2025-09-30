@@ -105,7 +105,15 @@ export const useUserStore = defineStore('user', {
       // 登录成功后初始化WebSocket连接
       try {
         const websocketService = (await import('@/services/websocketService')).default
-        await websocketService.initialize()
+
+        // 如果服务已被销毁，需要重新初始化
+        if (websocketService.isDestroyed) {
+          console.log('WebSocket service was destroyed, reinitializing...')
+          await websocketService.reinitialize()
+        } else {
+          await websocketService.initialize()
+        }
+
         console.log('WebSocket service initialized after login')
       } catch (error) {
         console.error('Failed to initialize WebSocket service after login:', error)

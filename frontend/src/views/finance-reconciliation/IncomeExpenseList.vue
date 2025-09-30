@@ -122,6 +122,27 @@
               class="business-input"
             />
           </el-form-item>
+          <el-form-item label="操作人" class="search-item">
+            <el-select
+              v-model="searchForm.operatorId"
+              placeholder="选择操作人"
+              clearable
+              filterable
+              remote
+              :remote-method="searchOperators"
+              :loading="operatorLoading"
+              class="business-select"
+            >
+              <el-option
+                v-for="user in operatorOptions"
+                :key="user._id"
+                :label="user.username"
+                :value="user._id"
+              >
+                <span style="float: left">{{ user.username }}</span>
+              </el-option>
+            </el-select>
+          </el-form-item>
            <el-form-item label="时间筛选" class="search-item">
             <el-date-picker
               v-model="searchForm.dateRange"
@@ -525,7 +546,12 @@
         <el-row>
           <el-col :span="24">
             <el-form-item label="上传凭证" prop="images" required>
-              <div class="image-upload-container">
+              <div
+                class="image-upload-container"
+                @paste="handlePaste"
+                tabindex="0"
+                ref="uploadContainerRef"
+              >
                 <!-- 图片预览和上传区域 - 统一在一行显示 -->
                 <div class="image-items-container">
                   <!-- 已选择的图片预览 -->
@@ -535,21 +561,33 @@
                     class="image-preview-item"
                   >
                     <el-image
+                      :ref="el => setImageRef(el, index)"
                       :src="getImageUrlSync(image)"
                       :preview-src-list="getFormImageUrls()"
                       :initial-index="index"
                       fit="cover"
                       class="preview-image"
+                      :preview-teleported="true"
                     />
                     <div class="image-overlay">
-                      <el-button
-                        type="danger"
-                        size="small"
-                        :icon="Delete"
-                        circle
-                        @click="removeImage(index)"
-                        class="delete-btn"
-                      />
+                      <div class="overlay-buttons">
+                        <el-button
+                          type="primary"
+                          size="small"
+                          :icon="ZoomIn"
+                          circle
+                          @click="previewImage(index)"
+                          class="preview-btn"
+                        />
+                        <el-button
+                          type="danger"
+                          size="small"
+                          :icon="Delete"
+                          circle
+                          @click="removeImage(index)"
+                          class="delete-btn"
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -574,6 +612,7 @@
               </div>
               <div class="upload-tips">
                 <el-text size="small" type="info">
+                  <el-icon><InfoFilled /></el-icon>
                   支持 JPG、PNG、GIF 格式，单个文件不超过 10MB，最多上传 8 张图片
                 </el-text>
               </div>
@@ -905,9 +944,12 @@ import {
   Minus,
   Search,
   Check,
-  Close
+  Close,
+  InfoFilled,
+  Picture,
+  ZoomIn
 } from '@element-plus/icons-vue'
-import { financeApi, teamAccountApi, fileApi, recordTypeApi } from '@/api/index';
+import { financeApi, teamAccountApi, fileApi, recordTypeApi, employeeApi } from '@/api/index';
 import hasAnyPermission from '@/utils/checkPermissions'
 import { formatUtcToLocalDate } from '@/utils/dateUtils'
 
@@ -1015,8 +1057,13 @@ const searchForm = reactive({
   keyword: '',
   categoryId: '', // 记录大类
   subCategoryId: '', // 记录小类
-  companyAccountId: '' // 公司账户
+  companyAccountId: '', // 公司账户
+  operatorId: '' // 操作人ID
 })
+
+// 操作人搜索相关
+const operatorOptions = ref([])
+const operatorLoading = ref(false)
 
 // 分页信息
 const pagination = reactive({
@@ -1212,10 +1259,10 @@ const initData = async () => {
       page: pagination.currentPage,
       limit: pagination.pageSize
     }
-    
+
     // 只添加有值的搜索条件
     if (searchForm.recordName) params.name = searchForm.recordName
-    if (searchForm.type) params.type = searchForm.type | 'expense' | 'recharge'
+    if (searchForm.type) params.type = searchForm.type
     if (searchForm.category) params.category = searchForm.category
     if (searchForm.account) params.teamId = searchForm.account
     if (searchForm.approvalStatus) params.approvalStatus = searchForm.approvalStatus
@@ -1223,11 +1270,12 @@ const initData = async () => {
     if (searchForm.companyAccountId) params.companyAccountId = searchForm.companyAccountId
     if (searchForm.categoryId) params.categoryId = searchForm.categoryId
     if (searchForm.subCategoryId) params.subCategoryId = searchForm.subCategoryId
+    if (searchForm.operatorId) params.createdBy = searchForm.operatorId
     if (searchForm.dateRange && searchForm.dateRange.length === 2) {
       params.startDate = searchForm.dateRange[0]
       params.endDate = searchForm.dateRange[1]
     }
-    
+
     const response = await financeApi.getRecords(params)
     
     if (response && response.data) {
@@ -1310,7 +1358,9 @@ const handleReset = () => {
   searchForm.categoryId = ''
   searchForm.subCategoryId = ''
   searchForm.companyAccountId = ''
+  searchForm.operatorId = ''
   searchSubCategories.value = [] // 清空搜索小类数据
+  operatorOptions.value = [] // 清空操作人选项
   handleSearch()
 }
 
@@ -1318,6 +1368,33 @@ const handleReset = () => {
 const handleDateRangeChange = (dates) => {
   searchForm.dateRange = dates
   // 可以在这里添加自动搜索逻辑，或者让用户手动点击查询按钮
+}
+
+// 搜索操作人
+const searchOperators = async (query) => {
+  if (!query) {
+    operatorOptions.value = []
+    return
+  }
+
+  try {
+    operatorLoading.value = true
+    const response = await employeeApi.getReporters({
+      search: query,
+      limit: 20
+    })
+
+    if (response.success && response.data) {
+      operatorOptions.value = response.data
+    } else {
+      operatorOptions.value = []
+    }
+  } catch (error) {
+    console.error('搜索操作人失败:', error)
+    operatorOptions.value = []
+  } finally {
+    operatorLoading.value = false
+  }
 }
 
 // 选择变化
@@ -1545,6 +1622,13 @@ const handleAdd = () => {
   dialogTitle.value = '新增收支记录'
   resetForm()
   dialogVisible.value = true
+
+  // 对话框打开后，聚焦到上传容器以便使用粘贴功能
+  nextTick(() => {
+    if (uploadContainerRef.value) {
+      uploadContainerRef.value.focus()
+    }
+  })
 }
 
 // 编辑
@@ -1933,6 +2017,118 @@ const removeImage = async (index) => {
     if (error !== 'cancel') {
       ElMessage.error('删除图片失败')
     }
+  }
+}
+
+// 处理粘贴事件
+const uploadContainerRef = ref(null)
+
+// 图片引用管理
+const imageRefs = ref([])
+const setImageRef = (el, index) => {
+  if (el) {
+    imageRefs.value[index] = el
+  }
+}
+
+// 预览图片 - 使用现有的预览状态
+const previewImage = (index) => {
+  // 设置预览图片列表和当前索引
+  previewImages.value = [...form.images]
+  currentImageIndex.value = index
+  imagePreviewVisible.value = true
+}
+
+const handlePaste = async (event) => {
+  const items = event.clipboardData?.items
+  if (!items) return
+
+  // 检查图片数量限制
+  if (form.images.length >= 8) {
+    ElMessage.warning('最多只能上传 8 张图片!')
+    return
+  }
+
+  let hasImage = false
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i]
+
+    // 检查是否为图片
+    if (item.type.indexOf('image') !== -1) {
+      hasImage = true
+      const file = item.getAsFile()
+
+      if (file) {
+        // 检查文件大小
+        const isLt10M = file.size / 1024 / 1024 < 10
+        if (!isLt10M) {
+          ElMessage.error('图片大小不能超过 10MB!')
+          continue
+        }
+
+        // 检查图片数量
+        if (form.images.length >= 8) {
+          ElMessage.warning('最多只能上传 8 张图片!')
+          break
+        }
+
+        // 创建一个新的 File 对象，添加时间戳作为文件名
+        const timestamp = new Date().getTime()
+        const newFile = new File([file], `粘贴图片_${timestamp}.${file.type.split('/')[1]}`, {
+          type: file.type
+        })
+
+        // 添加到图片列表
+        form.images.push(newFile)
+        ElMessage.success('图片粘贴成功')
+
+        // 触发图片字段验证
+        nextTick(() => {
+          if (formRef.value) {
+            formRef.value.validateField('images')
+          }
+        })
+      }
+    }
+  }
+
+  if (hasImage) {
+    event.preventDefault()
+  }
+}
+
+// 获取图片名称
+const getImageName = (image) => {
+  if (image instanceof File) {
+    return image.name
+  }
+  if (image.originalName) {
+    return image.originalName
+  }
+  if (image.filename) {
+    return image.filename
+  }
+  return '未知文件'
+}
+
+// 获取图片大小（格式化显示）
+const getImageSize = (image) => {
+  let size = 0
+
+  if (image instanceof File) {
+    size = image.size
+  } else if (image.size) {
+    size = image.size
+  }
+
+  if (size === 0) return ''
+
+  if (size < 1024) {
+    return `${size} B`
+  } else if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(2)} KB`
+  } else {
+    return `${(size / 1024 / 1024).toFixed(2)} MB`
   }
 }
 
@@ -2651,6 +2847,15 @@ onMounted(() => {
   padding: 16px;
   border-radius: 8px;
   border: 1px solid #e4e7ed;
+  background: #fafafa;
+  transition: all 0.3s ease;
+  outline: none;
+}
+
+.image-upload-container:focus {
+  border-color: #409eff;
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.1);
 }
 
 /* 图片项目容器 - 支持图片和上传按钮在同一行 */
@@ -2708,6 +2913,30 @@ onMounted(() => {
 
 .image-preview-item:hover .image-overlay {
   opacity: 1;
+}
+
+.overlay-buttons {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-btn {
+  background: rgba(64, 158, 255, 0.9) !important;
+  border: none !important;
+  color: white !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3) !important;
+  transition: all 0.3s ease !important;
+}
+
+.preview-btn:hover {
+  background: rgba(64, 158, 255, 1) !important;
+  transform: scale(1.1) !important;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.4) !important;
 }
 
 .delete-btn {
