@@ -119,7 +119,7 @@
           <el-button @click="resetFilters" size="small" style="margin-left: 8px;">
             重置
           </el-button>
-          <el-button type="success" @click="exportData" :loading="exportLoading" size="small" style="margin-left: 8px;">
+          <el-button type="success" @click="exportData" :loading="exportLoading" size="small" style="margin-left: 8px;" v-if="!isMobileDevice">
             <el-icon><Download /></el-icon>
             导出数据
           </el-button>
@@ -231,7 +231,7 @@
         <div class="card-header">
           <span>{{ getTableTitle() }}</span>
           <div class="table-actions">
-            <el-button size="small" @click="exportStatistics" :loading="exportLoading" class="action-btn success">
+            <el-button size="small" @click="exportStatistics" :loading="exportLoading" class="action-btn success" v-if="!isMobileDevice">
               <el-icon><Download /></el-icon>
               导出统计
             </el-button>
@@ -278,6 +278,7 @@
         </el-table-column>
 
         <el-table-column
+          v-if="!isMobileDevice"
           label="操作"
           width="120"
           align="center"

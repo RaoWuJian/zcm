@@ -1,5 +1,5 @@
 <template>
-  <div class="record-type-settings">
+  <div class="record-type-settings" :class="{ 'mobile-view': isMobileDevice }">
     <!-- 页面标题 -->
     <div class="page-header">
       <div class="page-title">
@@ -24,7 +24,7 @@
           刷新数据
         </el-button>
       </div>
-      <div class="action-right">
+      <div class="action-right" v-if="!isMobileDevice">
         <span class="total-count">共 {{ categories.length }} 个大类</span>
       </div>
     </div>
@@ -124,11 +124,13 @@
     <el-dialog
       v-model="categoryDialogVisible"
       :title="categoryDialogTitle"
-      width="500px"
+      :width="isMobileDevice ? '95%' : '500px'"
+      :fullscreen="isMobileDevice"
       append-to-body
       @close="handleCategoryDialogClose"
+      class="category-dialog"
     >
-      <el-form :model="categoryForm" :rules="categoryRules" ref="categoryFormRef" label-width="80px">
+      <ResponsiveForm :model="categoryForm" :rules="categoryRules" ref="categoryFormRef">
         <el-form-item label="大类名称" prop="name">
           <el-input v-model="categoryForm.name" placeholder="请输入大类名称" />
         </el-form-item>
@@ -148,12 +150,12 @@
             style="width: 100%"
           />
         </el-form-item>
-      </el-form>
+      </ResponsiveForm>
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="categoryDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleCategorySubmit" :loading="categorySubmitLoading">确定</el-button>
-        </span>
+        <div class="dialog-footer" :class="{ 'mobile-footer': isMobileDevice }">
+          <el-button @click="categoryDialogVisible = false" :class="{ 'mobile-btn': isMobileDevice }">取消</el-button>
+          <el-button type="primary" @click="handleCategorySubmit" :loading="categorySubmitLoading" :class="{ 'mobile-btn': isMobileDevice }">确定</el-button>
+        </div>
       </template>
     </el-dialog>
 
@@ -161,11 +163,13 @@
     <el-dialog
       v-model="subCategoryDialogVisible"
       :title="subCategoryDialogTitle"
-      width="500px"
+      :width="isMobileDevice ? '95%' : '500px'"
+      :fullscreen="isMobileDevice"
       append-to-body
       @close="handleSubCategoryDialogClose"
+      class="subcategory-dialog"
     >
-      <el-form :model="subCategoryForm" :rules="subCategoryRules" ref="subCategoryFormRef" label-width="80px">
+      <ResponsiveForm :model="subCategoryForm" :rules="subCategoryRules" ref="subCategoryFormRef">
         <el-form-item label="所属大类">
           <el-input :value="selectedCategory?.name" disabled />
         </el-form-item>
@@ -188,12 +192,12 @@
             style="width: 100%"
           />
         </el-form-item>
-      </el-form>
+      </ResponsiveForm>
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="subCategoryDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleSubCategorySubmit" :loading="subCategorySubmitLoading">确定</el-button>
-        </span>
+        <div class="dialog-footer" :class="{ 'mobile-footer': isMobileDevice }">
+          <el-button @click="subCategoryDialogVisible = false" :class="{ 'mobile-btn': isMobileDevice }">取消</el-button>
+          <el-button type="primary" @click="handleSubCategorySubmit" :loading="subCategorySubmitLoading" :class="{ 'mobile-btn': isMobileDevice }">确定</el-button>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -204,6 +208,11 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Setting, Search } from '@element-plus/icons-vue'
 import { recordTypeApi } from '@/api/index'
+import { useResponsive } from '@/utils/responsive'
+import ResponsiveForm from '@/components/ResponsiveForm.vue'
+
+// 响应式检测
+const { isMobileDevice } = useResponsive()
 
 // 响应式数据
 const loading = ref(false)
@@ -891,6 +900,120 @@ onMounted(async () => {
   .header-right {
     width: 100%;
     justify-content: space-between;
+  }
+}
+
+/* 移动端适配 (< 768px) */
+@media (max-width: 767px) {
+  /* 容器 */
+  .record-type-settings.mobile-view {
+    padding: 0;
+  }
+
+  /* 页面标题 */
+  .page-header {
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+
+  .page-title h2 {
+    font-size: 18px;
+  }
+
+  .page-description {
+    font-size: 13px;
+  }
+
+  /* 操作栏 */
+  .action-card {
+    padding: 12px;
+    margin-bottom: 12px;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .action-left {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .action-left .el-button {
+    flex: 1;
+    min-width: calc(50% - 4px);
+    height: 44px;
+    font-size: 13px;
+  }
+
+  /* 内容容器 - 垂直堆叠 */
+  .content-container {
+    flex-direction: column;
+    gap: 12px;
+    padding: 0;
+  }
+
+  /* 面板 */
+  .category-panel,
+  .subcategory-panel {
+    width: 100%;
+    min-height: 300px;
+    max-height: 400px;
+    border-radius: 0;
+  }
+
+  .panel-header {
+    padding: 12px;
+  }
+
+  .panel-header h3 {
+    font-size: 16px;
+  }
+
+  .item-count {
+    font-size: 12px;
+  }
+
+  /* 列表项 */
+  .category-item,
+  .subcategory-item {
+    padding: 12px;
+  }
+
+  .category-name,
+  .subcategory-name {
+    font-size: 14px;
+  }
+
+  .category-desc,
+  .subcategory-desc {
+    font-size: 12px;
+  }
+
+  /* 对话框 */
+  .category-dialog :deep(.el-dialog__header),
+  .subcategory-dialog :deep(.el-dialog__header) {
+    padding: 12px;
+  }
+
+  .category-dialog :deep(.el-dialog__body),
+  .subcategory-dialog :deep(.el-dialog__body) {
+    padding: 12px;
+  }
+
+  .category-dialog :deep(.el-dialog__footer),
+  .subcategory-dialog :deep(.el-dialog__footer) {
+    padding: 12px;
+  }
+
+  .dialog-footer.mobile-footer {
+    display: flex;
+    gap: 12px;
+  }
+
+  .dialog-footer.mobile-footer .mobile-btn {
+    flex: 1;
+    height: 44px;
+    font-size: 15px;
   }
 }
 </style>

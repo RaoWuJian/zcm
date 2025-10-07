@@ -1,5 +1,5 @@
 <template>
-  <div class="income-expense-list">
+  <div class="income-expense-list" :class="{ 'mobile-view': isMobileDevice }">
     <!-- 页面标题 -->
     <div class="page-header">
       <div class="page-title">
@@ -12,9 +12,9 @@
     </div>
 
     <!-- 搜索栏 -->
-    <div class="search-card business-style">
-      <el-form :model="searchForm" :inline="true" class="business-search-form">
-        <div class="search-fields">
+    <div class="search-card business-style" :class="{ 'mobile-search': isMobileDevice }">
+      <el-form :model="searchForm" :inline="!isMobileDevice" class="business-search-form">
+        <div class="search-fields" :class="{ 'mobile-fields': isMobileDevice }">
           <el-form-item label="记录名称" class="search-item">
             <el-input
               v-model="searchForm.recordName"
@@ -158,10 +158,10 @@
             />
           </el-form-item>
         </div>
-        
-        <div class="search-actions">
-          <el-button type="primary" @click="handleSearch" :icon="Search" size="small">查询</el-button>
-          <el-button @click="handleReset" size="small">重置</el-button>
+
+        <div class="search-actions" :class="{ 'mobile-actions': isMobileDevice }">
+          <el-button type="primary" @click="handleSearch" :icon="Search" class="business-btn">查询</el-button>
+          <el-button @click="handleReset" class="business-btn">重置</el-button>
         </div>
       </el-form>
     </div>
@@ -215,12 +215,12 @@
           批量删除
           <span v-if="selectedRows.length">({{ selectedRows.length }})</span>
         </el-button>
-        <el-button @click="handleExport" :icon="Download" class="action-btn">
+        <el-button @click="handleExport" :icon="Download" class="action-btn" v-if="!isMobileDevice">
           导出数据
           <span v-if="selectedRows.length">({{ selectedRows.length }}条)</span>
         </el-button>
       </div>
-      <div class="action-right">
+      <div class="action-right" v-if="!isMobileDevice">
         <span class="total-count">共 {{ pagination.total || 0 }} 条数据</span>
         <el-tooltip content="刷新数据" placement="top">
           <el-button @click="initData" :icon="Refresh" circle />
@@ -337,7 +337,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="250" fixed="right">
+        <el-table-column label="操作" width="180">
           <template #default="{ row }">
             <el-button size="small" type="info" @click="handleDetail(row)" link>
               详情
@@ -367,10 +367,12 @@
           v-model:page-size="pagination.pageSize"
           :page-sizes="[10, 20, 50, 100]"
           :total="pagination.total"
-          layout="total, sizes, prev, pager, next, jumper"
+          :layout="isMobileDevice ? 'total, sizes, prev, pager, next' : 'total, sizes, prev, pager, next, jumper'"
+          :small="isMobileDevice"
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
           class="custom-pagination"
+          :class="{ 'mobile-pagination': isMobileDevice }"
         />
       </div>
     </div>
@@ -379,15 +381,16 @@
     <el-dialog
       v-model="dialogVisible"
       :title="dialogTitle"
-      width="800px"
+      :width="isMobileDevice ? '95%' : '800px'"
+      :fullscreen="isMobileDevice"
       style="max-height: 80vh; overflow: auto;"
       append-to-body
       @close="handleDialogClose"
       class="record-dialog"
     >
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="120px">
+      <ResponsiveForm :model="form" :rules="rules" ref="formRef">
         <el-row :gutter="20">
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="公司账户" prop="teamId" required>
               <el-select v-model="form.teamId" placeholder="请选择公司账户" filterable>
                 <el-option 
@@ -404,7 +407,7 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="团队账户" prop="companyAccountId">
               <el-select v-model="form.companyAccountId" placeholder="请选择团队账户" filterable clearable>
                 <el-option
@@ -419,12 +422,12 @@
         </el-row>
 
         <el-row :gutter="20">
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="记录名称" prop="name" required>
               <el-input v-model="form.name" placeholder="请输入记录名称" />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="收支类型" prop="type" required>
               <el-radio-group v-model="form.type">
                 <el-radio label="income">
@@ -445,7 +448,7 @@
         </el-row>
 
         <el-row :gutter="20">
-           <el-col :span="12">
+           <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="金额" prop="amount" required>
               <el-input-number
                 v-model="form.amount"
@@ -458,7 +461,7 @@
               </el-input-number>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="收支时间" prop="occurredAt" required>
               <el-date-picker
                 v-model="form.occurredAt"
@@ -474,7 +477,7 @@
         </el-row>
 
         <el-row :gutter="20">
-         <el-col :span="12">
+         <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="记录大类" prop="categoryId" required>
               <el-select
                 v-model="form.categoryId"
@@ -493,7 +496,7 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="记录小类" prop="subCategoryId" :required="isSubCategoryRequired">
               <el-select
                 v-model="form.subCategoryId"
@@ -515,12 +518,12 @@
         </el-row>
 
         <el-row :gutter="20">
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item :label="form.type === 'income' ? '收款方名称' : '付款方名称'" prop="paymentName">
               <el-input v-model="form.paymentName" :placeholder="form.type === 'income' ? '请输入收款方名称' : '请输入付款方名称'" />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item :label="form.type === 'income' ? '收款账号' : '付款账号'" prop="account">
               <el-input v-model="form.account" :placeholder="form.type === 'income' ? '请输入收款账号' : '请输入付款账号'" />
             </el-form-item>
@@ -619,7 +622,7 @@
             </el-form-item>
           </el-col>
         </el-row>
-      </el-form>
+      </ResponsiveForm>
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="dialogVisible = false">取消</el-button>
@@ -746,6 +749,7 @@
             type="primary"
             @click="exportSelectedSummaryData"
             :icon="Download"
+            v-if="!isMobileDevice"
           >
             导出汇总数据
           </el-button>
@@ -947,11 +951,17 @@ import {
   Close,
   InfoFilled,
   Picture,
-  ZoomIn
+  ZoomIn,
+  Edit
 } from '@element-plus/icons-vue'
 import { financeApi, teamAccountApi, fileApi, recordTypeApi, employeeApi } from '@/api/index';
 import hasAnyPermission from '@/utils/checkPermissions'
 import { formatUtcToLocalDate } from '@/utils/dateUtils'
+import { useResponsive } from '@/utils/responsive'
+import ResponsiveForm from '@/components/ResponsiveForm.vue'
+
+// 响应式检测
+const { isMobileDevice } = useResponsive()
 
 // 响应式数据
 const loading = ref(false)
@@ -3343,6 +3353,166 @@ onMounted(() => {
   text-overflow: ellipsis;
   max-height: 3em;
   line-height: 1.5;
+}
+
+/* 移动端适配 (< 768px) */
+@media (max-width: 767px) {
+  /* 容器 */
+  .income-expense-list.mobile-view {
+    padding: 0;
+  }
+
+  /* 页面标题 */
+  .page-header {
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+
+  .page-title h2 {
+    font-size: 18px;
+  }
+
+  .page-description {
+    font-size: 13px;
+  }
+
+  /* 搜索栏 */
+  .search-card.mobile-search {
+    margin-bottom: 12px;
+    border-radius: 0;
+  }
+
+  .business-search-form {
+    padding: 12px;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .search-fields.mobile-fields {
+    flex-direction: column;
+    width: 100%;
+    gap: 12px;
+  }
+
+  .search-item {
+    width: 100%;
+  }
+
+  .business-input,
+  .business-select {
+    width: 100%;
+  }
+
+  .search-actions.mobile-actions {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+
+  .search-actions.mobile-actions .business-btn {
+    flex: 1;
+    height: 44px;
+    font-size: 14px;
+  }
+
+  /* 操作栏 */
+  .action-card {
+    padding: 12px;
+    margin-bottom: 12px;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .action-left {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .action-left .el-button {
+    flex: 1;
+    min-width: calc(50% - 4px);
+    height: 44px;
+    font-size: 13px;
+  }
+
+  /* 表格 */
+  .table-card {
+    padding: 8px;
+    border-radius: 0;
+    overflow-x: auto;
+  }
+
+  .table-card :deep(.el-table) {
+    font-size: 13px;
+  }
+
+  .table-card :deep(.el-table th) {
+    font-size: 13px;
+    padding: 8px 0;
+  }
+
+  .table-card :deep(.el-table td) {
+    padding: 8px 0;
+  }
+
+  /* 分页 */
+  .pagination-wrapper {
+    padding: 12px 0;
+    overflow-x: auto;
+  }
+
+  .mobile-pagination {
+    justify-content: center !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .mobile-pagination :deep(.el-pagination__total) {
+    order: 1;
+    flex: 0 0 100%;
+    text-align: center;
+    margin: 0 0 8px 0 !important;
+    font-size: 13px;
+  }
+
+  .mobile-pagination :deep(.el-pagination__sizes) {
+    order: 2;
+    margin: 0 !important;
+  }
+
+  .mobile-pagination :deep(.btn-prev),
+  .mobile-pagination :deep(.btn-next),
+  .mobile-pagination :deep(.el-pager li) {
+    min-width: 32px !important;
+    height: 32px !important;
+    line-height: 32px !important;
+    font-size: 13px !important;
+  }
+
+  /* 对话框 */
+  .record-dialog :deep(.el-dialog__header) {
+    padding: 12px;
+  }
+
+  .record-dialog :deep(.el-dialog__body) {
+    padding: 12px;
+  }
+
+  .record-dialog :deep(.el-dialog__footer) {
+    padding: 12px;
+  }
+
+  .dialog-footer {
+    display: flex;
+    gap: 12px;
+  }
+
+  .dialog-footer .el-button {
+    flex: 1;
+    height: 44px;
+    font-size: 15px;
+  }
 }
 
 </style>

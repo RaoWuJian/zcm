@@ -1,5 +1,5 @@
 <template>
-  <div class="team-accounts">
+  <div class="team-accounts" :class="{ 'mobile-view': isMobileDevice }">
     <!-- 页面标题 -->
     <div class="page-header">
       <div class="page-title">
@@ -12,9 +12,9 @@
     </div>
 
     <!-- 搜索栏 -->
-    <div class="search-card business-style">
-      <el-form :model="searchForm" :inline="true" class="business-search-form">
-        <div class="search-fields">
+    <div class="search-card business-style" :class="{ 'mobile-search': isMobileDevice }">
+      <el-form :model="searchForm" :inline="!isMobileDevice" class="business-search-form">
+        <div class="search-fields" :class="{ 'mobile-fields': isMobileDevice }">
           <el-form-item label="账户名称" class="search-item">
             <el-input
               v-model="searchForm.name"
@@ -33,9 +33,9 @@
           </el-form-item>
         </div>
 
-        <div class="search-actions">
-          <el-button type="primary" @click="handleSearch" :icon="Search" size="small">查询</el-button>
-          <el-button @click="handleReset" size="small">重置</el-button>
+        <div class="search-actions" :class="{ 'mobile-actions': isMobileDevice }">
+          <el-button type="primary" @click="handleSearch" :icon="Search" class="business-btn">查询</el-button>
+          <el-button @click="handleReset" class="business-btn">重置</el-button>
         </div>
       </el-form>
     </div>
@@ -55,7 +55,7 @@
           查看汇总
           <span v-if="selectedAccounts.length">({{ selectedAccounts.length }}条)</span>
         </el-button>
-        <el-button @click="handleExport" :icon="Download" class="action-btn">
+        <el-button @click="handleExport" :icon="Download" class="action-btn" v-if="!isMobileDevice">
           导出数据
           <span v-if="selectedAccounts.length">({{ selectedAccounts.length }}条)</span>
         </el-button>
@@ -72,7 +72,7 @@
           </el-radio-button>
         </el-radio-group>
       </div> -->
-      <div class="action-right">
+      <div class="action-right" v-if="!isMobileDevice">
         <span class="total-count">
           共 {{ pagination.total }} 个账户
           <span v-if="searchForm.name || searchForm.description" class="filter-hint">
@@ -154,23 +154,17 @@
             <span class="description-text">{{ row.description || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="120">
           <template #default="{ row }">
-            <el-button size="small" type="info" @click="handleDetail(row)" link>
-              详情
-            </el-button>
-            <el-button size="small" type="primary" @click="handleEdit(row)" link v-if="hasAnyPermission(['finance:team_update'])">
-              编辑
-            </el-button>
-            <!-- <el-button size="small" type="success" @click="handleRechargeAccount(row)" link v-if="hasAnyPermission(['finance:team_manage'])">
-              充值
-            </el-button> -->
-            <!-- <el-button size="small" type="warning" @click="handleTransfer(row)" link v-if="hasAnyPermission(['finance:team_manage'])">
-              转账
-            </el-button> -->
-            <el-button size="small" type="danger" @click="handleDelete(row)" link v-if="hasAnyPermission(['finance:team_delete'])">
-              删除
-            </el-button>
+            <el-tooltip content="详情" placement="top">
+              <el-button size="small" type="info" @click="handleDetail(row)" :icon="View" circle />
+            </el-tooltip>
+            <el-tooltip content="编辑" placement="top" v-if="hasAnyPermission(['finance:team_update'])">
+              <el-button size="small" type="primary" @click="handleEdit(row)" :icon="Edit" circle />
+            </el-tooltip>
+            <el-tooltip content="删除" placement="top" v-if="hasAnyPermission(['finance:team_delete'])">
+              <el-button size="small" type="danger" @click="handleDelete(row)" :icon="Delete" circle />
+            </el-tooltip>
           </template>
         </el-table-column>
       </el-table>
@@ -182,10 +176,12 @@
           v-model:page-size="pagination.pageSize"
           :page-sizes="[10, 20, 50, 100]"
           :total="pagination.total"
-          layout="total, sizes, prev, pager, next, jumper"
+          :layout="isMobileDevice ? 'total, sizes, prev, pager, next' : 'total, sizes, prev, pager, next, jumper'"
+          :small="isMobileDevice"
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
           class="custom-pagination"
+          :class="{ 'mobile-pagination': isMobileDevice }"
         />
       </div>
     </div>
@@ -194,10 +190,12 @@
       v-model="dialogVisible"
       :title="dialogTitle"
       append-to-body
-      width="500px"
+      :width="isMobileDevice ? '95%' : '500px'"
+      :fullscreen="isMobileDevice"
       @close="handleDialogClose"
+      class="team-account-dialog"
     >
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="80px">
+      <ResponsiveForm :model="form" :rules="rules" ref="formRef">
         <el-form-item label="名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入名称" />
         </el-form-item>
@@ -235,12 +233,12 @@
             placeholder="请输入说明"
           />
         </el-form-item>
-      </el-form>
+      </ResponsiveForm>
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleSubmit">确定</el-button>
-        </span>
+        <div class="dialog-footer" :class="{ 'mobile-footer': isMobileDevice }">
+          <el-button @click="dialogVisible = false" :class="{ 'mobile-btn': isMobileDevice }">取消</el-button>
+          <el-button type="primary" @click="handleSubmit" :class="{ 'mobile-btn': isMobileDevice }">确定</el-button>
+        </div>
       </template>
     </el-dialog>
 
@@ -415,7 +413,7 @@
           <el-button @click="handleRecordRefresh" :icon="Refresh">
             刷新
           </el-button>
-          <el-button type="primary" @click="handleExportRecords" :icon="Download">
+          <el-button type="primary" @click="handleExportRecords" :icon="Download" v-if="!isMobileDevice">
             导出记录
           </el-button>
         </div>
@@ -612,6 +610,7 @@
             type="primary"
             @click="exportSelectedSummaryData"
             :icon="Download"
+            v-if="!isMobileDevice"
           >
             导出汇总数据
           </el-button>
@@ -647,6 +646,11 @@ import {
 } from '@element-plus/icons-vue'
 import { departmentApi, teamAccountApi, financeApi } from '@/api/index'
 import { exportToExcel, exportToCSV } from '@/utils/excelUtils'
+import { useResponsive } from '@/utils/responsive'
+import ResponsiveForm from '@/components/ResponsiveForm.vue'
+
+// 响应式检测
+const { isMobileDevice } = useResponsive()
 
 // 响应式数据
 const dialogVisible = ref(false)
@@ -2818,6 +2822,166 @@ onMounted(async () => {
   
   .balance-display .balance-amount {
     font-size: 28px;
+  }
+}
+
+/* 移动端适配 (< 768px) */
+@media (max-width: 767px) {
+  /* 容器 */
+  .team-accounts.mobile-view {
+    padding: 0;
+  }
+
+  /* 页面标题 */
+  .page-header {
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+
+  .page-title h2 {
+    font-size: 18px;
+  }
+
+  .page-description {
+    font-size: 13px;
+  }
+
+  /* 搜索栏 */
+  .search-card.mobile-search {
+    margin-bottom: 12px;
+    border-radius: 0;
+  }
+
+  .business-search-form {
+    padding: 12px;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .search-fields.mobile-fields {
+    flex-direction: column;
+    width: 100%;
+    gap: 12px;
+  }
+
+  .search-item {
+    width: 100%;
+  }
+
+  .business-input,
+  .business-select {
+    width: 100%;
+  }
+
+  .search-actions.mobile-actions {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+
+  .search-actions.mobile-actions .business-btn {
+    flex: 1;
+    height: 44px;
+    font-size: 14px;
+  }
+
+  /* 操作栏 */
+  .action-card {
+    padding: 12px;
+    margin-bottom: 12px;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .action-left {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .action-left .el-button {
+    flex: 1;
+    min-width: calc(50% - 4px);
+    height: 44px;
+    font-size: 13px;
+  }
+
+  /* 表格 */
+  .table-container {
+    padding: 8px;
+    border-radius: 0;
+    overflow-x: auto;
+  }
+
+  .table-container :deep(.el-table) {
+    font-size: 13px;
+  }
+
+  .table-container :deep(.el-table th) {
+    font-size: 13px;
+    padding: 8px 0;
+  }
+
+  .table-container :deep(.el-table td) {
+    padding: 8px 0;
+  }
+
+  /* 分页 */
+  .pagination-wrapper {
+    padding: 12px 0;
+    overflow-x: auto;
+  }
+
+  .mobile-pagination {
+    justify-content: center !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .mobile-pagination :deep(.el-pagination__total) {
+    order: 1;
+    flex: 0 0 100%;
+    text-align: center;
+    margin: 0 0 8px 0 !important;
+    font-size: 13px;
+  }
+
+  .mobile-pagination :deep(.el-pagination__sizes) {
+    order: 2;
+    margin: 0 !important;
+  }
+
+  .mobile-pagination :deep(.btn-prev),
+  .mobile-pagination :deep(.btn-next),
+  .mobile-pagination :deep(.el-pager li) {
+    min-width: 32px !important;
+    height: 32px !important;
+    line-height: 32px !important;
+    font-size: 13px !important;
+  }
+
+  /* 对话框 */
+  .team-account-dialog :deep(.el-dialog__header) {
+    padding: 12px;
+  }
+
+  .team-account-dialog :deep(.el-dialog__body) {
+    padding: 12px;
+  }
+
+  .team-account-dialog :deep(.el-dialog__footer) {
+    padding: 12px;
+  }
+
+  .dialog-footer.mobile-footer {
+    display: flex;
+    gap: 12px;
+  }
+
+  .dialog-footer.mobile-footer .mobile-btn {
+    flex: 1;
+    height: 44px;
+    font-size: 15px;
   }
 }
 </style>

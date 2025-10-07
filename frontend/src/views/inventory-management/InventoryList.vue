@@ -142,7 +142,7 @@
         >
           多选汇总 ({{ selectedRows.length }})
         </el-button>
-        <el-button @click="handleExport" :icon="Download" class="action-btn">
+        <el-button @click="handleExport" :icon="Download" class="action-btn" v-if="!isMobileDevice">
           导出数据
           <span v-if="selectedRows.length">({{ selectedRows.length }}条)</span>
         </el-button>
@@ -601,7 +601,7 @@
 
       <template #footer>
         <div class="dialog-footer">
-          <el-button @click="exportSelectedSummaryData" type="primary" :icon="Download">
+          <el-button @click="exportSelectedSummaryData" type="primary" :icon="Download" v-if="!isMobileDevice">
             导出汇总数据
           </el-button>
           <el-button @click="showSelectedSummaryDialog = false">关闭</el-button>

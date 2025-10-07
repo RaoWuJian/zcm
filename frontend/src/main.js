@@ -8,8 +8,10 @@ import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import 'element-plus/dist/index.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import './style.css'
+import './styles/responsive.css'
 import App from './App.vue'
 import websocketService from './services/websocketService'
+import { fixMobileViewportHeight } from './utils/responsive'
 
 const app = createApp(App)
 const pinia = createPinia()
@@ -20,6 +22,9 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 }
 
 app.use(pinia)
+
+// 修复移动端视口高度
+fixMobileViewportHeight()
 
 // 异步初始化用户信息并验证鉴权
 const userStore = useUserStore()

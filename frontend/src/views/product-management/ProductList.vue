@@ -1,5 +1,5 @@
 <template>
-  <div class="product-list">
+  <div class="product-list" :class="{ 'mobile-view': isMobileDevice }">
     <!-- 页面标题 -->
     <div class="page-header">
       <div class="page-title">
@@ -12,9 +12,9 @@
     </div>
 
     <!-- 搜索栏 -->
-    <div class="search-card business-style">
-      <el-form :model="searchForm" :inline="true" class="business-search-form">
-        <div class="search-fields">
+    <div class="search-card business-style" :class="{ 'mobile-search': isMobileDevice }">
+      <el-form :model="searchForm" :inline="!isMobileDevice" class="business-search-form">
+        <div class="search-fields" :class="{ 'mobile-fields': isMobileDevice }">
           <el-form-item label="商品名称" class="search-item">
             <el-input
               v-model="searchForm.search"
@@ -87,9 +87,9 @@
           </el-form-item>
         </div>
         
-        <div class="search-actions">
-          <el-button type="primary" @click="handleSearch" :icon="Search" size="small">查询</el-button>
-          <el-button @click="handleReset" size="small" style="margin-left: 8px;">重置</el-button>
+        <div class="search-actions" :class="{ 'mobile-actions': isMobileDevice }">
+          <el-button type="primary" @click="handleSearch" :icon="Search" class="business-btn">查询</el-button>
+          <el-button @click="handleReset" class="business-btn">重置</el-button>
         </div>
       </el-form>
     </div>
@@ -111,7 +111,7 @@
           批量删除
           <span v-if="selectedProducts.length">({{ selectedProducts.length }})</span>
         </el-button>
-        <el-button @click="handleExport" :icon="Download" class="action-btn">
+        <el-button @click="handleExport" :icon="Download" class="action-btn" v-if="!isMobileDevice">
           导出数据
           <span v-if="selectedProducts.length">({{ selectedProducts.length }}条)</span>
         </el-button>
@@ -119,7 +119,7 @@
           Excel导入
         </el-button>
       </div>
-      <div class="action-right">
+      <div class="action-right" v-if="!isMobileDevice">
         <span class="total-count">共 {{ productStore.pagination?.totalRecords || 0 }} 条数据</span>
         <el-tooltip content="刷新数据" placement="top">
           <el-button @click="handleRefresh" :icon="Refresh" circle />
@@ -170,17 +170,14 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="100" fixed="right">
+        <el-table-column label="操作" width="80">
           <template #default="scope">
-            <el-button size="small" type="primary" @click="handleEdit(scope.row)" link v-if="hasAnyPermission(['product:update','product:manage',])">
-              编辑
-            </el-button>
-            <!-- <el-button size="small" type="info" @click="handleViewDetail(scope.row)" link>
-              详情
-            </el-button> -->
-            <el-button size="small" type="danger" @click="handleDelete(scope.row)" link v-if="hasAnyPermission(['product:delete','product:manage',])">
-              删除
-            </el-button>
+            <el-tooltip content="编辑" placement="top" v-if="hasAnyPermission(['product:update','product:manage',])">
+              <el-button size="small" type="primary" @click="handleEdit(scope.row)" :icon="Edit" circle />
+            </el-tooltip>
+            <el-tooltip content="删除" placement="top" v-if="hasAnyPermission(['product:delete','product:manage',])">
+              <el-button size="small" type="danger" @click="handleDelete(scope.row)" :icon="Delete" circle />
+            </el-tooltip>
           </template>
         </el-table-column>
       </el-table>
@@ -192,10 +189,12 @@
           v-model:page-size="pageSize"
           :page-sizes="[10, 20, 50, 100]"
           :total="productStore.pagination?.totalRecords || 0"
-          layout="total, sizes, prev, pager, next, jumper"
+          :layout="isMobileDevice ? 'total, sizes, prev, pager, next' : 'total, sizes, prev, pager, next, jumper'"
+          :small="isMobileDevice"
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
           class="custom-pagination"
+          :class="{ 'mobile-pagination': isMobileDevice }"
         />
       </div>
     </div>
@@ -204,23 +203,24 @@
     <el-dialog
       v-model="showAddDialog"
       :title="editingProduct ? '编辑商品' : '添加商品'"
-      width="800px"
+      :width="isMobileDevice ? '95%' : '800px'"
+      :fullscreen="isMobileDevice"
       append-to-body
       @close="handleDialogClose"
+      class="product-dialog"
     >
-      <el-form
+      <ResponsiveForm
         ref="productFormRef"
         :model="productForm"
         :rules="productRules"
-        label-width="120px"
       >
         <el-row :gutter="20">
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="商品名称" prop="name">
               <el-input v-model="productForm.name" placeholder="请输入商品名称" />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="团队" prop="team">
               <el-autocomplete
                 v-model="productForm.team"
@@ -232,9 +232,9 @@
             </el-form-item>
           </el-col>
         </el-row>
-        
+
         <el-row :gutter="20">
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="供应商" prop="supplier">
               <el-autocomplete
                 v-model="productForm.supplier"
@@ -245,7 +245,7 @@
               />
             </el-form-item>
           </el-col>
-           <el-col :span="12">
+           <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="平台" prop="platform">
               <el-autocomplete
                 v-model="productForm.platform"
@@ -258,7 +258,7 @@
           </el-col>
         </el-row>
         <el-row :gutter="20">
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="店铺名称" prop="storeName">
               <el-autocomplete
                 v-model="productForm.storeName"
@@ -269,7 +269,7 @@
               />
             </el-form-item>
           </el-col>
-           <el-col :span="12">
+           <el-col :xs="24" :sm="24" :md="12">
              <el-form-item label="商品ID" prop="storeId">
               <el-autocomplete
                 v-model="productForm.storeId"
@@ -283,7 +283,7 @@
         </el-row>
         
         <el-row :gutter="20">
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-tooltip
               class="box-item"
               effect="dark"
@@ -299,7 +299,7 @@
               </el-form-item>
             </el-tooltip>
           </el-col>
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="产品单价" prop="unitPrice">
               <el-input
                 v-model="productForm.unitPrice"
@@ -312,9 +312,9 @@
             </el-form-item>
           </el-col>
         </el-row>
-        
+
         <el-row :gutter="20">
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="当天销售订单数" prop="dailyOrderCount">
               <el-input
                 v-model="productForm.dailyOrderCount"
@@ -324,7 +324,7 @@
               />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="当天销售盒数" prop="dailySalesVolume">
               <el-input
                 v-model="productForm.dailySalesVolume"
@@ -334,9 +334,9 @@
             </el-form-item>
           </el-col>
         </el-row>
-        
+
         <el-row :gutter="20">
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="当天付款金额" prop="dailyPaymentAmount">
               <el-input
                 v-model="productForm.dailyPaymentAmount"
@@ -348,7 +348,7 @@
               />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="当天消耗金额" prop="dailyConsumedAmount">
               <el-input
                 v-model="productForm.dailyConsumedAmount"
@@ -361,9 +361,9 @@
             </el-form-item>
           </el-col>
         </el-row>
-        
+
         <el-row :gutter="20">
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="售后成本" prop="afterSalesCost">
               <el-input
                 v-model="productForm.afterSalesCost"
@@ -375,7 +375,7 @@
               />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="售后金额" prop="afterSalesAmount">
               <el-input
                 v-model="productForm.afterSalesAmount"
@@ -389,7 +389,7 @@
           </el-col>
         </el-row>
         <el-row :gutter="20">
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
              <el-form-item label="手续费" prop="handlingFee">
               <el-input
                 v-model="productForm.handlingFee"
@@ -401,7 +401,7 @@
               />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="产品运费" prop="shippingCost">
               <el-input
                 v-model="productForm.shippingCost"
@@ -433,14 +433,14 @@
             </el-tooltip>
           </el-col>
         </el-row>
-      </el-form>
+      </ResponsiveForm>
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="showAddDialog = false">取消</el-button>
-          <el-button type="primary" @click="handleSubmit" :loading="submitting">
+        <div class="dialog-footer" :class="{ 'mobile-footer': isMobileDevice }">
+          <el-button @click="showAddDialog = false" :class="{ 'mobile-btn': isMobileDevice }">取消</el-button>
+          <el-button type="primary" @click="handleSubmit" :loading="submitting" :class="{ 'mobile-btn': isMobileDevice }">
             确定
           </el-button>
-        </span>
+        </div>
       </template>
     </el-dialog>
 
@@ -595,11 +595,17 @@ import {
   Delete,
   Download,
   Upload,
-  Search
+  Search,
+  Edit
 } from '@element-plus/icons-vue'
 import { useProductStore } from '../../stores/product'
 import { precisionCalculate } from '@/utils/precision'
 import hasAnyPermission from '@/utils/checkPermissions'
+import { useResponsive } from '@/utils/responsive'
+import ResponsiveForm from '@/components/ResponsiveForm.vue'
+
+// 响应式检测
+const { isMobileDevice } = useResponsive()
 import {
   readProductExcelFile,
   validateProductImportHeaders,
@@ -1483,6 +1489,166 @@ onMounted(async () => {
     .preview-more {
       margin-top: 15px;
     }
+  }
+}
+
+/* 移动端适配 (< 768px) */
+@media (max-width: 767px) {
+  /* 容器 */
+  .product-list.mobile-view {
+    padding: 0;
+  }
+
+  /* 页面标题 */
+  .page-header {
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+
+  .page-title h2 {
+    font-size: 18px;
+  }
+
+  .page-description {
+    font-size: 13px;
+  }
+
+  /* 搜索栏 */
+  .search-card.mobile-search {
+    margin-bottom: 12px;
+    border-radius: 0;
+  }
+
+  .business-search-form {
+    padding: 12px;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .search-fields.mobile-fields {
+    flex-direction: column;
+    width: 100%;
+    gap: 12px;
+  }
+
+  .search-item {
+    width: 100%;
+  }
+
+  .business-input,
+  .business-select {
+    width: 100%;
+  }
+
+  .search-actions.mobile-actions {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+
+  .search-actions.mobile-actions .business-btn {
+    flex: 1;
+    height: 44px;
+    font-size: 14px;
+  }
+
+  /* 操作栏 */
+  .action-card {
+    padding: 12px;
+    margin-bottom: 12px;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .action-left {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .action-left .el-button {
+    flex: 1;
+    min-width: calc(50% - 4px);
+    height: 44px;
+    font-size: 13px;
+  }
+
+  /* 表格 */
+  .table-card {
+    padding: 8px;
+    border-radius: 0;
+    overflow-x: auto;
+  }
+
+  .table-card :deep(.el-table) {
+    font-size: 13px;
+  }
+
+  .table-card :deep(.el-table th) {
+    font-size: 13px;
+    padding: 8px 0;
+  }
+
+  .table-card :deep(.el-table td) {
+    padding: 8px 0;
+  }
+
+  /* 分页 */
+  .pagination-wrapper {
+    padding: 12px 0;
+    overflow-x: auto;
+  }
+
+  .mobile-pagination {
+    justify-content: center !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .mobile-pagination :deep(.el-pagination__total) {
+    order: 1;
+    flex: 0 0 100%;
+    text-align: center;
+    margin: 0 0 8px 0 !important;
+    font-size: 13px;
+  }
+
+  .mobile-pagination :deep(.el-pagination__sizes) {
+    order: 2;
+    margin: 0 !important;
+  }
+
+  .mobile-pagination :deep(.btn-prev),
+  .mobile-pagination :deep(.btn-next),
+  .mobile-pagination :deep(.el-pager li) {
+    min-width: 32px !important;
+    height: 32px !important;
+    line-height: 32px !important;
+    font-size: 13px !important;
+  }
+
+  /* 对话框 */
+  .product-dialog :deep(.el-dialog__header) {
+    padding: 12px;
+  }
+
+  .product-dialog :deep(.el-dialog__body) {
+    padding: 12px;
+  }
+
+  .product-dialog :deep(.el-dialog__footer) {
+    padding: 12px;
+  }
+
+  .dialog-footer.mobile-footer {
+    display: flex;
+    gap: 12px;
+  }
+
+  .dialog-footer.mobile-footer .mobile-btn {
+    flex: 1;
+    height: 44px;
+    font-size: 15px;
   }
 }
 </style>

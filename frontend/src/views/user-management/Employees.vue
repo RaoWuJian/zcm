@@ -12,9 +12,9 @@
     </div>
 
     <!-- 搜索栏 - 商务简洁风格 -->
-    <div class="search-card business-style">
-      <el-form :model="searchForm" :inline="true" class="business-search-form">
-        <div class="search-fields">
+    <div class="search-card business-style" :class="{ 'mobile-search': isMobileDevice }">
+      <el-form :model="searchForm" :inline="!isMobileDevice" class="business-search-form">
+        <div class="search-fields" :class="{ 'mobile-fields': isMobileDevice }">
           <el-form-item label="姓名/账号" class="search-item">
             <el-input
               v-model="searchForm.search"
@@ -24,7 +24,7 @@
               class="business-input"
             />
           </el-form-item>
-          
+
           <el-form-item label="登录账号" class="search-item">
             <el-input
               v-model="searchForm.loginAccount"
@@ -34,7 +34,7 @@
               class="business-input"
             />
           </el-form-item>
-          
+
           <el-form-item label="角色" class="search-item">
             <el-select
               v-model="searchForm.role"
@@ -51,7 +51,7 @@
               />
             </el-select>
           </el-form-item>
-          
+
           <el-form-item label="部门" class="search-item">
             <el-select
               v-model="searchForm.departmentId"
@@ -68,12 +68,12 @@
             </el-select>
           </el-form-item>
         </div>
-        
-        <div class="search-actions" style="margin-left: 8px; margin-right: 0;">
+
+        <div class="search-actions" :class="{ 'mobile-actions': isMobileDevice }">
           <el-button type="primary" @click="handleSearch" :icon="Search" class="business-btn">
             查询
           </el-button>
-          <el-button @click="handleReset" :icon="Refresh" class="business-btn" style="margin-left: 8px;">
+          <el-button @click="handleReset" :icon="Refresh" class="business-btn">
             重置
           </el-button>
         </div>
@@ -101,15 +101,6 @@
           导出数据
           <span v-if="selectedRows.length">({{ selectedRows.length }}条)</span>
         </el-button>
-      </div>
-      <div class="action-right">
-        <span class="total-count">共 {{ pagination.total }} 条数据</span>
-        <el-tooltip content="刷新数据" placement="top">
-          <el-button @click="getEmployeeList" :icon="Refresh" circle />
-        </el-tooltip>
-        <el-tooltip content="列设置" placement="top">
-          <el-button :icon="Setting" circle />
-        </el-tooltip>
       </div>
     </div>
 
@@ -181,7 +172,7 @@
             <span class="time-text">{{ new Date(row.createdAt).toLocaleDateString() }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="150">
           <template #default="{ row }">
             <el-button size="small" type="primary" @click="handleEdit(row)" link v-if="hasAnyPermission(['user:update'])">
               编辑
@@ -200,10 +191,12 @@
           v-model:page-size="pagination.size"
           :page-sizes="[10, 20, 50, 100]"
           :total="pagination.total"
-          layout="total, sizes, prev, pager, next, jumper"
+          :layout="isMobileDevice ? 'total, sizes, prev, pager, next' : 'total, sizes, prev, pager, next, jumper'"
+          :small="isMobileDevice"
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
           class="custom-pagination"
+          :class="{ 'mobile-pagination': isMobileDevice }"
         />
       </div>
     </div>
@@ -212,38 +205,38 @@
     <el-dialog
       :title="dialogTitle"
       v-model="dialogVisible"
-      width="600px"
+      :width="isMobileDevice ? '95%' : '600px'"
+      :fullscreen="isMobileDevice"
       append-to-body
       @close="handleDialogClose"
+      class="employee-dialog"
     >
-      <el-form
+      <ResponsiveForm
         ref="formRef"
         :model="form"
         :rules="rules"
-        label-width="80px"
       >
         <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="姓名" prop="username">
               <el-input v-model="form.username" placeholder="请输入姓名" />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="账号" prop="loginAccount">
               <el-input v-model="form.loginAccount" placeholder="请输入登录账号" />
             </el-form-item>
           </el-col>
         </el-row>
-        
+
         <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="密码" prop="loginPassword">
               <el-input v-model="form.loginPassword" placeholder="请输入密码" show-password />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="角色" prop="rolePermission">
-              <!-- <el-select v-model="form.rolePermission" :disabled="!hasAnyPermission(['role:create','role:update','role:manage'])" placeholder="请选择角色" style="width: 100%" @focus="getRoleOptions"> -->
               <el-select v-model="form.rolePermission" placeholder="请选择角色" style="width: 100%" @focus="getRoleOptions">
                 <el-option
                   v-for="role in roleOptions"
@@ -260,7 +253,7 @@
             </el-form-item>
           </el-col>
         </el-row>
-        
+
         <el-form-item label="部门" prop="departmentIds">
           <el-select
             v-model="form.departmentIds"
@@ -279,7 +272,7 @@
             />
           </el-select>
         </el-form-item>
-        
+
         <el-form-item label="备注">
           <el-input
             v-model="form.remark"
@@ -288,12 +281,12 @@
             placeholder="请输入备注信息"
           />
         </el-form-item>
-      </el-form>
-      
+      </ResponsiveForm>
+
       <template #footer>
-        <div class="dialog-footer">
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleSubmit" :loading="submitLoading">
+        <div class="dialog-footer" :class="{ 'mobile-footer': isMobileDevice }">
+          <el-button @click="dialogVisible = false" :class="{ 'mobile-btn': isMobileDevice }">取消</el-button>
+          <el-button type="primary" @click="handleSubmit" :loading="submitLoading" :class="{ 'mobile-btn': isMobileDevice }">
             {{ form._id ? '更新' : '创建' }}
           </el-button>
         </div>
@@ -305,12 +298,14 @@
 <script setup >
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, Plus, Delete, UserFilled, User, Download, Setting } from '@element-plus/icons-vue'
+import { Search, Refresh, Plus, Delete, UserFilled, User, Download, Edit } from '@element-plus/icons-vue'
 import { employeeApi, departmentApi, roleApi } from '@/api/index'
 import hasAnyPermission from '@/utils/checkPermissions'
+import { useResponsive } from '@/utils/responsive'
+import ResponsiveForm from '@/components/ResponsiveForm.vue'
 
-// 搜索展开状态
-// 搜索展开状态 - 已移除未使用
+// 响应式检测
+const { isMobileDevice } = useResponsive()
 
 // 搜索表单
 const searchForm = reactive({
@@ -520,7 +515,7 @@ const handleSelectionChange = (selection) => {
 }
 
 // 分页大小改变
-const handleSizeChange = (handleSizeChange) => {
+const handleSizeChange = (size) => {
   pagination.size = size
   pagination.page = 1
   getEmployeeList()
@@ -1167,16 +1162,233 @@ onMounted(() => {
   }
 }
 
-/* 响应式设计 */
-@media (max-width: 768px) {
+/* 移动端适配 (< 768px) */
+@media (max-width: 767px) {
   .employees-container {
+    padding: 0;
+  }
+
+  .page-header {
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+
+  .page-title {
+    font-size: 18px;
+  }
+
+  .page-title h2 {
+    font-size: 18px;
+  }
+
+  .page-description {
+    font-size: 13px;
+  }
+
+  /* 搜索栏移动端优化 */
+  .search-card.mobile-search {
+    margin-bottom: 12px;
+    border-radius: 0;
+  }
+
+  .business-search-form {
+    padding: 12px;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .search-fields.mobile-fields {
+    flex-direction: column;
+    width: 100%;
+    gap: 12px;
+  }
+
+  .search-item {
+    width: 100%;
+  }
+
+  .search-item .el-form-item__label {
+    width: 100%;
+    text-align: left;
+  }
+
+  .business-input,
+  .business-select {
+    width: 100%;
+  }
+
+  .search-actions.mobile-actions {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .search-actions.mobile-actions .business-btn {
+    flex: 1;
+    height: 44px;
+    font-size: 14px;
+  }
+
+  /* 操作栏移动端优化 */
+  .action-card {
+    padding: 12px;
+    margin-bottom: 12px;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .action-left {
+    width: 100%;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .action-left .action-btn {
+    width: 100%;
+    height: 44px;
+    justify-content: center;
+  }
+
+  .action-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .total-count {
+    font-size: 13px;
+  }
+
+  /* 表格卡片移动端优化 */
+  .table-card {
+    padding: 8px;
+    border-radius: 0;
+    overflow-x: auto;
+  }
+
+  .table-card :deep(.el-table) {
+    font-size: 13px;
+  }
+
+  .table-card :deep(.el-table th) {
+    font-size: 13px;
+    padding: 8px 0;
+  }
+
+  .table-card :deep(.el-table td) {
+    padding: 8px 0;
+  }
+
+  /* 分页移动端优化 */
+  .pagination-wrapper {
+    padding: 12px 0;
+    overflow-x: auto;
+  }
+
+  .mobile-pagination {
+    justify-content: center !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .mobile-pagination :deep(.el-pagination__total) {
+    order: 1;
+    flex: 0 0 100%;
+    text-align: center;
+    margin: 0 0 8px 0 !important;
+    font-size: 13px;
+  }
+
+  .mobile-pagination :deep(.el-pagination__sizes) {
+    order: 2;
+    margin: 0 !important;
+  }
+
+  .mobile-pagination :deep(.el-select) {
+    width: auto !important;
+  }
+
+  .mobile-pagination :deep(.el-select .el-input__wrapper) {
+    min-height: 32px !important;
+    padding: 4px 8px !important;
+  }
+
+  .mobile-pagination :deep(.el-select .el-input__inner) {
+    font-size: 13px !important;
+  }
+
+  .mobile-pagination :deep(.btn-prev),
+  .mobile-pagination :deep(.btn-next),
+  .mobile-pagination :deep(.el-pager li) {
+    min-width: 32px !important;
+    height: 32px !important;
+    line-height: 32px !important;
+    font-size: 13px !important;
+  }
+
+  /* 对话框移动端优化 */
+  .employee-dialog :deep(.el-dialog__header) {
     padding: 12px;
   }
-  
-  .search-form .el-row {
-    flex-direction: column;
+
+  .employee-dialog :deep(.el-dialog__body) {
+    padding: 12px;
   }
-  
+
+  .employee-dialog :deep(.el-dialog__footer) {
+    padding: 12px;
+  }
+
+  .dialog-footer.mobile-footer {
+    display: flex;
+    gap: 12px;
+  }
+
+  .dialog-footer.mobile-footer .mobile-btn {
+    flex: 1;
+    height: 44px;
+    font-size: 15px;
+  }
+
+  /* 用户信息卡片 */
+  .user-info {
+    gap: 8px;
+  }
+
+  .user-avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  .user-name {
+    font-size: 14px;
+  }
+
+  .user-account {
+    font-size: 12px;
+  }
+
+  /* 部门标签 */
+  .dept-tags {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .dept-tag {
+    font-size: 11px;
+  }
+}
+
+/* 超小屏幕适配 (< 480px) */
+@media (max-width: 480px) {
+  .page-title h2 {
+    font-size: 16px;
+  }
+
+  .action-right .el-button {
+    padding: 8px;
+  }
+
   .stats-row .el-col {
     margin-bottom: 8px;
   }

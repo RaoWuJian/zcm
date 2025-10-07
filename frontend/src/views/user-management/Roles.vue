@@ -12,9 +12,9 @@
     </div>
 
     <!-- 搜索栏 -->
-    <div class="search-card business-style">
-      <el-form :model="searchForm" :inline="true" class="business-search-form">
-        <div class="search-fields">
+    <div class="search-card business-style" :class="{ 'mobile-search': isMobileDevice }">
+      <el-form :model="searchForm" :inline="!isMobileDevice" class="business-search-form">
+        <div class="search-fields" :class="{ 'mobile-fields': isMobileDevice }">
           <el-form-item label="角色名称" class="search-item">
             <el-input
               v-model="searchForm.name"
@@ -24,10 +24,10 @@
             />
           </el-form-item>
         </div>
-        
-        <div class="search-actions" style="margin-left: 8px; margin-right: 0;">
+
+        <div class="search-actions" :class="{ 'mobile-actions': isMobileDevice }">
           <el-button type="primary" @click="handleSearch" class="business-btn" size="small">查询</el-button>
-          <el-button @click="handleReset" class="business-btn" size="small" style="margin-left: 8px;">重置</el-button>
+          <el-button @click="handleReset" class="business-btn" size="small">重置</el-button>
         </div>
       </el-form>
     </div>
@@ -38,15 +38,6 @@
         <el-button type="primary" @click="handleAdd" :icon="Plus" v-if="hasAnyPermission(['role:create','role:manage'])" class="action-btn primary">
           新增角色
         </el-button>
-      </div>
-      <div class="action-right">
-        <span class="total-count">共 {{ pagination.total }} 条数据</span>
-        <el-tooltip content="刷新数据" placement="top">
-          <el-button @click="getRoleList" :icon="Refresh" circle />
-        </el-tooltip>
-        <el-tooltip content="列设置" placement="top">
-          <el-button :icon="Setting" circle />
-        </el-tooltip>
       </div>
     </div>
 
@@ -91,9 +82,9 @@
             <span class="time-text">{{ formatUtcToLocalDate(row.createdAt || row.createTime)}}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="150">
           <template #default="{ row }">
-            <el-button size="small" type="primary" @click="handleEdit(row)" link v-if="hasAnyPermission(['role:update','role:manage'])">
+             <el-button size="small" type="primary" @click="handleEdit(row)" link v-if="hasAnyPermission(['role:update','role:manage'])">
               编辑
             </el-button>
             <el-button size="small" type="danger" @click="handleDelete(row)" link v-if="hasAnyPermission(['role:delete','role:manage'])">
@@ -110,10 +101,12 @@
           v-model:page-size="pagination.size"
           :page-sizes="[10, 20, 50, 100]"
           :total="pagination.total"
-          layout="total, sizes, prev, pager, next, jumper"
+          :layout="isMobileDevice ? 'total, sizes, prev, pager, next' : 'total, sizes, prev, pager, next, jumper'"
+          :small="isMobileDevice"
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
           class="custom-pagination"
+          :class="{ 'mobile-pagination': isMobileDevice }"
         />
       </div>
     </div>
@@ -122,41 +115,25 @@
     <el-dialog
       :title="dialogTitle"
       v-model="dialogVisible"
-      width="800px"
+      :width="isMobileDevice ? '95%' : '800px'"
+      :fullscreen="isMobileDevice"
       :before-close="handleDialogClose"
       append-to-body
       class="role-dialog"
-      top="5vh"
+      :top="isMobileDevice ? '0' : '5vh'"
     >
       <div class="dialog-content">
-        <el-form
+        <ResponsiveForm
           ref="formRef"
           :model="form"
           :rules="rules"
-          label-width="100px"
           class="role-form"
         >
           <div class="form-section">
             <h4 class="section-title">基本信息</h4>
-            <el-form-item label="角色名称" prop="roleName" class="form-item-half">
+            <el-form-item label="角色名称" prop="roleName">
                 <el-input v-model="form.roleName" placeholder="请输入角色名称" />
               </el-form-item>
-            <!-- <div class="form-row">
-              <el-form-item label="角色编码" class="form-item-half">
-                <el-input
-                  :value="form.code"
-                  placeholder="系统自动生成"
-                  readonly
-                  :disabled="!!form._id"
-                />
-                <template v-if="form._id" #label>
-                  <span>角色编码</span>
-                  <el-tooltip content="角色编码创建后不可修改" placement="top">
-                    <el-icon class="ml-1"><QuestionFilled /></el-icon>
-                  </el-tooltip>
-                </template>
-              </el-form-item>
-            </div> -->
             <el-form-item label="角色描述">
               <el-input
                 v-model="form.description"
@@ -175,18 +152,19 @@
               <RolePermissionsManager v-model="form.permissions" />
             </el-form-item>
           </div>
-        </el-form>
+        </ResponsiveForm>
       </div>
 
       <template #footer>
-        <div class="dialog-footer">
-          <el-button @click="dialogVisible = false" size="large">
+        <div class="dialog-footer" :class="{ 'mobile-footer': isMobileDevice }">
+          <el-button @click="dialogVisible = false" :class="{ 'mobile-btn': isMobileDevice }" size="large">
             取消
           </el-button>
           <el-button
             type="primary"
             @click="handleSubmit"
             :loading="submitLoading"
+            :class="{ 'mobile-btn': isMobileDevice }"
             size="large"
           >
             {{ form._id ? '更新' : '创建' }}
@@ -200,11 +178,16 @@
 <script setup >
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox} from 'element-plus'
-import {Plus, UserFilled, QuestionFilled, Refresh, Setting} from '@element-plus/icons-vue'
+import {Plus, UserFilled, Edit, Delete } from '@element-plus/icons-vue'
 import { roleApi } from '@/api/index'
 import RolePermissionsManager from '@/components/RolePermissionsManager.vue'
 import hasAnyPermission from '@/utils/checkPermissions'
 import { formatUtcToLocalDate } from '@/utils/dateUtils'
+import { useResponsive } from '@/utils/responsive'
+import ResponsiveForm from '@/components/ResponsiveForm.vue'
+
+// 响应式检测
+const { isMobileDevice } = useResponsive()
 
 // 组件状态
 const loading = ref(false)
@@ -919,36 +902,199 @@ onMounted(() => {
   }
 }
 
-/* 响应式设计 */
-@media (max-width: 768px) {
+/* 移动端适配 (< 768px) */
+@media (max-width: 767px) {
   .roles-container {
+    padding: 0;
+  }
+
+  .page-header {
     padding: 12px;
+    margin-bottom: 12px;
   }
 
-  .search-form .el-row {
+  .page-title {
+    font-size: 18px;
+  }
+
+  .page-title h2 {
+    font-size: 18px;
+  }
+
+  .page-description {
+    font-size: 13px;
+  }
+
+  /* 搜索栏移动端优化 */
+  .search-card.mobile-search {
+    margin-bottom: 12px;
+    border-radius: 0;
+  }
+
+  .business-search-form {
+    padding: 12px;
     flex-direction: column;
+    gap: 12px;
   }
 
+  .search-fields.mobile-fields {
+    flex-direction: column;
+    width: 100%;
+    gap: 12px;
+  }
+
+  .search-item {
+    width: 100%;
+  }
+
+  .search-item .el-form-item__label {
+    width: 100%;
+    text-align: left;
+  }
+
+  .business-input,
+  .business-select {
+    width: 100%;
+  }
+
+  .search-actions.mobile-actions {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .search-actions.mobile-actions .business-btn {
+    flex: 1;
+    height: 44px;
+    font-size: 14px;
+  }
+
+  /* 操作栏移动端优化 */
   .action-card {
+    padding: 12px;
+    margin-bottom: 12px;
     flex-direction: column;
     gap: 12px;
   }
 
   .action-left {
-    flex-wrap: wrap;
+    width: 100%;
+    flex-direction: column;
+    gap: 8px;
   }
 
+  .action-left .action-btn {
+    width: 100%;
+    height: 44px;
+    justify-content: center;
+  }
+
+  /* 表格卡片移动端优化 */
+  .table-card {
+    padding: 8px;
+    border-radius: 0;
+    overflow-x: auto;
+  }
+
+  .table-card :deep(.el-table) {
+    font-size: 13px;
+  }
+
+  .table-card :deep(.el-table th) {
+    font-size: 13px;
+    padding: 8px 0;
+  }
+
+  .table-card :deep(.el-table td) {
+    padding: 8px 0;
+  }
+
+  /* 分页移动端优化 */
+  .pagination-wrapper {
+    padding: 12px 0;
+    overflow-x: auto;
+  }
+
+  .mobile-pagination {
+    justify-content: center !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .mobile-pagination :deep(.el-pagination__total) {
+    order: 1;
+    flex: 0 0 100%;
+    text-align: center;
+    margin: 0 0 8px 0 !important;
+    font-size: 13px;
+  }
+
+  .mobile-pagination :deep(.el-pagination__sizes) {
+    order: 2;
+    margin: 0 !important;
+  }
+
+  .mobile-pagination :deep(.el-select) {
+    width: auto !important;
+  }
+
+  .mobile-pagination :deep(.el-select .el-input__wrapper) {
+    min-height: 32px !important;
+    padding: 4px 8px !important;
+  }
+
+  .mobile-pagination :deep(.el-select .el-input__inner) {
+    font-size: 13px !important;
+  }
+
+  .mobile-pagination :deep(.btn-prev),
+  .mobile-pagination :deep(.btn-next),
+  .mobile-pagination :deep(.el-pager li) {
+    min-width: 32px !important;
+    height: 32px !important;
+    line-height: 32px !important;
+    font-size: 13px !important;
+  }
+
+  /* 对话框移动端优化 */
+  .role-dialog :deep(.el-dialog__header) {
+    padding: 12px;
+  }
+
+  .role-dialog :deep(.el-dialog__body) {
+    padding: 12px;
+  }
+
+  .role-dialog :deep(.el-dialog__footer) {
+    padding: 12px;
+  }
+
+  .dialog-footer.mobile-footer {
+    display: flex;
+    gap: 12px;
+  }
+
+  .dialog-footer.mobile-footer .mobile-btn {
+    flex: 1;
+    height: 44px;
+    font-size: 15px;
+  }
+
+  .form-section {
+    margin-bottom: 16px;
+  }
+
+  .section-title {
+    font-size: 15px;
+    margin-bottom: 12px;
+  }
+}
+
+/* 超小屏幕适配 (< 480px) */
+@media (max-width: 480px) {
   .page-title h2 {
     font-size: 16px;
-  }
-
-  .form-row {
-    grid-template-columns: 1fr;
-  }
-
-  .role-dialog {
-    width: 95vw !important;
-    margin: 0 auto;
   }
 }
 </style>

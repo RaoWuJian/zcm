@@ -29,9 +29,9 @@
       <div class="carousel-container">
         <el-carousel
           :interval="5000"
-          :height="'400px'"
+          :height="isMobileDevice ? '320px' : '400px'"
           indicator-position="none"
-          arrow="hover"
+          :arrow="isMobileDevice ? 'never' : 'hover'"
           class="futuristic-carousel"
         >
           <el-carousel-item v-for="item in carouselItems" :key="item.id" class="carousel-slide">
@@ -115,9 +115,9 @@
     </div>
 
     <!-- 个人信息和快捷操作 -->
-    <el-row :gutter="20" class="info-section">
+    <el-row :gutter="isMobileDevice ? 12 : 20" class="info-section">
       <!-- 个人信息卡片 -->
-      <el-col :span="8">
+      <el-col :xs="24" :sm="24" :md="8" :lg="8">
         <el-card class="info-card personal-info">
           <template #header>
             <div class="card-header">
@@ -159,7 +159,7 @@
       </el-col>
 
       <!-- 今日寄语 -->
-      <el-col :span="8">
+      <el-col :xs="24" :sm="24" :md="8" :lg="8">
         <el-card class="info-card daily-quote">
           <template #header>
             <div class="card-header">
@@ -193,8 +193,8 @@
         </el-card>
       </el-col>
 
-      <!-- 快捷操作 -->
-      <el-col :span="8">
+      <!-- 快捷操作 (移动端隐藏) -->
+      <el-col v-if="!isMobileDevice" :xs="24" :sm="24" :md="8" :lg="8">
         <el-card class="info-card quick-actions">
           <template #header>
             <div class="card-header">
@@ -216,10 +216,10 @@
       </el-col>
     </el-row>
 
-    <!-- 系统公告和温馨提示 -->
-    <el-row :gutter="20" class="notice-section">
+    <!-- 系统公告和温馨提示 (移动端隐藏) -->
+    <el-row v-if="!isMobileDevice" :gutter="20" class="notice-section">
       <!-- 系统公告 -->
-      <el-col :span="12">
+      <el-col :xs="24" :sm="24" :md="12" :lg="12">
         <el-card class="notice-card">
           <template #header>
             <div class="card-header">
@@ -247,7 +247,7 @@
       </el-col>
 
       <!-- 温馨提示 -->
-      <el-col :span="12">
+      <el-col :xs="24" :sm="24" :md="12" :lg="12">
         <el-card class="tips-card">
           <template #header>
             <div class="card-header">
@@ -285,6 +285,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { useResponsive } from '@/utils/responsive'
 import { ElMessage } from 'element-plus'
 import {
   Clock,
@@ -298,6 +299,9 @@ import {
 
 const router = useRouter()
 const userStore = useUserStore()
+
+// 响应式检测
+const { isMobileDevice, isTabletDevice } = useResponsive()
 
 // 用户信息
 const userInfo = computed(() => userStore.userInfo)
@@ -2209,35 +2213,259 @@ onUnmounted(() => {
   }
 }
 
-@media (max-width: 480px) {
+/* 移动端适配 (< 768px) */
+@media (max-width: 767px) {
+  .dashboard {
+    padding: 0;
+  }
+
   .welcome-section {
-    padding: 20px 16px;
+    padding: 20px 12px;
+    margin-bottom: 12px;
+  }
+
+  .welcome-content {
+    flex-direction: column;
+    gap: 16px;
+    text-align: center;
+  }
+
+  .welcome-text {
+    order: 2;
+  }
+
+  .welcome-avatar {
+    order: 1;
   }
 
   .welcome-title {
-    font-size: 20px;
-    flex-direction: column;
-    gap: 8px;
+    font-size: 22px;
+    justify-content: center;
   }
 
   .welcome-subtitle {
     font-size: 14px;
   }
 
-  .carousel-overlay {
-    padding: 16px;
+  .current-time {
+    justify-content: center;
   }
 
-  .carousel-title {
-    font-size: 16px;
+  /* 轮播图移动端优化 */
+  .modern-carousel-section {
+    margin: 0 0 12px 0;
   }
 
-  .carousel-description {
+  .carousel-container {
+    border-radius: 12px;
+  }
+
+  .futuristic-carousel,
+  .carousel-slide {
+    border-radius: 12px;
+  }
+
+  .slide-main {
+    flex-direction: column;
+    padding: 20px 16px;
+  }
+
+  .slide-left {
+    width: 100%;
+    padding: 0;
+  }
+
+  .slide-right {
+    display: none; /* 移动端隐藏右侧装饰 */
+  }
+
+  .slide-badge {
+    font-size: 11px;
+    padding: 4px 12px;
+  }
+
+  .slide-title {
+    font-size: 20px;
+    margin: 12px 0;
+  }
+
+  .slide-description {
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+
+  .slide-features {
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .feature-tag {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+
+  .slide-actions {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .action-btn {
+    width: 100%;
+    padding: 12px 20px;
+    font-size: 14px;
+  }
+
+  /* 自定义指示器移动端优化 */
+  .custom-indicators {
+    padding: 12px;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .indicator-item {
+    padding: 6px 12px;
+  }
+
+  .indicator-label {
+    font-size: 11px;
+  }
+
+  /* 卡片间距 */
+  .info-section,
+  .notice-section {
+    margin-bottom: 12px;
+  }
+
+  .info-card,
+  .notice-card,
+  .tips-card {
+    margin-bottom: 12px;
+  }
+
+  /* 个人信息卡片 */
+  .personal-content {
+    padding: 0;
+  }
+
+  .info-item {
+    padding: 10px 0;
+    font-size: 14px;
+  }
+
+  .info-label {
+    min-width: 70px;
     font-size: 13px;
   }
 
+  .info-value {
+    font-size: 14px;
+  }
+
+  /* 今日寄语 */
+  .quote-content {
+    padding: 0;
+  }
+
+  .quote-text {
+    font-size: 14px;
+  }
+
+  .quote-message {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .quote-author {
+    font-size: 12px;
+    margin-top: 12px;
+  }
+
+  /* 快捷操作 */
   .actions-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .action-item {
+    padding: 12px;
+  }
+
+  .action-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .action-label {
+    font-size: 13px;
+  }
+
+  /* 系统公告 */
+  .notice-list {
+    max-height: 300px;
+  }
+
+  .notice-item {
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+
+  .notice-title {
+    font-size: 14px;
+  }
+
+  .notice-desc {
+    font-size: 13px;
+  }
+
+  .notice-time {
+    font-size: 11px;
+  }
+
+  /* 温馨提示 */
+  .tip-item {
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+
+  .tip-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .tip-title {
+    font-size: 14px;
+  }
+
+  .tip-desc {
+    font-size: 13px;
+  }
+
+  /* 底部装饰 */
+  .footer-decoration {
+    margin-top: 20px;
+    padding: 16px;
+  }
+
+  .decoration-text {
+    font-size: 13px;
+  }
+}
+
+/* 超小屏幕适配 (< 480px) */
+@media (max-width: 480px) {
+  .welcome-section {
+    padding: 16px 12px;
+  }
+
+  .welcome-title {
+    font-size: 20px;
+    flex-wrap: wrap;
+  }
+
+  .welcome-subtitle {
+    font-size: 13px;
   }
 
   .user-avatar {
@@ -2249,6 +2477,22 @@ onUnmounted(() => {
   .avatar-decoration {
     width: 76px;
     height: 76px;
+  }
+
+  .slide-title {
+    font-size: 18px;
+  }
+
+  .slide-description {
+    font-size: 12px;
+  }
+
+  .actions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .action-item {
+    padding: 14px;
   }
 }
 

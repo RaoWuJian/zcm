@@ -95,7 +95,7 @@
         >
           批量导入
         </el-button>
-        <el-button @click="handleExport" :icon="Download" class="action-btn">
+        <el-button @click="handleExport" :icon="Download" class="action-btn" v-if="!isMobileDevice">
           导出数据
         </el-button>
       </div>

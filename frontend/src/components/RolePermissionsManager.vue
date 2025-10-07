@@ -334,23 +334,37 @@ onMounted(() => {
 }
 
 .permissions-list {
-  /* display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 8px 16px; */
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .permission-item {
   margin: 0 !important;
-  padding: 6px 30px;
+  padding: 6px 12px;
   font-size: 13px;
   line-height: 1.5;
+  flex: 0 0 auto;
 }
 
 /* 响应式适配 */
 @media (max-width: 768px) {
+  .category-permissions {
+    padding: 8px 12px 12px 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .permissions-list {
-    grid-template-columns: 1fr;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 8px;
+  }
+
+  .permission-item {
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .permissions-header {

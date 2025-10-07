@@ -1,5 +1,5 @@
 <template>
-  <div class="departments-container">
+  <div class="departments-container" :class="{ 'mobile-view': isMobileDevice }">
     <!-- 页面标题 -->
     <div class="page-header">
       <div class="page-title">
@@ -389,6 +389,10 @@ import { Plus, Edit, Delete, Refresh, User, OfficeBuilding, MoreFilled } from '@
 import { departmentApi, employeeApi } from '@/api/index'
 import { useUserStore } from '@/stores/user'
 import hasAnyPermission from '@/utils/checkPermissions'
+import { useResponsive } from '@/utils/responsive'
+
+// 响应式检测
+const { isMobileDevice } = useResponsive()
 
 // 用户store
 const userStore = useUserStore()
@@ -1546,6 +1550,14 @@ onMounted(() => {
   overflow-x: hidden;
 }
 
+/* 移动端容器 - 允许横向滚动 */
+.departments-container.mobile-view {
+  padding: 0;
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* 页面标题 */
 .page-header {
   margin-bottom: 20px;
@@ -2042,23 +2054,228 @@ onMounted(() => {
   }
 }
 
-@media (max-width: 992px) {
+/* 移动端适配 - 保持左右布局，整体缩小 */
+@media (max-width: 767px) {
+  /* 页面标题 */
+  .page-header {
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    min-width: 640px; /* 确保标题也在滚动区域内 */
+  }
+
+  .page-title {
+    font-size: 16px;
+  }
+
+  .page-title h2 {
+    font-size: 16px;
+  }
+
+  .page-description {
+    font-size: 12px;
+  }
+
+  /* 主内容区域 - 保持左右布局，设置最小宽度 */
   .main-content {
-    flex-direction: column;
-    height: auto;
+    flex-direction: row;
+    min-width: 640px; /* 最小宽度，触发横向滚动 */
+    height: calc(100vh - 120px);
+    gap: 10px;
   }
-  
+
+  /* 左侧面板 */
   .left-panel {
-    flex: none;
-    width: 100%;
-    min-width: unset;
-    max-width: unset;
-    height: 400px;
+    min-width: 200px;
+    width: 200px;
+    flex-shrink: 0;
   }
-  
+
+  .panel-header {
+    padding: 8px 10px;
+    min-height: 36px;
+  }
+
+  .panel-title {
+    font-size: 13px;
+    gap: 4px;
+  }
+
+  .panel-title .el-icon {
+    font-size: 14px;
+  }
+
+  .header-actions {
+    gap: 4px;
+  }
+
+  .header-actions .el-button {
+    width: 28px;
+    height: 28px;
+  }
+
+  /* 搜索区域 */
+  .search-section {
+    padding: 8px 10px;
+  }
+
+  .search-section .el-input {
+    font-size: 12px;
+  }
+
+  .search-section :deep(.el-input__inner) {
+    font-size: 12px;
+    height: 32px;
+  }
+
+  /* 树形区域 */
+  .tree-section {
+    padding: 0 10px 10px;
+  }
+
+  .tree-section :deep(.el-tree) {
+    font-size: 12px;
+  }
+
+  .tree-section :deep(.el-tree-node__content) {
+    height: 30px;
+    font-size: 12px;
+  }
+
+  .tree-section :deep(.el-tree-node__expand-icon) {
+    width: 16px;
+    height: 16px;
+    font-size: 12px;
+  }
+
+  .tree-node {
+    font-size: 12px;
+  }
+
+  .node-label {
+    font-size: 12px;
+  }
+
+  .node-label .el-icon {
+    font-size: 13px;
+  }
+
+  .node-actions .el-button {
+    font-size: 12px;
+    padding: 2px 4px;
+  }
+
+  /* 右侧面板 */
   .right-panel {
-    flex: none;
-    height: 500px;
+    flex: 1;
+    min-width: 400px;
+  }
+
+  .employee-count {
+    font-size: 12px;
+  }
+
+  .action-buttons {
+    gap: 4px;
+  }
+
+  .action-buttons .el-button {
+    width: 28px;
+    height: 28px;
+  }
+
+  /* 员工区域 */
+  .employee-section {
+    padding: 0 10px 10px;
+  }
+
+  .employee-section :deep(.el-table) {
+    font-size: 12px;
+  }
+
+  .employee-section :deep(.el-table th) {
+    font-size: 11px;
+    padding: 6px 8px;
+  }
+
+  .employee-section :deep(.el-table td) {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  /* 员工信息 */
+  .employee-info {
+    gap: 6px;
+  }
+
+  .employee-avatar {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 11px !important;
+  }
+
+  .employee-name {
+    font-size: 12px;
+  }
+
+  .employee-account {
+    font-size: 11px;
+  }
+
+  .employee-section :deep(.el-tag) {
+    font-size: 11px;
+    padding: 0 6px;
+    height: 20px;
+    line-height: 20px;
+  }
+
+  .employee-section :deep(.el-button) {
+    font-size: 11px;
+    padding: 3px 6px;
+  }
+
+  .time-text {
+    font-size: 11px;
+  }
+
+  /* 分页 */
+  .pagination-wrapper {
+    margin-top: 10px;
+    padding: 0 10px;
+  }
+
+  .custom-pagination {
+    --el-pagination-font-size: 12px;
+  }
+
+  .custom-pagination :deep(.el-pagination__total),
+  .custom-pagination :deep(.el-pagination__jump) {
+    font-size: 11px;
+  }
+
+  .custom-pagination :deep(.btn-prev),
+  .custom-pagination :deep(.btn-next),
+  .custom-pagination :deep(.el-pager li) {
+    min-width: 28px;
+    height: 28px;
+    line-height: 28px;
+    font-size: 12px;
+  }
+
+  .custom-pagination :deep(.el-select .el-input__inner) {
+    font-size: 11px;
+  }
+
+  /* 空状态 */
+  .empty-state {
+    padding: 20px;
+  }
+
+  .empty-state :deep(.el-empty__description) {
+    font-size: 12px;
+  }
+
+  .empty-state :deep(.el-empty__image) {
+    width: 80px;
   }
 }
 

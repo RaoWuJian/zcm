@@ -1,13 +1,17 @@
 <template>
-  <div class="admin-layout">
+  <div class="admin-layout" :class="{ 'mobile-layout': isMobileDevice }">
     <el-container>
-      <!-- 侧边栏 -->
-      <el-aside :width="isCollapsed ? '64px' : '200px'" class="sidebar">
+      <!-- 桌面端侧边栏 -->
+      <el-aside
+        v-if="!isMobileDevice"
+        :width="isCollapsed ? '64px' : '200px'"
+        class="sidebar desktop-sidebar"
+      >
         <div class="logo">
           <el-icon v-if="isCollapsed" size="24"><Setting /></el-icon>
           <span v-else>招财猫</span>
         </div>
-        
+
         <el-menu
           :default-active="$route.path"
           :collapse="isCollapsed"
@@ -240,29 +244,231 @@
         </el-menu>
       </el-aside>
 
+      <!-- 移动端抽屉式侧边栏 -->
+      <el-drawer
+        v-if="isMobileDevice"
+        v-model="mobileDrawerVisible"
+        direction="ltr"
+        :size="280"
+        class="mobile-drawer"
+      >
+        <template #header>
+          <div class="mobile-drawer-header">
+            <span class="drawer-title">招财猫</span>
+          </div>
+        </template>
+
+        <el-menu
+          :default-active="$route.path"
+          router
+          @select="handleMobileMenuSelect"
+          background-color="#304156"
+          text-color="#bfcbd9"
+          active-text-color="#409eff"
+        >
+          <el-menu-item index="/dashboard">
+            <el-icon><Odometer /></el-icon>
+            <template #title>仪表盘</template>
+          </el-menu-item>
+
+          <el-sub-menu index="/user-management" v-if="hasAnyPermission([
+              'user:create', 'user:update', 'user:delete',
+              'department:create', 'department:update', 'department:delete', 'department:manageEmployee',
+              'role:create', 'role:update', 'role:delete',
+            ])">
+            <template #title>
+              <el-icon><User /></el-icon>
+              <span>用户管理</span>
+            </template>
+            <el-menu-item index="/user-management/employees" v-if="hasAnyPermission(['user:create', 'user:update', 'user:delete'])">
+              <el-icon><UserFilled /></el-icon>
+              <template #title>员工管理</template>
+            </el-menu-item>
+            <el-menu-item index="/user-management/roles" v-if="hasAnyPermission(['role:create', 'role:update', 'role:delete'])">
+              <el-icon><Avatar /></el-icon>
+              <template #title>角色管理</template>
+            </el-menu-item>
+            <el-menu-item index="/user-management/departments" v-if="hasAnyPermission(['department:create', 'department:update', 'department:delete', 'department:manageEmployee'])">
+              <el-icon><OfficeBuilding /></el-icon>
+              <template #title>部门管理</template>
+            </el-menu-item>
+          </el-sub-menu>
+
+          <el-sub-menu index="/finance-reconciliation" v-if="hasAnyPermission([
+            'finance:create', 'finance:update', 'finance:delete', 'finance:approve', 'finance:typeSetting',
+            'finance:team_create', 'finance:team_update', 'finance:team_delete',
+          ])">
+            <template #title>
+              <el-icon><Money /></el-icon>
+              <span>财务对账</span>
+            </template>
+            <el-menu-item index="/finance-reconciliation/income-expense-list" v-if="hasAnyPermission(['finance:create', 'finance:update', 'finance:delete', 'finance:approve'])">
+              <el-icon><List /></el-icon>
+              <template #title>收支列表</template>
+            </el-menu-item>
+            <el-menu-item index="/finance-reconciliation/team-accounts" v-if="hasAnyPermission(['finance:team_create', 'finance:team_update', 'finance:team_delete'])">
+              <el-icon><UserFilled /></el-icon>
+              <template #title>团队账户</template>
+            </el-menu-item>
+            <el-menu-item index="/finance-reconciliation/record-type-settings" v-if="hasAnyPermission(['finance:typeSetting'])">
+              <el-icon><Setting /></el-icon>
+              <template #title>收支类型设置</template>
+            </el-menu-item>
+          </el-sub-menu>
+
+          <el-sub-menu index="/product-management" v-if="hasAnyPermission([
+              'product:create',      // 创建商品信息
+              'product:update',      // 编辑商品信息
+              'product:delete',      // 删除商品信息
+              'productBudget:create',      // 财务测算
+              'productBudget:update',      // 财务测算
+              'productBudget:delete',      // 财务测算
+              'productCommission:create',  // 产品佣金
+              'productCommission:update',  // 产品佣金
+              'productCommission:delete',  // 产品佣金
+              'productOperation:create',   // 商品运营
+              'productOperation:update',   // 商品运营
+              'productOperation:delete',   // 商品运营
+            ])">
+            <template #title>
+              <el-icon><Box /></el-icon>
+              <span>商品管理</span>
+            </template>
+            <el-menu-item index="/product-management/product-list" v-if="hasAnyPermission([
+              'product:create',      // 创建商品信息
+              'product:update',      // 编辑商品信息
+              'product:delete',      // 删除商品信息
+            ])">
+              <el-icon><List /></el-icon>
+              <template #title>商品列表</template>
+            </el-menu-item>
+            <el-menu-item index="/product-management/financial-projection" v-if="hasAnyPermission([
+              'productBudget:create',      // 财务测算
+              'productBudget:update',      // 财务测算
+              'productBudget:delete',      // 财务测算
+            ])">
+              <el-icon><List /></el-icon>
+              <template #title>财务测算</template>
+            </el-menu-item>
+            <el-menu-item index="/product-management/commission-accounting" v-if="hasAnyPermission([
+              'productCommission:create',  // 产品佣金
+              'productCommission:update',  // 产品佣金
+              'productCommission:delete',  // 产品佣金
+            ])">
+              <el-icon><Money /></el-icon>
+              <template #title>产品佣金</template>
+            </el-menu-item>
+            <el-menu-item index="/product-management/operational-product" v-if="hasAnyPermission([
+              'productOperation:create',   // 商品运营
+              'productOperation:update',   // 商品运营
+              'productOperation:delete',   // 商品运营
+            ])">
+              <el-icon><Money /></el-icon>
+              <template #title>运营商品</template>
+            </el-menu-item>
+          </el-sub-menu>
+
+          <el-sub-menu index="/inventory-management" v-if="hasAnyPermission([
+              'inventory:create',     // 添加库存
+              'inventory:update',     // 编辑库存
+              'inventory:in',         // 入库操作
+              'inventory:out',        // 出库操作
+              'inventory:delete',     // 删除库存
+              'shipment:create',      // 创建发货记录
+              'shipment:update',      // 编辑发货记录
+              'shipment:delete',      // 删除发货记录
+              'shipment:approve',     // 审批发货记录
+            ])">
+            <template #title>
+              <el-icon><Box /></el-icon>
+              <span>库存管理</span>
+            </template>
+
+            <el-menu-item index="/inventory-management/inventory-list" v-if="hasAnyPermission([
+                'inventory:create',     // 添加库存
+                'inventory:update',     // 编辑库存
+                'inventory:in',         // 入库操作
+                'inventory:out',        // 出库操作
+                'inventory:delete',     // 删除库存
+              ])">
+              <el-icon><List /></el-icon>
+              <template #title>库存列表</template>
+            </el-menu-item>
+
+            <el-menu-item index="/inventory-management/shipment-records" v-if="hasAnyPermission([
+                'shipment:create',      // 创建发货记录
+                'shipment:update',      // 编辑发货记录
+                'shipment:delete',      // 删除发货记录
+                'shipment:approve',     // 审批发货记录
+              ])">
+              <el-icon><Document /></el-icon>
+              <template #title>库存记录</template>
+            </el-menu-item>
+          </el-sub-menu>
+
+          <el-sub-menu index="/work-reports">
+            <template #title>
+              <el-icon><Document /></el-icon>
+              <span>工作报表</span>
+            </template>
+            <el-menu-item index="/work-reports/promotion-calculator">
+              <el-icon><DataAnalysis /></el-icon>
+              <template #title>电商推广计算器</template>
+            </el-menu-item>
+            <el-menu-item index="/work-reports/daily-reports">
+              <el-icon><Document /></el-icon>
+              <template #title>日报管理</template>
+            </el-menu-item>
+            <el-menu-item index="/work-reports/report-statistics" v-if="hasAnyPermission([
+              'dailyDataReport:statistic',
+            ])">
+              <el-icon><DataAnalysis /></el-icon>
+              <template #title>汇报统计</template>
+            </el-menu-item>
+            <el-menu-item index="/work-reports/campaign-categories" v-if="hasAnyPermission([
+              'dailyDataReport:typeSetting',
+            ])">
+              <el-icon><Setting /></el-icon>
+              <template #title>投放分类设置</template>
+            </el-menu-item>
+          </el-sub-menu>
+        </el-menu>
+      </el-drawer>
+
       <!-- 主内容区 -->
       <el-container>
         <!-- 顶部导航栏 -->
-        <el-header class="header">
+        <el-header class="header" :class="{ 'mobile-header': isMobileDevice }">
           <div class="header-left">
-            <el-button 
-              :icon="isCollapsed ? Expand : Fold" 
+            <!-- 移动端：菜单按钮 -->
+            <el-button
+              v-if="isMobileDevice"
+              :icon="Menu"
+              @click="toggleMobileDrawer"
+              text
+              size="large"
+              class="mobile-menu-btn"
+            />
+            <!-- 桌面端：折叠按钮 -->
+            <el-button
+              v-else
+              :icon="isCollapsed ? Expand : Fold"
               @click="toggleSidebar"
               text
               size="large"
             />
           </div>
-          
+
           <div class="header-right">
             <!-- 通知中心 -->
             <NotificationCenter />
 
             <el-dropdown @command="handleCommand">
               <span class="user-dropdown">
-                <el-avatar :size="32">
+                <el-avatar :size="isMobileDevice ? 28 : 32">
                   {{ userInfo?.username?.charAt(0).toUpperCase() }}
                 </el-avatar>
-                <span class="username">{{ userInfo?.username }}</span>
+                <span v-if="!isMobileDevice" class="username">{{ userInfo?.username }}</span>
                 <el-icon><ArrowDown /></el-icon>
               </span>
               <template #dropdown>
@@ -277,7 +483,7 @@
         </el-header>
 
         <!-- 主要内容 -->
-        <el-main class="main-content">
+        <el-main class="main-content" :class="{ 'mobile-main-content': isMobileDevice }">
           <router-view />
         </el-main>
       </el-container>
@@ -286,7 +492,7 @@
 </template>
 
 <script setup >
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { useNotificationStore } from '../stores/notification'
@@ -306,13 +512,21 @@ import {
   List,
   Box,
   Document,
-  DataAnalysis
+  DataAnalysis,
+  Menu
 } from '@element-plus/icons-vue'
 import hasAnyPermission from '@/utils/checkPermissions'
+import { useResponsive } from '@/utils/responsive'
 
 const router = useRouter()
 const userStore = useUserStore()
 const notificationStore = useNotificationStore()
+
+// 响应式检测
+const { isMobileDevice } = useResponsive()
+
+// 移动端抽屉状态
+const mobileDrawerVisible = ref(false)
 
 // 初始化用户信息
 const isCollapsed = computed(() => userStore.isCollapsed)
@@ -320,6 +534,18 @@ const userInfo = computed(() => userStore.userInfo)
 
 const toggleSidebar = () => {
   userStore.toggleSidebar()
+}
+
+// 移动端抽屉切换
+const toggleMobileDrawer = () => {
+  mobileDrawerVisible.value = !mobileDrawerVisible.value
+}
+
+// 移动端菜单选择后关闭抽屉
+const handleMobileMenuSelect = () => {
+  if (isMobileDevice.value) {
+    mobileDrawerVisible.value = false
+  }
 }
 
 // 初始化通知系统
@@ -389,7 +615,8 @@ const handleCommand = async (command) => {
   width: 100vw !important;
 }
 
-.sidebar {
+/* 桌面端侧边栏 */
+.desktop-sidebar {
   background-color: #304156;
   transition: width 0.28s ease;
   height: 100vh !important;
@@ -417,7 +644,7 @@ const handleCommand = async (command) => {
   overflow-y: auto;
   border-right: none;
   width: 100%;
-  
+
   /* 优化滚动条 */
   scrollbar-width: thin;
   scrollbar-color: #6c757d #343a40;
@@ -436,6 +663,39 @@ const handleCommand = async (command) => {
   border-radius: 3px;
 }
 
+/* 移动端抽屉 */
+.mobile-drawer :deep(.el-drawer__header) {
+  margin-bottom: 0;
+  padding: 0;
+  background-color: #2c3e50;
+  border-bottom: 1px solid #434a50;
+}
+
+.mobile-drawer-header {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.drawer-title {
+  color: #409eff;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.mobile-drawer :deep(.el-drawer__body) {
+  padding: 0;
+  background-color: #304156;
+}
+
+.mobile-drawer .el-menu {
+  height: 100% !important;
+  background-color: #304156;
+}
+
+/* 顶部导航栏 */
 .header {
   background-color: #fff;
   border-bottom: 1px solid #e4e7ed;
@@ -450,9 +710,18 @@ const handleCommand = async (command) => {
   position: relative;
 }
 
+.mobile-header {
+  height: 56px !important;
+  padding: 0 12px;
+}
+
 .header-left {
   display: flex;
   align-items: center;
+}
+
+.mobile-menu-btn {
+  font-size: 20px;
 }
 
 .header-right {
@@ -481,6 +750,17 @@ const handleCommand = async (command) => {
   font-weight: 500;
 }
 
+/* 移动端样式调整 */
+@media (max-width: 767px) {
+  .header-right {
+    gap: 8px;
+  }
+
+  .user-dropdown {
+    padding: 6px 8px;
+  }
+}
+
 .main-content {
   background-color: #f0f2f5;
   padding: 20px;
@@ -491,10 +771,16 @@ const handleCommand = async (command) => {
   max-width: 100%;
   max-height: calc(100vh - 60px);
   box-sizing: border-box;
-  
+
   /* 优化滚动条 */
   scrollbar-width: thin;
   scrollbar-color: #c1c1c1 #f1f1f1;
+}
+
+.mobile-main-content {
+  padding: 12px;
+  height: calc(100vh - 56px) !important;
+  max-height: calc(100vh - 56px);
 }
 
 .main-content::-webkit-scrollbar {
@@ -512,6 +798,14 @@ const handleCommand = async (command) => {
 
 .main-content::-webkit-scrollbar-thumb:hover {
   background-color: #a8a8a8;
+}
+
+/* 移动端隐藏滚动条 */
+@media (max-width: 767px) {
+  .main-content::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
 }
 
 /* 内容包装器 - 防止内容超出 */
@@ -566,5 +860,16 @@ const handleCommand = async (command) => {
 
 .sidebar, .main-content {
   will-change: transform;
+}
+
+/* 移动端布局优化 */
+@media (max-width: 767px) {
+  .mobile-layout {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-layout .el-container {
+    flex-direction: column;
+  }
 }
 </style>

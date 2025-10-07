@@ -1,5 +1,5 @@
 <template>
-  <div class="operational-product">
+  <div class="operational-product" :class="{ 'mobile-view': isMobileDevice }">
     <!-- 页面标题 -->
     <div class="page-header">
       <div class="page-title">
@@ -11,9 +11,9 @@
       </div>
     </div>
     <!-- 搜索栏 -->
-    <div class="search-card business-style">
-      <el-form :model="searchForm" class="business-search-form">
-        <div class="search-fields">
+    <div class="search-card business-style" :class="{ 'mobile-search': isMobileDevice }">
+      <el-form :model="searchForm" :inline="!isMobileDevice" class="business-search-form">
+        <div class="search-fields" :class="{ 'mobile-fields': isMobileDevice }">
           <el-form-item label="产品名称" class="search-item">
              <el-autocomplete
                 v-model="searchForm.name"
@@ -106,9 +106,9 @@
           </el-form-item>
         </div>
 
-        <div class="search-actions">
-          <el-button type="primary" @click="handleSearch" :icon="Search"  size="small">查询</el-button>
-          <el-button @click="handleReset"  size="small" style="margin-left: 8px;">重置</el-button>
+        <div class="search-actions" :class="{ 'mobile-actions': isMobileDevice }">
+          <el-button type="primary" @click="handleSearch" :icon="Search" class="business-btn">查询</el-button>
+          <el-button @click="handleReset" class="business-btn">重置</el-button>
         </div>
       </el-form>
     </div>
@@ -147,12 +147,12 @@
         >
           批量删除
         </el-button>
-        <el-button @click="handleExport" :icon="Download" class="action-btn">
+        <el-button @click="handleExport" :icon="Download" class="action-btn" v-if="!isMobileDevice">
           导出数据
           <span v-if="selectedAccountings.length">({{ selectedAccountings.length }}条)</span>
         </el-button>
       </div>
-      <div class="action-right">
+      <div class="action-right" v-if="!isMobileDevice">
         <span class="total-count">共 {{ operationalProductStore.pagination?.total || 0 }} 条数据</span>
         <el-tooltip content="刷新数据" placement="top">
           <el-button @click="handleRefresh" :icon="Refresh" circle />
@@ -372,10 +372,14 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="100" fixed="right">
+        <el-table-column label="操作" width="80">
           <template #default="{ row }">
-            <el-button size="small" type="primary" @click="handleEdit(row)" link>编辑</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)" link>删除</el-button>
+            <el-tooltip content="编辑" placement="top">
+              <el-button size="small" type="primary" @click="handleEdit(row)" :icon="Edit" circle />
+            </el-tooltip>
+            <el-tooltip content="删除" placement="top">
+              <el-button size="small" type="danger" @click="handleDelete(row)" :icon="Delete" circle />
+            </el-tooltip>
           </template>
         </el-table-column>
       </el-table>
@@ -387,9 +391,11 @@
           v-model:page-size="pageSize"
           :page-sizes="[10, 20, 50, 100]"
           :total="operationalProductStore.pagination.total"
-          layout="total, sizes, prev, pager, next, jumper"
+          :layout="isMobileDevice ? 'total, sizes, prev, pager, next' : 'total, sizes, prev, pager, next, jumper'"
+          :small="isMobileDevice"
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
+          :class="{ 'mobile-pagination': isMobileDevice }"
         />
       </div>
     </el-card>
@@ -398,15 +404,16 @@
     <el-dialog
       v-model="showAddDialog"
       :title="editingProduct ? '编辑运营商品' : '新增运营商品'"
-      width="900px"
+      :width="isMobileDevice ? '95%' : '900px'"
+      :fullscreen="isMobileDevice"
       append-to-body
       @close="resetForm"
+      class="product-dialog"
     >
-      <el-form
+      <ResponsiveForm
         ref="productFormRef"
         :model="productForm"
         :rules="productRules"
-        label-width="120px"
       >
       
         <el-form-item label="产品名称" prop="name">
@@ -473,7 +480,7 @@
         </el-form-item>
 
         <el-row :gutter="20">
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="净成交数据" prop="netTransactionData">
               <el-input
                 v-model="productForm.netTransactionData"
@@ -484,7 +491,7 @@
               />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="佣金(%)" prop="commission">
               <el-input
                 v-model="productForm.commission"
@@ -551,7 +558,7 @@
             show-word-limit
           />
         </el-form-item>
-      </el-form>
+      </ResponsiveForm>
 
       <template #footer>
         <span class="dialog-footer">
@@ -1188,7 +1195,7 @@
         <span class="dialog-footer">
           <el-button @click="showSummaryDialog = false">关闭</el-button>
           <el-button
-            v-if="summaryAllData.length > 0"
+            v-if="summaryAllData.length > 0 && !isMobileDevice"
             type="primary"
             @click="exportSummaryData"
             :icon="Download"
@@ -1346,6 +1353,7 @@
             type="primary"
             @click="exportSelectedSummaryData"
             :icon="Download"
+            v-if="!isMobileDevice"
           >
             导出汇总数据
           </el-button>
@@ -1374,8 +1382,14 @@ import {
   DataAnalysis,
   ArrowDown,
   InfoFilled,
+  Edit
 } from '@element-plus/icons-vue'
 import { useOperationalProductStore } from '@/stores/operationalProduct'
+import { useResponsive } from '@/utils/responsive'
+import ResponsiveForm from '@/components/ResponsiveForm.vue'
+
+// 响应式检测
+const { isMobileDevice } = useResponsive()
 import { formatUtcToLocalDateTime } from '@/utils/dateUtils'
 
 // 格式化日期（只显示日期部分）
@@ -3810,6 +3824,158 @@ onMounted(() => {
         font-weight: 600;
       }
     }
+  }
+}
+
+/* 移动端适配 (< 768px) */
+@media (max-width: 767px) {
+  .operational-product.mobile-view {
+    padding: 0;
+  }
+
+  .page-header {
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+
+  .page-title h2 {
+    font-size: 18px;
+  }
+
+  .page-description {
+    font-size: 13px;
+  }
+
+  .search-card.mobile-search {
+    margin-bottom: 12px;
+    border-radius: 0;
+  }
+
+  .business-search-form {
+    padding: 12px;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .search-fields.mobile-fields {
+    flex-direction: column;
+    width: 100%;
+    gap: 12px;
+  }
+
+  .search-item {
+    width: 100%;
+  }
+
+  .search-actions.mobile-actions {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+
+  .search-actions.mobile-actions .business-btn {
+    flex: 1;
+    height: 44px;
+    font-size: 14px;
+  }
+
+  .action-card {
+    padding: 12px;
+    margin-bottom: 12px;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .action-left {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .action-left .action-btn {
+    flex: 1;
+    min-width: calc(50% - 4px);
+    height: 44px;
+    font-size: 13px;
+  }
+
+  .stats-panel {
+    margin-bottom: 12px;
+  }
+
+  .table-card {
+    padding: 8px;
+    border-radius: 0;
+    overflow-x: auto;
+  }
+
+  .table-card :deep(.el-table) {
+    font-size: 13px;
+  }
+
+  .table-card :deep(.el-table th) {
+    font-size: 13px;
+    padding: 8px 0;
+  }
+
+  .table-card :deep(.el-table td) {
+    padding: 8px 0;
+  }
+
+  .pagination-wrapper {
+    padding: 12px 0;
+    overflow-x: auto;
+  }
+
+  .mobile-pagination {
+    justify-content: center !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .mobile-pagination :deep(.el-pagination__total) {
+    order: 1;
+    flex: 0 0 100%;
+    text-align: center;
+    margin: 0 0 8px 0 !important;
+    font-size: 13px;
+  }
+
+  .mobile-pagination :deep(.el-pagination__sizes) {
+    order: 2;
+    margin: 0 !important;
+  }
+
+  .mobile-pagination :deep(.btn-prev),
+  .mobile-pagination :deep(.btn-next),
+  .mobile-pagination :deep(.el-pager li) {
+    min-width: 32px !important;
+    height: 32px !important;
+    line-height: 32px !important;
+    font-size: 13px !important;
+  }
+
+  .product-dialog :deep(.el-dialog__header) {
+    padding: 12px;
+  }
+
+  .product-dialog :deep(.el-dialog__body) {
+    padding: 12px;
+  }
+
+  .product-dialog :deep(.el-dialog__footer) {
+    padding: 12px;
+  }
+
+  .dialog-footer {
+    display: flex;
+    gap: 12px;
+  }
+
+  .dialog-footer .el-button {
+    flex: 1;
+    height: 44px;
+    font-size: 15px;
   }
 }
 </style>

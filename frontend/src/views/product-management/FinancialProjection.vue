@@ -1,5 +1,5 @@
 <template>
-  <div class="financial-projection">
+  <div class="financial-projection" :class="{ 'mobile-view': isMobileDevice }">
     <!-- 页面标题 -->
     <div class="page-header">
       <div class="page-title">
@@ -12,37 +12,40 @@
     </div>
 
     <!-- 搜索栏 -->
-    <div class="search-card">
-      <el-form :model="searchForm" inline>
-        <div class="search-left">
-          <el-form-item label="产品名称">
+    <div class="search-card business-style" :class="{ 'mobile-search': isMobileDevice }">
+      <el-form :model="searchForm" :inline="!isMobileDevice" class="business-search-form">
+        <div class="search-fields" :class="{ 'mobile-fields': isMobileDevice }">
+          <el-form-item label="产品名称" class="search-item">
             <el-autocomplete
               v-model="searchForm.productName"
               :fetch-suggestions="queryProductNameSuggestions"
               placeholder="请输入产品名称"
               clearable
-              style="width: 200px;"
+              class="business-input"
+              style="width: 100%;"
             />
           </el-form-item>
-          <el-form-item label="店铺名称">
+          <el-form-item label="店铺名称" class="search-item">
             <el-autocomplete
               v-model="searchForm.shopName"
               :fetch-suggestions="queryShopNameSuggestions"
               placeholder="请输入店铺名称"
               clearable
-              style="width: 200px;"
+              class="business-input"
+              style="width: 100%;"
             />
           </el-form-item>
-          <el-form-item label="平台">
+          <el-form-item label="平台" class="search-item">
             <el-autocomplete
               v-model="searchForm.platform"
               :fetch-suggestions="queryPlatformSuggestions"
               placeholder="请输入平台名称"
               clearable
-              style="width: 200px;"
+              class="business-input"
+              style="width: 100%;"
             />
           </el-form-item>
-          <el-form-item label="时间筛选">
+          <el-form-item label="时间筛选" class="search-item">
             <el-date-picker
               v-model="dateRange"
               type="daterange"
@@ -51,32 +54,34 @@
               end-placeholder="结束日期"
               format="YYYY-MM-DD"
               value-format="YYYY-MM-DD"
-              style="width: 350px;"
+              style="width: 100%;"
               :shortcuts="dateShortcuts"
               @change="handleDateRangeChange"
             />
           </el-form-item>
-          <el-form-item label="毛利范围">
-            <div style="display: flex; align-items: center; gap: 8px;">
+          <el-form-item label="毛利范围" class="search-item">
+            <div class="profit-range">
               <el-input-number
                 v-model="searchForm.minGrossMargin"
                 placeholder="最小毛利"
                 :precision="2"
-                style="width: 150px;"
+                class="range-input"
+                style="width: 100%;"
               />
-              <span>-</span>
+              <span class="range-separator">-</span>
               <el-input-number
                 v-model="searchForm.maxGrossMargin"
                 placeholder="最大毛利"
                 :precision="2"
-                style="width: 150px;"
+                class="range-input"
+                style="width: 100%;"
               />
             </div>
           </el-form-item>
         </div>
-        <div class="search-right">
-          <el-button @click="handleSearch" type="primary"  :icon="Search" size="small">查询</el-button>
-          <el-button @click="handleReset" size="small" style="margin-left: 8px;">重置</el-button>
+        <div class="search-actions" :class="{ 'mobile-actions': isMobileDevice }">
+          <el-button @click="handleSearch" type="primary" :icon="Search" class="business-btn">查询</el-button>
+          <el-button @click="handleReset" class="business-btn">重置</el-button>
         </div>
       </el-form>
     </div>
@@ -96,7 +101,7 @@
         >
           批量删除
         </el-button>
-        <el-button @click="handleExport" :icon="Download" class="action-btn">
+        <el-button @click="handleExport" :icon="Download" class="action-btn" v-if="!isMobileDevice">
           导出数据
           <span v-if="selectedBudgets.length">({{ selectedBudgets.length }}条)</span>
         </el-button>
@@ -117,7 +122,7 @@
           多选汇总 ({{ selectedBudgets.length }})
         </el-button>
       </div>
-      <div class="action-right">
+      <div class="action-right" v-if="!isMobileDevice">
         <span class="total-count">共 {{ budgetStore.pagination?.totalRecords || 0 }} 条数据</span>
         <el-tooltip content="刷新数据" placement="top">
           <el-button @click="handleRefresh" :icon="Refresh" circle />
@@ -210,10 +215,26 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="100" fixed="right">
+        <el-table-column label="操作" width="100">
           <template #default="{ row }">
-            <el-button size="small" type="primary" @click="handleEdit(row)" link>编辑</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)" link>删除</el-button>
+            <el-tooltip content="编辑" placement="top">
+              <el-button
+                size="small"
+                type="primary"
+                @click="handleEdit(row)"
+                :icon="Edit"
+                circle
+              />
+            </el-tooltip>
+            <el-tooltip content="删除" placement="top">
+              <el-button
+                size="small"
+                type="danger"
+                @click="handleDelete(row)"
+                :icon="Delete"
+                circle
+              />
+            </el-tooltip>
           </template>
         </el-table-column>
       </el-table>
@@ -225,9 +246,12 @@
           v-model:page-size="pageSize"
           :page-sizes="[10, 20, 50, 100, 1000]"
           :total="budgetStore.pagination.totalRecords"
-          layout="total, sizes, prev, pager, next, jumper"
+          :layout="isMobileDevice ? 'total, sizes, prev, pager, next' : 'total, sizes, prev, pager, next, jumper'"
+          :small="isMobileDevice"
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
+          class="custom-pagination"
+          :class="{ 'mobile-pagination': isMobileDevice }"
         />
       </div>
     </el-card>
@@ -236,7 +260,8 @@
     <el-dialog
       v-model="showAddDialog"
       :title="editingBudget ? '编辑产品预算' : '新增产品预算'"
-      width="900px"
+      :width="isMobileDevice ? '95%' : '900px'"
+      :fullscreen="isMobileDevice"
       append-to-body
       @close="resetForm"
     >
@@ -395,12 +420,12 @@
       </el-form>
 
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="showAddDialog = false">取消</el-button>
-          <el-button type="primary" @click="handleSubmit" :loading="submitting">
+        <div class="dialog-footer" :class="{ 'mobile-footer': isMobileDevice }">
+          <el-button @click="showAddDialog = false" :class="{ 'mobile-btn': isMobileDevice }">取消</el-button>
+          <el-button type="primary" @click="handleSubmit" :loading="submitting" :class="{ 'mobile-btn': isMobileDevice }">
             {{ editingBudget ? '更新' : '创建' }}
           </el-button>
-        </span>
+        </div>
       </template>
     </el-dialog>
 
@@ -408,7 +433,8 @@
     <el-dialog
       v-model="showImportDialog"
       title="Excel批量导入"
-      width="900px"
+      :width="isMobileDevice ? '95%' : '900px'"
+      :fullscreen="isMobileDevice"
       append-to-body
       @close="resetImportData"
     >
@@ -521,17 +547,18 @@
       </div>
 
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="showImportDialog = false">取消</el-button>
+        <div class="dialog-footer" :class="{ 'mobile-footer': isMobileDevice }">
+          <el-button @click="showImportDialog = false" :class="{ 'mobile-btn': isMobileDevice }">取消</el-button>
           <el-button
             v-if="importData.length > 0"
             type="primary"
             @click="handleImportConfirm"
             :loading="importSubmitting"
+            :class="{ 'mobile-btn': isMobileDevice }"
           >
             确认导入 ({{ importData.length }} 条)
           </el-button>
-        </span>
+        </div>
       </template>
     </el-dialog>
 
@@ -539,7 +566,8 @@
     <el-dialog
       v-model="showSummaryDialog"
       title="产品汇总分析"
-      width="1000px"
+      :width="isMobileDevice ? '95%' : '1000px'"
+      :fullscreen="isMobileDevice"
       append-to-body
       @close="resetSummaryData"
     >
@@ -715,17 +743,18 @@
       </div>
 
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="showSummaryDialog = false">关闭</el-button>
+        <div class="dialog-footer" :class="{ 'mobile-footer': isMobileDevice }">
+          <el-button @click="showSummaryDialog = false" :class="{ 'mobile-btn': isMobileDevice }">关闭</el-button>
           <el-button
-            v-if="summaryAllData.length > 0"
+            v-if="summaryAllData.length > 0 && !isMobileDevice"
             type="primary"
             @click="exportSummaryData"
             :icon="Download"
+            :class="{ 'mobile-btn': isMobileDevice }"
           >
             导出汇总数据
           </el-button>
-        </span>
+        </div>
       </template>
     </el-dialog>
 
@@ -733,7 +762,8 @@
     <el-dialog
       v-model="showSelectedSummaryDialog"
       title="多选数据汇总"
-      width="60vw"
+      :width="isMobileDevice ? '95%' : '60vw'"
+      :fullscreen="isMobileDevice"
       append-to-body
     >
       <div class="selected-summary-container">
@@ -841,16 +871,18 @@
       </div>
 
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="showSelectedSummaryDialog = false">关闭</el-button>
+        <div class="dialog-footer" :class="{ 'mobile-footer': isMobileDevice }">
+          <el-button @click="showSelectedSummaryDialog = false" :class="{ 'mobile-btn': isMobileDevice }">关闭</el-button>
           <el-button
             type="primary"
             @click="exportSelectedSummaryData"
             :icon="Download"
+            :class="{ 'mobile-btn': isMobileDevice }"
+            v-if="!isMobileDevice"
           >
             导出汇总数据
           </el-button>
-        </span>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -862,6 +894,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Plus,
   Delete,
+  Edit,
   List,
   Search,
   Refresh,
@@ -875,6 +908,7 @@ import {
 import { useBudgetStore } from '../../stores/budget'
 import { formatUtcToLocalDateTime } from '../../utils/dateUtils'
 import { numberValidators } from '../../utils/inputValidation'
+import { useResponsive } from '../../utils/responsive'
 import {
   readFinancialExcelFile,
   validateFinancialImportHeaders,
@@ -888,6 +922,9 @@ import {
 
 // Store
 const budgetStore = useBudgetStore()
+
+// 响应式工具
+const { isMobileDevice } = useResponsive()
 
 // 响应式数据
 const showAddDialog = ref(false)
@@ -2066,24 +2103,232 @@ onMounted(() => {
   gap: 10px;
 }
 
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .financial-projection {
+/* 移动端适配 (< 768px) */
+@media (max-width: 767px) {
+  /* 容器 */
+  .financial-projection.mobile-view {
+    padding: 0;
+  }
+
+  /* 页面标题 */
+  .page-header {
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+
+  .page-title h2 {
+    font-size: 18px;
+  }
+
+  .page-description {
+    font-size: 13px;
+  }
+
+  /* 搜索栏 */
+  .search-card.mobile-search {
+    margin-bottom: 12px;
+    border-radius: 0;
+  }
+
+  .business-search-form {
+    padding: 12px;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .search-fields.mobile-fields {
+    flex-direction: column;
+    width: 100%;
+    gap: 12px;
+  }
+
+  .search-item {
+    width: 100%;
+    margin-right: 0 !important;
+  }
+
+  .search-item :deep(.el-form-item__content) {
+    width: 100%;
+  }
+
+  .search-item :deep(.el-input),
+  .search-item :deep(.el-autocomplete),
+  .search-item :deep(.el-date-editor),
+  .search-item :deep(.el-input-number) {
+    width: 100% !important;
+  }
+
+  .profit-range {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .profit-range .range-input {
+    flex: 1;
+  }
+
+  .profit-range .range-separator {
+    line-height: 32px;
+  }
+
+  .search-actions.mobile-actions {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+
+  .search-actions.mobile-actions .business-btn {
+    flex: 1;
+    height: 44px;
+    font-size: 14px;
+  }
+
+  /* 操作栏 */
+  .action-card {
+    padding: 12px;
+    margin-bottom: 12px;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .action-left {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-start;
+  }
+
+  .action-left .el-button {
+    flex: 1;
+    min-width: calc(50% - 4px);
+    height: 44px;
+    font-size: 13px;
+  }
+
+  /* 表格 */
+  .table-card {
+    padding: 8px;
+    border-radius: 0;
+    overflow-x: auto;
+  }
+
+  .table-card :deep(.el-table) {
+    font-size: 13px;
+  }
+
+  .table-card :deep(.el-table th) {
+    font-size: 13px;
+    padding: 8px 0;
+  }
+
+  .table-card :deep(.el-table td) {
+    padding: 8px 0;
+  }
+
+  .table-card :deep(.el-button.is-circle) {
+    width: 28px;
+    height: 28px;
+    padding: 6px;
+  }
+
+  /* 分页 */
+  .pagination-wrapper {
+    padding: 12px 0;
+    overflow-x: auto;
+  }
+
+  .mobile-pagination {
+    justify-content: center !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .mobile-pagination :deep(.el-pagination__total) {
+    order: 1;
+    flex: 0 0 100%;
+    text-align: center;
+    margin: 0 0 8px 0 !important;
+    font-size: 13px;
+  }
+
+  .mobile-pagination :deep(.el-pagination__sizes) {
+    order: 2;
+    margin: 0 !important;
+  }
+
+  .mobile-pagination :deep(.btn-prev),
+  .mobile-pagination :deep(.btn-next),
+  .mobile-pagination :deep(.el-pager li) {
+    min-width: 32px !important;
+    height: 32px !important;
+    line-height: 32px !important;
+    font-size: 13px !important;
+  }
+
+  /* 对话框 */
+  :deep(.el-dialog.is-fullscreen) {
+    .el-dialog__header {
+      padding: 12px;
+    }
+
+    .el-dialog__body {
+      padding: 12px;
+    }
+
+    .el-dialog__footer {
+      padding: 12px;
+    }
+  }
+
+  .dialog-footer.mobile-footer {
+    display: flex;
+    gap: 12px;
+  }
+
+  .dialog-footer.mobile-footer .mobile-btn {
+    flex: 1;
+    height: 44px;
+    font-size: 15px;
+  }
+
+  /* 表单响应式 */
+  :deep(.el-form-item__label) {
+    font-size: 14px;
+  }
+
+  :deep(.el-row) {
+    margin: 0 !important;
+  }
+
+  :deep(.el-col) {
+    padding: 0 !important;
+  }
+
+  /* 计算预览卡片 */
+  .calculation-preview {
+    margin-top: 12px;
+  }
+
+  .calculation-preview :deep(.el-card__header) {
+    padding: 10px;
+    font-size: 14px;
+  }
+
+  .calculation-preview :deep(.el-card__body) {
     padding: 10px;
   }
 
-  .toolbar {
-    flex-direction: column;
-    gap: 10px;
+  .calc-item {
+    margin-bottom: 8px;
   }
 
-  .search-box {
-    width: 100%;
-    justify-content: center;
+  .calc-label {
+    font-size: 13px;
   }
 
-  .stats-cards .el-col {
-    margin-bottom: 10px;
+  .calc-value {
+    font-size: 16px;
   }
 }
 
@@ -2205,23 +2450,96 @@ onMounted(() => {
   }
 }
 
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .summary-container {
-    .summary-stats {
-      .el-col {
-        margin-bottom: 15px;
+/* 移动端 - 导入和汇总对话框 */
+@media (max-width: 767px) {
+  .import-container {
+    .upload-tips {
+      padding: 12px;
+      font-size: 13px;
+
+      h4 {
+        font-size: 14px;
+      }
+
+      ul li {
+        font-size: 12px;
       }
     }
 
+    .preview-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+
+      h4 {
+        font-size: 14px;
+      }
+    }
+
+    .preview-table {
+      font-size: 12px;
+    }
+  }
+
+  .summary-container {
     .summary-search {
+      padding: 12px;
+
       .el-form {
         flex-direction: column;
 
         .el-form-item {
-          margin-bottom: 15px;
+          margin-bottom: 12px;
           margin-right: 0;
+          width: 100%;
         }
+
+        .el-form-item :deep(.el-input),
+        .el-form-item :deep(.el-autocomplete) {
+          width: 100% !important;
+        }
+      }
+    }
+
+    .summary-stats {
+      margin-bottom: 12px;
+
+      :deep(.el-row) {
+        margin: 0 !important;
+      }
+
+      :deep(.el-col) {
+        padding: 0 !important;
+        margin-bottom: 12px;
+      }
+    }
+
+    .summary-table {
+      .table-header h4 {
+        font-size: 14px;
+      }
+    }
+
+    .summary-pagination {
+      margin-top: 12px;
+    }
+  }
+
+  .selected-summary-container {
+    .summary-stats {
+      :deep(.el-row) {
+        margin: 0 !important;
+      }
+
+      :deep(.el-col) {
+        padding: 0 !important;
+        margin-bottom: 12px;
+      }
+    }
+
+    .selected-details {
+      .table-header h4 {
+        font-size: 14px;
       }
     }
   }

@@ -23,7 +23,7 @@
     <div v-show="activeTab === 'single-sku'" class="single-sku-calculator">
       <el-row :gutter="20">
         <!-- 左侧输入参数 -->
-        <el-col :span="12">
+        <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
           <div class="sku-input-section">
             <div class="sku-input-item">
               <label class="sku-label required">销售价格：</label>
@@ -157,7 +157,7 @@
         </el-col>
 
         <!-- 右侧输入和推广盒子 -->
-        <el-col :span="12">
+        <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
           <div class="sku-right-section">
             <div class="sku-input-item">
               <label class="sku-label required">实际花费：</label>
@@ -246,7 +246,7 @@
     <div v-show="activeTab === 'multi-sku'" class="multi-sku-calculator">
       <el-row :gutter="20" >
         <!-- 左侧参数输入区域 -->
-        <el-col :span="14">
+        <el-col :xs="24" :sm="24" :md="14" :lg="14" :xl="14">
           <div class="multi-sku-left-section">
             <!-- 共同参数设置 -->
             <div class="common-params-section">
@@ -494,7 +494,7 @@
           </div>
         </el-col>
         <!-- 右侧推广参数和结果区域 -->
-        <el-col :span="10">
+        <el-col :xs="24" :sm="24" :md="10" :lg="10" :xl="10">
           <div class="multi-sku-right-section">
             <!-- 推广参数 -->
             <div class="promotion-params-section">
@@ -1662,32 +1662,211 @@ calculateMultiSku()
 }
 
 @media (max-width: 768px) {
+  /* 页面整体 */
+  .promotion-calculator {
+    padding: 10px;
+  }
+
+  .page-header {
+    padding: 15px;
+    margin-bottom: 15px;
+  }
+
+  .page-title h2 {
+    font-size: 18px;
+  }
+
+  .page-description {
+    font-size: 12px;
+  }
+
+  /* Tab容器 */
+  .tab-container {
+    margin-bottom: 15px;
+  }
+
+  /* 单规格SKU计算器 */
+  .single-sku-calculator {
+    padding: 0;
+  }
+
+  .single-sku-calculator .el-col {
+    margin-bottom: 20px;
+  }
+
+  .sku-input-section,
+  .sku-right-section {
+    padding: 15px;
+  }
+
+  .sku-label {
+    width: 100px;
+    font-size: 13px;
+  }
+
+  .sku-input-item {
+    margin-bottom: 15px;
+  }
+
+  .sku-results-section {
+    margin-top: 20px;
+  }
+
+  .sku-result-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .sku-result-item {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .sku-result-label {
+    font-size: 13px;
+  }
+
+  .sku-result-value {
+    font-size: 16px;
+  }
+
+  /* 多规格SKU计算器 */
   .multi-sku-calculator {
-    padding: 16px;
-    max-height: calc(100vh - 120px);
+    padding: 0;
+    max-height: none;
+  }
+
+  .multi-sku-calculator .el-col {
+    margin-bottom: 20px;
   }
 
   .multi-sku-left-section {
-    max-height: calc(100vh - 200px);
+    max-height: none;
+    padding: 15px;
+  }
+
+  .multi-sku-right-section {
+    padding: 15px;
+  }
+
+  .common-params-section,
+  .sku-list-section {
+    padding: 15px;
+  }
+
+  .section-title {
+    font-size: 14px;
+    margin-bottom: 15px;
+  }
+
+  .multi-sku-label {
+    width: 100%;
+    font-size: 12px;
+    margin-bottom: 5px;
+    text-align: left;
+  }
+
+  .multi-sku-input-item {
+    flex-direction: column;
+    align-items: stretch;
+    margin-bottom: 15px;
+  }
+
+  /* SKU项 */
+  .sku-item {
+    padding: 15px;
+    margin-bottom: 15px;
   }
 
   .sku-item-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 10px;
+    margin-bottom: 15px;
   }
 
-  .multi-sku-label {
-    width: 90px;
-    font-size: 11px;
-  }
-
-  .section-title {
+  .sku-item-title {
     font-size: 14px;
+  }
+
+  /* 结果显示 */
+  .sku-result-section .el-row {
+    flex-direction: column;
+  }
+
+  .sku-result-section .el-col {
+    width: 100%;
+    margin-bottom: 10px;
   }
 
   .multi-sku-bottom-section {
     margin-top: 20px;
+    padding: 15px;
+  }
+
+  .comprehensive-result-item {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 10px;
+  }
+
+  .comprehensive-result-label {
+    font-size: 12px;
+    margin-bottom: 5px;
+  }
+
+  .comprehensive-result-value {
+    font-size: 16px;
+  }
+
+  /* 推广参数区域 */
+  .promotion-params-section {
+    padding: 15px;
+  }
+
+  .promotion-input-item {
+    flex-direction: column;
+    align-items: stretch;
+    margin-bottom: 15px;
+  }
+
+  .promotion-label {
+    width: 100%;
+    margin-bottom: 5px;
+    text-align: left;
+  }
+
+  /* 推广结果区域 */
+  .promotion-results-section {
+    padding: 15px;
+  }
+
+  .promotion-result-item {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 10px;
+  }
+
+  .promotion-label-multi {
+    font-size: 12px;
+    margin-bottom: 5px;
+  }
+
+  .promotion-value-multi {
+    font-size: 16px;
+  }
+
+  /* 按钮 */
+  .calculate-btn,
+  .reset-btn {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+
+  .add-sku-btn,
+  .remove-sku-btn {
+    font-size: 12px;
+    padding: 5px 10px;
   }
 }
 </style>

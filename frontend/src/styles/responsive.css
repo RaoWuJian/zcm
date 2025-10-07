@@ -1,0 +1,316 @@
+/**
+ * 响应式布局样式
+ * 定义全局响应式断点、工具类和基础样式
+ */
+
+/* ==================== CSS 变量定义 ==================== */
+:root {
+  /* 断点变量 */
+  --breakpoint-xs: 0px;
+  --breakpoint-sm: 576px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 992px;
+  --breakpoint-xl: 1200px;
+  --breakpoint-xxl: 1600px;
+  
+  /* 间距变量 */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 20px;
+  --spacing-xxl: 24px;
+  
+  /* 移动端专用间距 */
+  --mobile-padding: 12px;
+  --mobile-margin: 12px;
+  
+  /* 安全区域（用于刘海屏等） */
+  --sat: env(safe-area-inset-top);
+  --sar: env(safe-area-inset-right);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+  
+  /* 移动端视口高度修正 */
+  --vh: 1vh;
+  
+  /* 侧边栏宽度 */
+  --sidebar-width-expanded: 200px;
+  --sidebar-width-collapsed: 64px;
+  
+  /* 头部高度 */
+  --header-height: 60px;
+  --mobile-header-height: 56px;
+  
+  /* 触摸目标最小尺寸 */
+  --touch-target-min: 44px;
+  
+  /* 字体大小 */
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-base: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 18px;
+  --font-size-xxl: 20px;
+  
+  /* 移动端字体大小 */
+  --mobile-font-size-base: 14px;
+  --mobile-font-size-lg: 15px;
+  --mobile-font-size-xl: 16px;
+}
+
+/* ==================== 全局响应式基础样式 ==================== */
+
+/* 确保所有元素使用 border-box */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* 移动端优化 */
+@media (max-width: 767px) {
+  html {
+    /* 禁止文本自动调整大小 */
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    
+    /* 优化触摸滚动 */
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  body {
+    /* 移动端字体大小 */
+    font-size: var(--mobile-font-size-base);
+    
+    /* 禁止长按选择 */
+    -webkit-user-select: none;
+    user-select: none;
+    
+    /* 禁止双击缩放 */
+    touch-action: manipulation;
+  }
+  
+  /* 允许文本选择 */
+  input, textarea, [contenteditable] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}
+
+/* ==================== 响应式容器 ==================== */
+
+.responsive-container {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 0 var(--spacing-lg);
+}
+
+@media (max-width: 767px) {
+  .responsive-container {
+    padding: 0 var(--mobile-padding);
+  }
+}
+
+/* ==================== 响应式显示/隐藏工具类 ==================== */
+
+/* 移动端隐藏 */
+.hidden-xs { display: none !important; }
+@media (min-width: 576px) {
+  .hidden-xs { display: block !important; }
+}
+
+/* 平板隐藏 */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .hidden-md { display: none !important; }
+}
+
+/* 桌面隐藏 */
+@media (min-width: 1200px) {
+  .hidden-lg { display: none !important; }
+}
+
+/* 仅移动端显示 */
+.visible-xs { display: none !important; }
+@media (max-width: 767px) {
+  .visible-xs { display: block !important; }
+}
+
+/* 仅平板显示 */
+.visible-md { display: none !important; }
+@media (min-width: 768px) and (max-width: 1199px) {
+  .visible-md { display: block !important; }
+}
+
+/* 仅桌面显示 */
+.visible-lg { display: none !important; }
+@media (min-width: 1200px) {
+  .visible-lg { display: block !important; }
+}
+
+/* ==================== 响应式间距工具类 ==================== */
+
+/* 内边距 */
+.p-responsive {
+  padding: var(--spacing-lg);
+}
+
+@media (max-width: 767px) {
+  .p-responsive {
+    padding: var(--mobile-padding);
+  }
+}
+
+/* 外边距 */
+.m-responsive {
+  margin: var(--spacing-lg);
+}
+
+@media (max-width: 767px) {
+  .m-responsive {
+    margin: var(--mobile-margin);
+  }
+}
+
+/* ==================== 触摸友好样式 ==================== */
+
+/* 触摸目标最小尺寸 */
+.touch-target {
+  min-width: var(--touch-target-min);
+  min-height: var(--touch-target-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 触摸反馈 */
+.touch-feedback {
+  position: relative;
+  cursor: pointer;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+}
+
+.touch-feedback:active {
+  opacity: 0.7;
+  transform: scale(0.98);
+  transition: all 0.1s ease;
+}
+
+/* ==================== 移动端卡片样式 ==================== */
+
+@media (max-width: 767px) {
+  .el-card {
+    border-radius: 8px;
+    margin-bottom: var(--mobile-margin);
+  }
+  
+  .el-card__header {
+    padding: 12px;
+    font-size: var(--mobile-font-size-lg);
+  }
+  
+  .el-card__body {
+    padding: 12px;
+  }
+}
+
+/* ==================== 移动端表单样式 ==================== */
+
+@media (max-width: 767px) {
+  .el-form-item {
+    margin-bottom: 16px;
+  }
+  
+  .el-form-item__label {
+    font-size: var(--mobile-font-size-base);
+    line-height: 32px;
+  }
+  
+  .el-input__inner,
+  .el-textarea__inner,
+  .el-select .el-input__inner {
+    font-size: var(--mobile-font-size-base);
+    height: var(--touch-target-min);
+    line-height: var(--touch-target-min);
+  }
+  
+  .el-button {
+    min-height: var(--touch-target-min);
+    padding: 10px 16px;
+    font-size: var(--mobile-font-size-base);
+  }
+}
+
+/* ==================== 移动端对话框样式 ==================== */
+
+@media (max-width: 767px) {
+  .el-dialog {
+    width: 95% !important;
+    margin: 0 auto !important;
+  }
+  
+  .el-dialog__header {
+    padding: 12px;
+  }
+  
+  .el-dialog__body {
+    padding: 12px;
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+  }
+  
+  .el-dialog__footer {
+    padding: 12px;
+  }
+}
+
+/* ==================== 移动端抽屉样式 ==================== */
+
+@media (max-width: 767px) {
+  .el-drawer {
+    width: 80% !important;
+  }
+  
+  .el-drawer__header {
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+  
+  .el-drawer__body {
+    padding: 12px;
+  }
+}
+
+/* ==================== 移动端分页样式 ==================== */
+
+@media (max-width: 767px) {
+  .el-pagination {
+    padding: 8px 0;
+    text-align: center;
+  }
+  
+  .el-pagination .btn-prev,
+  .el-pagination .btn-next,
+  .el-pagination .el-pager li {
+    min-width: 32px;
+    height: 32px;
+    line-height: 32px;
+    font-size: var(--mobile-font-size-base);
+  }
+  
+  /* 隐藏部分分页元素 */
+  .el-pagination__sizes,
+  .el-pagination__jump {
+    display: none;
+  }
+}
+
+/* ==================== 滚动条优化 ==================== */
+
+@media (max-width: 767px) {
+  /* 移动端隐藏滚动条 */
+  ::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+}
+
