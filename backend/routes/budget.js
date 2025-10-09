@@ -13,6 +13,8 @@ const {
   getPlatformSuggestions
 } = require('../controllers/productBudgetController');
 const { protect, authorize } = require('../middleware/auth');
+const { logOperation, saveOriginalData } = require('../middleware/operationLog');
+const ProductBudget = require('../models/ProductBudget');
 
 const router = express.Router();
 

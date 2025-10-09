@@ -321,7 +321,11 @@ import { ElMessage } from 'element-plus'
 import { Search, Download, Document, User, UserFilled, Money, DataAnalysis, ArrowDown } from '@element-plus/icons-vue'
 import { dailyReportApi } from '@/api'
 import { useCampaignCategoryStore } from '@/stores/campaignCategory'
+import { useResponsive } from '@/utils/responsive'
 import * as XLSX from 'xlsx'
+
+// 响应式检测
+const { isMobileDevice } = useResponsive()
 
 // 响应式数据
 const loading = ref(false)

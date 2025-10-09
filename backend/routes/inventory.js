@@ -15,6 +15,8 @@ const {
   getInventoryStats
 } = require('../controllers/inventoryRecordController');
 const { protect, authorize } = require('../middleware/auth');
+const { logOperation, saveOriginalData } = require('../middleware/operationLog');
+const Inventory = require('../models/Inventory');
 
 const router = express.Router();
 
@@ -25,23 +27,81 @@ router.use(protect);
 router.get('/stats', getInventoryStats);
 
 // 批量操作路由
-router.post('/batch', authorize('inventory:create'), batchCreateInventory);
+router.post('/batch',
+  authorize('inventory:create'),
+  logOperation({
+    operationType: 'CREATE',
+    module: 'INVENTORY',
+    getDescription: (req, res) => `批量创建库存: ${req.body.inventories?.length || 0}个`
+  }),
+  batchCreateInventory
+);
 
 // 库存基本CRUD
 router
   .route('/')
   .get(getInventories)  // 查看库存列表不需要特殊权限
-  .post(authorize('inventory:create'), createInventory);  // 创建库存需要权限
+  .post(
+    authorize('inventory:create'),
+    logOperation({
+      operationType: 'CREATE',
+      module: 'INVENTORY',
+      getResourceName: (req, res) => res.data?.productName || req.body.productName,
+      getDescription: (req, res) => `创建库存: ${res.data?.productName || req.body.productName}`
+    }),
+    createInventory
+  );
 
 router
   .route('/:id')
   .get(getInventory)  // 查看单个库存不需要特殊权限
-  .put(authorize('inventory:update'), updateInventory)  // 更新库存需要权限
-  .delete(authorize('inventory:delete'), deleteInventory);  // 删除库存需要权限
+  .put(
+    authorize('inventory:update'),
+    saveOriginalData(Inventory),
+    logOperation({
+      operationType: 'UPDATE',
+      module: 'INVENTORY',
+      getResourceName: (req, res) => res.data?.productName || req.originalData?.productName,
+      getDescription: (req, res) => `更新库存: ${res.data?.productName || req.originalData?.productName}`
+    }),
+    updateInventory
+  )
+  .delete(
+    authorize('inventory:delete'),
+    saveOriginalData(Inventory),
+    logOperation({
+      operationType: 'DELETE',
+      module: 'INVENTORY',
+      getResourceName: (req, res) => req.originalData?.productName,
+      getDescription: (req, res) => `删除库存: ${req.originalData?.productName}`
+    }),
+    deleteInventory
+  );
 
 // 出入库操作
-router.post('/:id/out', authorize('inventory:out'), inventoryOut);  // 出库操作需要权限
-router.post('/:id/in', authorize('inventory:in'), inventoryIn);  // 入库操作需要权限
+router.post('/:id/out',
+  authorize('inventory:out'),
+  saveOriginalData(Inventory),
+  logOperation({
+    operationType: 'UPDATE',
+    module: 'INVENTORY',
+    getResourceName: (req, res) => req.originalData?.productName,
+    getDescription: (req, res) => `库存出库: ${req.originalData?.productName} - 数量: ${req.body.quantity}`
+  }),
+  inventoryOut
+);
+
+router.post('/:id/in',
+  authorize('inventory:in'),
+  saveOriginalData(Inventory),
+  logOperation({
+    operationType: 'UPDATE',
+    module: 'INVENTORY',
+    getResourceName: (req, res) => req.originalData?.productName,
+    getDescription: (req, res) => `库存入库: ${req.originalData?.productName} - 数量: ${req.body.quantity}`
+  }),
+  inventoryIn
+);
 
 // 获取特定库存的操作记录 - 不需要特殊权限
 router.get('/:id/records', getInventoryRecordsByInventoryId);

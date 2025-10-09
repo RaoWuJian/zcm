@@ -14,6 +14,8 @@ const {
   exportDailyReports
 } = require('../controllers/dailyReportController');
 const { protect } = require('../middleware/auth');
+const { logOperation, saveOriginalData } = require('../middleware/operationLog');
+const DailyReport = require('../models/DailyReport');
 
 // 获取产品名称建议（需要放在 /:id 路由之前）
 router.get('/suggestions/product-names',
@@ -56,18 +58,38 @@ router.get('/:id',
 // 创建日报
 router.post('/',
   protect,
+  logOperation({
+    operationType: 'CREATE',
+    module: 'DAILY_REPORT',
+    getResourceName: (req, res) => res.data?.productName || req.body.productName,
+    getDescription: (req, res) => `创建日报: ${res.data?.productName || req.body.productName}`
+  }),
   createDailyReport
 );
 
 // 更新日报
 router.put('/:id',
   protect,
+  saveOriginalData(DailyReport),
+  logOperation({
+    operationType: 'UPDATE',
+    module: 'DAILY_REPORT',
+    getResourceName: (req, res) => res.data?.productName || req.originalData?.productName,
+    getDescription: (req, res) => `更新日报: ${res.data?.productName || req.originalData?.productName}`
+  }),
   updateDailyReport
 );
 
 // 删除日报
 router.delete('/:id',
   protect,
+  saveOriginalData(DailyReport),
+  logOperation({
+    operationType: 'DELETE',
+    module: 'DAILY_REPORT',
+    getResourceName: (req, res) => req.originalData?.productName,
+    getDescription: (req, res) => `删除日报: ${req.originalData?.productName}`
+  }),
   deleteDailyReport
 );
 

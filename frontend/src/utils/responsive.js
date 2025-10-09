@@ -80,20 +80,35 @@ export function isDesktop(width) {
  * @returns {Object} 响应式状态和方法
  */
 export function useResponsive() {
-  const windowWidth = ref(window.innerWidth)
-  const windowHeight = ref(window.innerHeight)
+  // 安全地获取初始窗口尺寸
+  const getInitialWidth = () => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth
+    }
+    return 1920 // 默认桌面宽度
+  }
+
+  const getInitialHeight = () => {
+    if (typeof window !== 'undefined') {
+      return window.innerHeight
+    }
+    return 1080 // 默认桌面高度
+  }
+
+  const windowWidth = ref(getInitialWidth())
+  const windowHeight = ref(getInitialHeight())
 
   // 当前断点
   const breakpoint = computed(() => getBreakpoint(windowWidth.value))
-  
+
   // 设备类型
   const deviceType = computed(() => getDeviceType(windowWidth.value))
-  
+
   // 设备判断
   const isMobileDevice = computed(() => isMobile(windowWidth.value))
   const isTabletDevice = computed(() => isTablet(windowWidth.value))
   const isDesktopDevice = computed(() => isDesktop(windowWidth.value))
-  
+
   // 断点判断
   const isXs = computed(() => breakpoint.value === 'xs')
   const isSm = computed(() => breakpoint.value === 'sm')
@@ -101,15 +116,17 @@ export function useResponsive() {
   const isLg = computed(() => breakpoint.value === 'lg')
   const isXl = computed(() => breakpoint.value === 'xl')
   const isXxl = computed(() => breakpoint.value === 'xxl')
-  
+
   // 屏幕方向
   const isPortrait = computed(() => windowHeight.value > windowWidth.value)
   const isLandscape = computed(() => windowWidth.value > windowHeight.value)
 
   // 更新窗口尺寸
   const updateWindowSize = () => {
-    windowWidth.value = window.innerWidth
-    windowHeight.value = window.innerHeight
+    if (typeof window !== 'undefined') {
+      windowWidth.value = window.innerWidth
+      windowHeight.value = window.innerHeight
+    }
   }
 
   // 防抖处理
@@ -120,12 +137,16 @@ export function useResponsive() {
   }
 
   onMounted(() => {
-    window.addEventListener('resize', handleResize)
-    updateWindowSize()
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', handleResize)
+      updateWindowSize()
+    }
   })
 
   onUnmounted(() => {
-    window.removeEventListener('resize', handleResize)
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('resize', handleResize)
+    }
     if (resizeTimer) clearTimeout(resizeTimer)
   })
 
@@ -133,7 +154,7 @@ export function useResponsive() {
     // 窗口尺寸
     windowWidth,
     windowHeight,
-    
+
     // 断点
     breakpoint,
     isXs,
@@ -142,13 +163,13 @@ export function useResponsive() {
     isLg,
     isXl,
     isXxl,
-    
+
     // 设备类型
     deviceType,
     isMobileDevice,
     isTabletDevice,
     isDesktopDevice,
-    
+
     // 屏幕方向
     isPortrait,
     isLandscape

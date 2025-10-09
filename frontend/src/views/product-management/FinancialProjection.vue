@@ -2131,15 +2131,16 @@ onMounted(() => {
   }
 
   .business-search-form {
-    padding: 12px;
+     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
   }
 
-  .search-fields.mobile-fields {
-    flex-direction: column;
-    width: 100%;
-    gap: 12px;
+  .search-fields {
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    flex-wrap: wrap;
   }
 
   .search-item {

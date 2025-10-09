@@ -393,8 +393,78 @@ const getUser = asyncHandler(async (req, res) => {
 // @route   PUT /api/users/:id
 // @access  Private/Admin
 const updateUser = asyncHandler(async (req, res) => {
-  const { departmentIds = [] } = req.body;
+  const { departmentIds = [], loginPassword } = req.body;
 
+  // 如果需要更新密码，使用 save() 方法以触发密码加密中间件
+  if (loginPassword) {
+    // 验证密码长度
+    if (loginPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: '登录密码至少6个字符'
+      });
+    }
+
+    // 查找用户
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: '用户未找到'
+      });
+    }
+
+    // 更新用户信息
+    if (req.body.username !== undefined) user.username = req.body.username;
+    if (req.body.loginAccount !== undefined) user.loginAccount = req.body.loginAccount;
+    if (req.body.remark !== undefined) user.remark = req.body.remark;
+    if (req.body.rolePermission !== undefined) {
+      // 验证角色是否存在
+      const role = await Role.findById(req.body.rolePermission);
+      if (!role) {
+        return res.status(400).json({
+          success: false,
+          message: '指定的角色不存在'
+        });
+      }
+      user.rolePermission = req.body.rolePermission;
+    }
+    if (req.body.isActive !== undefined) user.isActive = req.body.isActive;
+    if (req.body.isAdmin !== undefined) user.isAdmin = req.body.isAdmin;
+
+    // 验证并更新部门ID
+    if (departmentIds.length > 0) {
+      for (const departmentId of departmentIds) {
+        const department = await Department.findById(departmentId);
+        if (!department) {
+          return res.status(400).json({
+            success: false,
+            message: `部门ID ${departmentId} 不存在`
+          });
+        }
+      }
+      user.departmentIds = departmentIds;
+    }
+
+    // 更新密码
+    user.loginPassword = loginPassword;
+
+    // 保存用户（会触发密码加密中间件）
+    await user.save();
+
+    // 重新查询以获取populated数据
+    const updatedUser = await User.findById(user._id)
+      .populate('rolePermission')
+      .populate('departmentIds');
+
+    return res.json({
+      success: true,
+      message: '用户信息更新成功',
+      data: updatedUser
+    });
+  }
+
+  // 如果不更新密码，使用 findByIdAndUpdate
   const fieldsToUpdate = {
     username: req.body.username,
     loginAccount: req.body.loginAccount,
@@ -802,7 +872,6 @@ const getSuperiorUsers = asyncHandler(async (req, res) => {
       }
     });
 
-    console.log('最终返回的上级用户数量:', uniqueUsers.length);
     res.json({
       success: true,
       data: uniqueUsers

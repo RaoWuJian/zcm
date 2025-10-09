@@ -232,7 +232,15 @@
         <el-row :gutter="16">
           <el-col :xs="24" :sm="24" :md="12">
             <el-form-item label="密码" prop="loginPassword">
-              <el-input v-model="form.loginPassword" placeholder="请输入密码" show-password />
+              <el-input
+                v-model="form.loginPassword"
+                :placeholder="form._id ? '不修改请保持默认值' : '请输入密码'"
+                show-password
+              />
+              <div v-if="form._id" style="font-size: 12px; color: #909399; margin-top: 4px;">
+                <el-icon style="vertical-align: middle;"><Lock /></el-icon>
+                密码已加密，如需修改请输入新密码，否则保持默认值即可
+              </div>
             </el-form-item>
           </el-col>
           <el-col :xs="24" :sm="24" :md="12">
@@ -298,7 +306,7 @@
 <script setup >
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, Plus, Delete, UserFilled, User, Download, Edit } from '@element-plus/icons-vue'
+import { Search, Refresh, Plus, Delete, UserFilled, User, Download, Lock } from '@element-plus/icons-vue'
 import { employeeApi, departmentApi, roleApi } from '@/api/index'
 import hasAnyPermission from '@/utils/checkPermissions'
 import { useResponsive } from '@/utils/responsive'
@@ -451,7 +459,7 @@ const handleEdit = (row) => {
     _id: row._id,
     username: row.username,
     loginAccount: row.loginAccount,
-    loginPassword: '123456', // 编辑时不显示真实密码
+    loginPassword: '******', // 编辑时显示加密密码占位符
     rolePermission: row.rolePermission?._id || row.rolePermission || '',
     departmentIds: Array.isArray(row.departmentIds) ? row.departmentIds.map(d => d._id || d) : [],
     remark: row.remark || ''
@@ -541,16 +549,16 @@ const handleSubmit = async () => {
       const updateData = {
         username: form.username,
         loginAccount: form.loginAccount,
-        ...(form.loginPassword && form.loginPassword !== '123456' ? { loginPassword: form.loginPassword } : {}),
+        ...(form.loginPassword && form.loginPassword !== '******' ? { loginPassword: form.loginPassword } : {}),
         departmentIds: form.departmentIds || [],
         remark: form.remark || undefined
       }
-      
+
       // 处理rolePermission字段
       if (form.rolePermission) {
         (updateData).rolePermission = form.rolePermission
       }
-      
+
       response = await employeeApi.updateEmployee(form._id, updateData)
     } else {
       // 新增

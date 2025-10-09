@@ -13,7 +13,23 @@ const operationLogSchema = new mongoose.Schema({
   module: {
     type: String,
     required: [true, '操作模块不能为空'],
-    enum: ['USER', 'DEPARTMENT', 'FINANCE', 'PRODUCT', 'ROLE', 'TEAM_ACCOUNT', 'FILE', 'COMMISSION', 'BUDGET', 'DAILY_DATA_REPORT'],
+    enum: [
+      'USER',                 // 用户管理
+      'DEPARTMENT',           // 部门管理
+      'FINANCE',              // 财务记录
+      'PRODUCT',              // 产品管理
+      'ROLE',                 // 角色管理
+      'TEAM_ACCOUNT',         // 团队账户
+      'FILE',                 // 文件管理
+      'COMMISSION',           // 佣金核算
+      'BUDGET',               // 预算管理
+      'DAILY_REPORT',         // 日报管理
+      'INVENTORY',            // 库存管理
+      'SHIPMENT',             // 发货记录
+      'OPERATIONAL_PRODUCT',  // 运营产品
+      'CAMPAIGN_CATEGORY',    // 活动分类
+      'RECORD_TYPE'           // 记录类型
+    ],
     trim: true
   },
 

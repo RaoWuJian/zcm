@@ -9,6 +9,8 @@ const {
   getAvailablePermissions
 } = require('../controllers/roleController');
 const { protect, authorize } = require('../middleware/auth');
+const { logOperation, saveOriginalData } = require('../middleware/operationLog');
+const Role = require('../models/Role');
 
 const router = express.Router();
 
@@ -25,13 +27,42 @@ router.get('/permissions', getAvailablePermissions);
 router
   .route('/')
   .get(getRoles)  // 查看角色列表不需要特殊权限，只需要认证
-  .post(authorize('role:create'), createRole);  // 创建角色需要 role:create 权限
+  .post(
+    authorize('role:create'),
+    logOperation({
+      operationType: 'CREATE',
+      module: 'ROLE',
+      getResourceName: (req, res) => res.data?.roleName || req.body.roleName,
+      getDescription: (req, res) => `创建角色: ${res.data?.roleName || req.body.roleName}`
+    }),
+    createRole
+  );
 
 // 特定角色操作
 router
   .route('/:id')
   .get(getRole)  // 查看单个角色不需要特殊权限
-  .put(authorize('role:update'), updateRole)  // 更新角色需要 role:update 权限
-  .delete(authorize('role:delete'), deleteRole);  // 删除角色需要 role:delete 权限
+  .put(
+    authorize('role:update'),
+    saveOriginalData(Role),
+    logOperation({
+      operationType: 'UPDATE',
+      module: 'ROLE',
+      getResourceName: (req, res) => res.data?.roleName || req.originalData?.roleName,
+      getDescription: (req, res) => `更新角色: ${res.data?.roleName || req.originalData?.roleName}`
+    }),
+    updateRole
+  )
+  .delete(
+    authorize('role:delete'),
+    saveOriginalData(Role),
+    logOperation({
+      operationType: 'DELETE',
+      module: 'ROLE',
+      getResourceName: (req, res) => req.originalData?.roleName,
+      getDescription: (req, res) => `删除角色: ${req.originalData?.roleName}`
+    }),
+    deleteRole
+  );
 
 module.exports = router;
