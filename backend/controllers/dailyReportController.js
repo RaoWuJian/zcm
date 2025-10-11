@@ -124,8 +124,7 @@ const getDailyReports = async (req, res) => {
     console.error('获取日报列表失败:', error);
     res.status(500).json({
       success: false,
-      message: '获取日报列表失败',
-      error: error.message
+      message: '获取日报列表失败'
     });
   }
 };
@@ -161,8 +160,7 @@ const getDailyReport = async (req, res) => {
     console.error('获取日报详情失败:', error);
     res.status(500).json({
       success: false,
-      message: '获取日报详情失败',
-      error: error.message
+      message: '获取日报详情失败'
     });
   }
 };
@@ -359,8 +357,7 @@ const createDailyReport = async (req, res) => {
     console.error('创建日报失败:', error);
     res.status(500).json({
       success: false,
-      message: '创建日报失败',
-      error: error.message
+      message: '创建日报失败'
     });
   }
 };
@@ -511,8 +508,7 @@ const updateDailyReport = async (req, res) => {
     console.error('更新日报失败:', error);
     res.status(500).json({
       success: false,
-      message: '更新日报失败',
-      error: error.message
+      message: '更新日报失败'
     });
   }
 };
@@ -549,8 +545,7 @@ const deleteDailyReport = async (req, res) => {
     console.error('删除日报失败:', error);
     res.status(500).json({
       success: false,
-      message: '删除日报失败',
-      error: error.message
+      message: '删除日报失败'
     });
   }
 };
@@ -600,8 +595,7 @@ const getProductNameSuggestions = async (req, res) => {
     console.error('获取产品名称建议失败:', error);
     res.status(500).json({
       success: false,
-      message: '获取产品名称建议失败',
-      error: error.message
+      message: '获取产品名称建议失败'
     });
   }
 };
@@ -638,8 +632,7 @@ const getUnreadNotifications = async (req, res) => {
     console.error('获取未读通知失败:', error);
     res.status(500).json({
       success: false,
-      message: '获取未读通知失败',
-      error: error.message
+      message: '获取未读通知失败'
     });
   }
 };
@@ -686,8 +679,7 @@ const markDailyReportAsRead = async (req, res) => {
     console.error('Error marking daily report as read:', error);
     res.status(500).json({
       success: false,
-      message: '标记已读失败',
-      error: error.message
+      message: '标记已读失败'
     });
   }
 };
@@ -744,8 +736,7 @@ const getDailyReportReadStatus = async (req, res) => {
     console.error('Error getting daily report read status:', error);
     res.status(500).json({
       success: false,
-      message: '获取已读状态失败',
-      error: error.message
+      message: '获取已读状态失败'
     });
   }
 };

@@ -85,6 +85,7 @@ const recordTypeRoutes = require('./routes/recordType');
 const dailyReportRoutes = require('./routes/dailyReports');
 const campaignCategoryRoutes = require('./routes/campaignCategories');
 const notificationRoutes = require('./routes/notifications');
+const designRequestRoutes = require('./routes/designRequests');
 
 // 根路由
 app.get('/', (req, res) => {
@@ -115,6 +116,7 @@ app.use('/api/record-types', recordTypeRoutes);
 app.use('/api/daily-reports', dailyReportRoutes);
 app.use('/api/campaign-categories', campaignCategoryRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/design-requests', designRequestRoutes);
 
 // 健康检查端点
 app.get('/health', (req, res) => {

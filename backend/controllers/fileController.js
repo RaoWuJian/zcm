@@ -75,15 +75,38 @@ const getImageDimensions = async (buffer) => {
 const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
-  // 检查文件类型
-  const allowedTypes = /jpeg|jpg|png|gif|bmp|webp|svg|pdf|doc|docx|xls|xlsx|txt/;
-  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowedTypes.test(file.mimetype);
+  try {
+    // 获取文件扩展名（去掉点号，转小写）
+    const extWithDot = path.extname(file.originalname).toLowerCase();
+    const ext = extWithDot.replace(/^\./, ''); // 去掉开头的点号
 
-  if (mimetype && extname) {
-    return cb(null, true);
-  } else {
-    cb(new Error('不支持的文件类型'));
+    // 允许的文件类型
+    const allowedExtensions = ['jpeg', 'jpg', 'png', 'gif', 'bmp', 'webp', 'svg', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'zip', 'rar', '7z', 'tar', 'gz'];
+
+    // 压缩文件类型
+    const compressExtensions = ['zip', 'rar', '7z', 'tar', 'gz'];
+
+    // 检查扩展名是否在允许列表中
+    if (!allowedExtensions.includes(ext)) {
+      return cb(new Error('不支持的文件类型，支持的格式：图片(jpg/png/gif等)、文档(pdf/doc/xls等)、压缩包(zip/rar/7z等)'));
+    }
+
+    // 对于压缩文件，只检查扩展名即可（因为 mimetype 可能不准确）
+    if (compressExtensions.includes(ext)) {
+      return cb(null, true);
+    }
+
+    // 对于其他文件，同时检查 mimetype
+    const allowedMimeTypes = /jpeg|jpg|png|gif|bmp|webp|svg|pdf|msword|vnd\.openxmlformats|vnd\.ms-excel|text\/plain/;
+    const mimetypeValid = allowedMimeTypes.test(file.mimetype);
+
+    if (mimetypeValid) {
+      return cb(null, true);
+    } else {
+      return cb(new Error('不支持的文件类型，支持的格式：图片(jpg/png/gif等)、文档(pdf/doc/xls等)、压缩包(zip/rar/7z等)'));
+    }
+  } catch (error) {
+    return cb(error);
   }
 };
 
@@ -92,7 +115,9 @@ const upload = multer({
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB限制
   },
-  fileFilter: fileFilter
+  fileFilter: fileFilter,
+  // 处理文件名编码
+  preservePath: true
 });
 
 // @desc    上传文件
@@ -110,9 +135,26 @@ const uploadFile = asyncHandler(async (req, res) => {
   const file = req.file;
 
   try {
+    // 处理文件名编码（修复中文乱码问题）
+    let originalName = file.originalname;
+
+    // 检查是否包含乱码字符（UTF-8 被错误解释为 Latin1）
+    if (/[\u00C0-\u00FF]{2,}/.test(originalName)) {
+      try {
+        // 将错误的 Latin1 字符转回 UTF-8
+        const bytes = [];
+        for (let i = 0; i < originalName.length; i++) {
+          bytes.push(originalName.charCodeAt(i) & 0xFF);
+        }
+        originalName = Buffer.from(bytes).toString('utf8');
+      } catch (e) {
+        originalName = file.originalname;
+      }
+    }
+
     // 生成唯一文件名
-    const uniqueFilename = generateUniqueFilename(file.originalname);
-    const extension = path.extname(file.originalname).toLowerCase().substring(1);
+    const uniqueFilename = generateUniqueFilename(originalName);
+    const extension = path.extname(originalName).toLowerCase().substring(1);
 
     // 获取图片尺寸（如果是图片）
     let dimensions = null;
@@ -123,7 +165,7 @@ const uploadFile = asyncHandler(async (req, res) => {
     // 创建GridFS上传流
     const uploadStream = gfsBucket.openUploadStream(uniqueFilename, {
       metadata: {
-        originalName: file.originalname,
+        originalName: originalName,
         uploadedBy: req.user ? req.user.id : null,
         uploadedAt: new Date()
       }
@@ -145,7 +187,7 @@ const uploadFile = asyncHandler(async (req, res) => {
     // 创建文件信息记录
     const fileInfo = await FileInfo.create({
       filename: uniqueFilename,
-      originalName: file.originalname,
+      originalName: originalName,
       description: description || '',
       mimeType: file.mimetype,
       extension: extension,

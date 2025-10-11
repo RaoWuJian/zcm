@@ -78,9 +78,20 @@ const errorHandler = (err, req, res, next) => {
     };
   }
 
+  // 确保错误信息是中文且具体
+  let finalMessage = error.message || err.message || '操作失败，请稍后重试';
+
+  // 如果是通用的服务器错误，提供更友好的提示
+  if (!error.message && !err.message) {
+    if (err.stack) {
+      console.error('未处理的错误:', err.stack);
+    }
+    finalMessage = '操作失败，请检查输入信息或联系管理员';
+  }
+
   res.status(error.statusCode || 500).json({
     success: false,
-    message: error.message || '服务器内部错误'
+    message: finalMessage
   });
 };
 

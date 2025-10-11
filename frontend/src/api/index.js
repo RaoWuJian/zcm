@@ -825,3 +825,36 @@ export const dailyReportApi = {
   }
 }
 
+// 美工需求管理API
+export const designRequestApi = {
+  // 获取美工需求列表
+  getDesignRequests: (params) => {
+    return api.get('/design-requests', { params })
+  },
+
+  // 获取单个美工需求详情
+  getDesignRequest: (id) => {
+    return api.get(`/design-requests/${id}`)
+  },
+
+  // 创建美工需求
+  createDesignRequest: (data) => {
+    return api.post('/design-requests', data)
+  },
+
+  // 更新美工需求
+  updateDesignRequest: (id, data) => {
+    return api.put(`/design-requests/${id}`, data)
+  },
+
+  // 删除美工需求
+  deleteDesignRequest: (id) => {
+    return api.delete(`/design-requests/${id}`)
+  },
+
+  // 批量删除美工需求
+  batchDeleteDesignRequests: (ids) => {
+    return api.delete('/design-requests/batch', { data: { ids } })
+  }
+}
+

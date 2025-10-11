@@ -304,8 +304,15 @@ export const useNotificationStore = defineStore('notification', () => {
   // 从服务器获取未读通知
   const fetchUnreadNotifications = async () => {
     try {
-      const api = await import('@/api')
-      const response = await api.default.getUnreadNotifications()
+      const { default: api } = await import('@/api')
+
+      // 检查 API 方法是否存在
+      if (!api || typeof api.getUnreadNotifications !== 'function') {
+        console.warn('getUnreadNotifications API method not available')
+        return
+      }
+
+      const response = await api.getUnreadNotifications()
 
       if (response.success && response.data) {
         // 添加服务器端的未读通知，去重机制会自动处理

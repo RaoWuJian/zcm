@@ -12,7 +12,7 @@
     </div>
 
     <!-- 搜索栏 -->
-    <div class="search-card business-style" :class="{ 'mobile-search': isMobileDevice }">
+    <div class="search-card" :class="{ 'mobile-search': isMobileDevice }">
       <el-form :model="searchForm" :inline="!isMobileDevice" class="business-search-form">
         <div class="search-fields" :class="{ 'mobile-fields': isMobileDevice }">
           <el-form-item label="产品名称" class="search-item">
@@ -58,25 +58,6 @@
               :shortcuts="dateShortcuts"
               @change="handleDateRangeChange"
             />
-          </el-form-item>
-          <el-form-item label="毛利范围" class="search-item">
-            <div class="profit-range">
-              <el-input-number
-                v-model="searchForm.minGrossMargin"
-                placeholder="最小毛利"
-                :precision="2"
-                class="range-input"
-                style="width: 100%;"
-              />
-              <span class="range-separator">-</span>
-              <el-input-number
-                v-model="searchForm.maxGrossMargin"
-                placeholder="最大毛利"
-                :precision="2"
-                class="range-input"
-                style="width: 100%;"
-              />
-            </div>
           </el-form-item>
         </div>
         <div class="search-actions" :class="{ 'mobile-actions': isMobileDevice }">
@@ -1893,6 +1874,7 @@ onMounted(() => {
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
   padding: 16px;
   margin-bottom: 16px;
+  display: flex;
 }
 
 .search-left {
@@ -1908,16 +1890,25 @@ onMounted(() => {
   gap: 8px;
 }
 
-.business-btn {
-  background: #f7f8fa;
-  border-color: #d9d9d9;
-  color: #666;
+.search-actions {
+  display: flex;
 }
 
-.business-btn:hover {
-  background: #e6f7ff;
-  border-color: #91d5ff;
-  color: #1890ff;
+.business-btn {
+  border-radius: 4px;
+  font-size: 13px;
+  padding: 8px 16px;
+  min-width: 64px;
+  height: 32px;
+}
+.business-btn.el-button--primary {
+  background-color: #409eff;
+  border-color: #409eff;
+}
+
+.business-btn.el-button--primary:hover {
+  background-color: #66b1ff;
+  border-color: #66b1ff;
 }
 
 .action-card {
@@ -2131,9 +2122,10 @@ onMounted(() => {
   }
 
   .business-search-form {
-     display: flex;
-    flex-direction: column;
+    display: flex;
+    align-items: flex-end;
     gap: 16px;
+    flex-wrap: wrap;
   }
 
   .search-fields {
@@ -2144,45 +2136,50 @@ onMounted(() => {
   }
 
   .search-item {
-    width: 100%;
-    margin-right: 0 !important;
+   margin-bottom: 0;
+   margin-right: 0;
+  }
+  .search-item :deep(.el-form-item__label) {
+    color: #606266;
+    font-size: 13px;
+    font-weight: 500;
+    padding-bottom: 4px;
   }
 
-  .search-item :deep(.el-form-item__content) {
-    width: 100%;
+  .business-input {
+    width: 180px;
   }
 
-  .search-item :deep(.el-input),
-  .search-item :deep(.el-autocomplete),
-  .search-item :deep(.el-date-editor),
-  .search-item :deep(.el-input-number) {
-    width: 100% !important;
+  .business-input :deep(.el-input__wrapper) {
+    border-radius: 4px;
+    border: 1px solid #dcdfe6;
+    box-shadow: none;
   }
 
-  .profit-range {
-    display: flex;
-    gap: 8px;
-    width: 100%;
+  .business-input :deep(.el-input__wrapper:hover) {
+    border-color: #c0c4cc;
   }
 
-  .profit-range .range-input {
-    flex: 1;
+  .business-input :deep(.el-input__wrapper.is-focus) {
+    border-color: #409eff;
   }
 
-  .profit-range .range-separator {
-    line-height: 32px;
+  .business-btn {
+    border-radius: 4px;
+    font-size: 13px;
+    padding: 8px 16px;
+    min-width: 64px;
+    height: 32px;
   }
 
-  .search-actions.mobile-actions {
-    width: 100%;
-    display: flex;
-    gap: 8px;
+  .business-btn.el-button--primary {
+    background-color: #409eff;
+    border-color: #409eff;
   }
 
-  .search-actions.mobile-actions .business-btn {
-    flex: 1;
-    height: 44px;
-    font-size: 14px;
+  .business-btn.el-button--primary:hover {
+    background-color: #66b1ff;
+    border-color: #66b1ff;
   }
 
   /* 操作栏 */

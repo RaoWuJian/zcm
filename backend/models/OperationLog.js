@@ -28,7 +28,8 @@ const operationLogSchema = new mongoose.Schema({
       'SHIPMENT',             // 发货记录
       'OPERATIONAL_PRODUCT',  // 运营产品
       'CAMPAIGN_CATEGORY',    // 活动分类
-      'RECORD_TYPE'           // 记录类型
+      'RECORD_TYPE',          // 记录类型
+      'DESIGN_REQUEST'        // 美工需求
     ],
     trim: true
   },

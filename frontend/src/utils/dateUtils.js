@@ -65,11 +65,47 @@ export function getCurrentDate() {
  */
 export function isValidDate(dateStr) {
   if (!dateStr) return false
-  
+
   try {
     const date = new Date(dateStr)
     return !isNaN(date.getTime())
   } catch (error) {
     return false
+  }
+}
+
+/**
+ * 通用日期格式化函数
+ * @param date 日期对象或日期字符串
+ * @param format 格式类型：'date' 或 'datetime'，默认 'datetime'
+ * @returns 格式化后的日期字符串
+ */
+export function formatDate(date, format = 'datetime') {
+  if (!date) return '-'
+
+  try {
+    const dateObj = new Date(date)
+
+    if (format === 'date') {
+      // 只返回日期部分 YYYY-MM-DD
+      return dateObj.toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).replace(/\//g, '-')
+    } else {
+      // 返回日期时间 YYYY-MM-DD HH:mm:ss
+      return dateObj.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      }).replace(/\//g, '-')
+    }
+  } catch (error) {
+    return date || '-'
   }
 }

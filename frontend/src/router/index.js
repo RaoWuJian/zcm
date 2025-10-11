@@ -181,6 +181,21 @@ const routes = [
         ]
       },
       {
+        path: 'design-charts',
+        name: 'DesignCharts',
+        component: () => import('../views/design-charts/index.vue'),
+        redirect: '/design-charts/request-list',
+        meta: { title: '美工图表', icon: 'PictureFilled' },
+        children: [
+          {
+            path: 'request-list',
+            name: 'DesignRequestList',
+            component: () => import('../views/design-charts/DesignRequestList.vue'),
+            meta: { title: '需求列表', icon: 'List' }
+          }
+        ]
+      },
+      {
         path: 'operation-logs',
         name: 'OperationLogs',
         component: () => import('../views/OperationLogs.vue'),

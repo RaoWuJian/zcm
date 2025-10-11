@@ -31,6 +31,21 @@
               class="business-input"
             />
           </el-form-item>
+          <el-form-item label="时间筛选" class="search-item">
+            <el-date-picker
+              v-model="dateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              format="YYYY-MM-DD"
+              value-format="YYYY-MM-DD"
+              :shortcuts="dateShortcuts"
+              @change="handleDateRangeChange"
+              class="business-input"
+              style="width: 100%;"
+            />
+          </el-form-item>
         </div>
 
         <div class="search-actions" :class="{ 'mobile-actions': isMobileDevice }">
@@ -96,7 +111,7 @@
         :header-cell-style="{ background: '#fafbfc', color: '#1f2329', fontWeight: '600' }"
         @selection-change="handleSelectionChange"
         @sort-change="handleSortChange"
-        max-height="600"
+        :max-height="isMobileDevice ? undefined : 600"
       >
         <el-table-column type="selection" width="50" />
         <el-table-column label="名称" min-width="150">
@@ -154,17 +169,11 @@
             <span class="description-text">{{ row.description || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="120">
+        <el-table-column label="操作" width="200">
           <template #default="{ row }">
-            <el-tooltip content="详情" placement="top">
-              <el-button size="small" type="info" @click="handleDetail(row)" :icon="View" circle />
-            </el-tooltip>
-            <el-tooltip content="编辑" placement="top" v-if="hasAnyPermission(['finance:team_update'])">
-              <el-button size="small" type="primary" @click="handleEdit(row)" :icon="Edit" circle />
-            </el-tooltip>
-            <el-tooltip content="删除" placement="top" v-if="hasAnyPermission(['finance:team_delete'])">
-              <el-button size="small" type="danger" @click="handleDelete(row)" :icon="Delete" circle />
-            </el-tooltip>
+            <el-button size="small" type="info" @click="handleDetail(row)" link>详情</el-button>
+            <el-button size="small" type="primary" @click="handleEdit(row)" link v-if="hasAnyPermission(['finance:team_update'])">编辑</el-button>
+            <el-button size="small" type="danger" @click="handleDelete(row)" link v-if="hasAnyPermission(['finance:team_delete'])">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -405,6 +414,9 @@
             range-separator="至"
             start-placeholder="开始日期"
             end-placeholder="结束日期"
+            format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"
+            :shortcuts="dateShortcuts"
             @change="handleRecordSearch"
             style="width: 240px;"
           />
@@ -421,11 +433,12 @@
 
       <!-- 交易记录表格 -->
       <el-table
-        :data="paginatedRecords"
+        :data="filteredRecords"
         v-loading="recordLoading"
         stripe
         border
         style="width: 100%; margin-top: 16px;"
+        max-height="500"
         :header-cell-style="{ background: '#fafbfc', color: '#1f2329', fontWeight: '600' }"
       >
         <el-table-column label="日期" width="120">
@@ -476,7 +489,7 @@
       </el-table>
 
       <!-- 分页 -->
-      <div class="pagination-wrapper" v-if="recordPagination.total > recordPagination.pageSize">
+      <div class="pagination-wrapper" v-if="recordPagination.total > 0">
         <el-pagination
           v-model:current-page="recordPagination.currentPage"
           v-model:page-size="recordPagination.pageSize"
@@ -675,8 +688,68 @@ const showSelectedSummaryDialog = ref(false) // 汇总弹框显示状态
 // 搜索表单
 const searchForm = reactive({
   name: '',
-  description: ''
+  description: '',
+  startDate: '',
+  endDate: ''
 })
+
+// 日期范围
+const dateRange = ref([])
+
+// 日期快捷选项
+const dateShortcuts = [
+  {
+    text: '今天',
+    value: () => {
+      const today = new Date()
+      return [today, today]
+    }
+  },
+  {
+    text: '昨天',
+    value: () => {
+      const yesterday = new Date()
+      yesterday.setDate(yesterday.getDate() - 1)
+      return [yesterday, yesterday]
+    }
+  },
+  {
+    text: '最近3天',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 2)
+      return [start, end]
+    }
+  },
+  {
+    text: '最近7天',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 6)
+      return [start, end]
+    }
+  },
+  {
+    text: '半个月',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 14)
+      return [start, end]
+    }
+  },
+  {
+    text: '一个月',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setMonth(start.getMonth() - 1)
+      return [start, end]
+    }
+  }
+]
 
 // 汇总统计数据
 const selectedSummaryStats = reactive({
@@ -770,13 +843,6 @@ const availableAccounts = computed(() => {
   return accounts.value.filter((account) => account._id !== selectedAccount.value?._id)
 })
 
-// 分页后的记录数据（交易记录使用）
-const paginatedRecords = computed(() => {
-  const start = (recordPagination.currentPage - 1) * recordPagination.pageSize
-  const end = start + recordPagination.pageSize
-  return filteredRecords.value.slice(start, end)
-})
-
 // 扁平化部门树
 const flattenDepartments = (depts) => {
   let result = []
@@ -808,7 +874,6 @@ const getDepartments = async () => {
       ElMessage.error('获取可用部门列表失败：' + (response?.message || '未知错误'))
     }
   } catch (error) {
-    console.error('获取可用部门失败:', error)
     ElMessage.error('获取可用部门列表失败')
   } finally {
     departmentLoading.value = false
@@ -956,6 +1021,17 @@ const handleRefresh = async () => {
   ElMessage.success('数据刷新成功')
 }
 
+// 日期范围变化处理
+const handleDateRangeChange = (dates) => {
+  if (dates && dates.length === 2) {
+    searchForm.startDate = dates[0]
+    searchForm.endDate = dates[1]
+  } else {
+    searchForm.startDate = ''
+    searchForm.endDate = ''
+  }
+}
+
 // 搜索功能
 const handleSearch = async () => {
   // 重置到第一页并重新请求数据
@@ -968,6 +1044,9 @@ const handleSearch = async () => {
 const handleReset = async () => {
   searchForm.name = ''
   searchForm.description = ''
+  searchForm.startDate = ''
+  searchForm.endDate = ''
+  dateRange.value = []
   // 重置到第一页并重新请求数据
   pagination.currentPage = 1
   await getTeamAccounts()
@@ -1015,8 +1094,6 @@ const handleExport = async () => {
       ElMessage.success(`导出${exportTypeMsg}成功（Excel格式）`)
     } catch (excelError) {
       // 如果 Excel 导出失败，降级到 CSV
-      console.warn('Excel导出失败，使用CSV格式：', excelError.message)
-
       const csvContent = exportToCSV(exportData, headers)
 
       // 添加BOM以支持Excel正确显示中文
@@ -1035,7 +1112,6 @@ const handleExport = async () => {
       ElMessage.success(`导出${exportTypeMsg}成功（CSV格式）`)
     }
   } catch (error) {
-    console.error('导出失败:', error)
     ElMessage.error('导出失败')
   }
 }
@@ -1054,7 +1130,6 @@ const handleShowSummary = async () => {
 
     showSelectedSummaryDialog.value = true
   } catch (error) {
-    console.error('计算汇总统计失败:', error)
     ElMessage.error('获取汇总数据失败')
   }
 }
@@ -1100,7 +1175,6 @@ const calculateSummaryStats = async (accounts) => {
         }
         return { accountIncome: 0, accountExpense: 0, accountBalance: account.amount || 0 }
       } catch (error) {
-        console.error(`获取账户 ${account.name} 的财务数据失败:`, error)
         return { accountIncome: 0, accountExpense: 0, accountBalance: account.amount || 0 }
       }
     })
@@ -1115,7 +1189,7 @@ const calculateSummaryStats = async (accounts) => {
     })
 
   } catch (error) {
-    console.error('计算汇总统计失败:', error)
+    // 计算失败，返回默认值
   }
 
   return {
@@ -1190,8 +1264,6 @@ const exportSelectedSummaryData = async () => {
       ElMessage.success('汇总数据导出成功（Excel格式）')
     } catch (excelError) {
       // 如果 Excel 导出失败，降级到 CSV
-      console.warn('Excel导出失败，使用CSV格式：', excelError.message)
-
       const csvContent = exportToCSV(exportData, headers)
 
       // 添加BOM以支持Excel正确显示中文
@@ -1209,7 +1281,6 @@ const exportSelectedSummaryData = async () => {
       ElMessage.success('汇总数据导出成功（CSV格式）')
     }
   } catch (error) {
-    console.error('导出失败:', error)
     ElMessage.error('导出失败')
   }
 }
@@ -1546,11 +1617,20 @@ const loadAccountRecords = async (accountId) => {
       params.keyword = recordSearch.keyword
     }
     if (recordSearch.type) {
-      params.type = recordSearch.type | 'expense' | 'recharge'
+      params.type = recordSearch.type
     }
     if (recordSearch.dateRange && recordSearch.dateRange.length === 2) {
-      params.startDate = recordSearch.dateRange[0].toISOString().split('T')[0]
-      params.endDate = recordSearch.dateRange[1].toISOString().split('T')[0]
+      // 处理日期格式：可能是字符串（value-format）或 Date 对象
+      const startDate = recordSearch.dateRange[0]
+      const endDate = recordSearch.dateRange[1]
+
+      // 如果是字符串，直接使用；如果是 Date 对象，转换为字符串
+      params.startDate = typeof startDate === 'string'
+        ? startDate
+        : startDate.toISOString().split('T')[0]
+      params.endDate = typeof endDate === 'string'
+        ? endDate
+        : endDate.toISOString().split('T')[0]
     }
     
     const response = await teamAccountApi.getTeamAccountRecords(accountId, params)

@@ -953,8 +953,7 @@ const getReporters = asyncHandler(async (req, res) => {
     console.error('获取汇报人列表失败:', error);
     res.status(500).json({
       success: false,
-      message: '获取汇报人列表失败',
-      error: error.message
+      message: '获取汇报人列表失败'
     });
   }
 });

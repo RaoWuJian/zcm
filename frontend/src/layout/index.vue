@@ -230,10 +230,22 @@
               <el-icon><Setting /></el-icon>
               <template #title>投放分类设置</template>
             </el-menu-item>
-           
+
             <el-menu-item index="/work-reports/promotion-calculator">
               <el-icon><DataAnalysis /></el-icon>
               <template #title>电商推广计算器</template>
+            </el-menu-item>
+          </el-sub-menu>
+
+          <!-- 美工图表菜单 -->
+          <el-sub-menu index="/design-charts">
+            <template #title>
+              <el-icon><PictureFilled /></el-icon>
+              <span>美工图表</span>
+            </template>
+            <el-menu-item index="/design-charts/request-list">
+              <el-icon><List /></el-icon>
+              <template #title>需求列表</template>
             </el-menu-item>
           </el-sub-menu>
 
@@ -432,6 +444,18 @@
               <template #title>投放分类设置</template>
             </el-menu-item>
           </el-sub-menu>
+
+          <!-- 美工图表菜单（移动端） -->
+          <el-sub-menu index="/design-charts">
+            <template #title>
+              <el-icon><PictureFilled /></el-icon>
+              <span>美工图表</span>
+            </template>
+            <el-menu-item index="/design-charts/request-list">
+              <el-icon><List /></el-icon>
+              <template #title>需求列表</template>
+            </el-menu-item>
+          </el-sub-menu>
         </el-menu>
       </el-drawer>
 
@@ -513,7 +537,8 @@ import {
   Box,
   Document,
   DataAnalysis,
-  Menu
+  Menu,
+  PictureFilled
 } from '@element-plus/icons-vue'
 import hasAnyPermission from '@/utils/checkPermissions'
 import { useResponsive } from '@/utils/responsive'

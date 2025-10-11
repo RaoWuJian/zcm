@@ -18,8 +18,18 @@ router.get('/:id', downloadFile);
 // 需要身份验证的路由
 router.use(protect);
 
-// 文件上传
-router.post('/upload', uploadFile);
+// 文件上传（包含 multer 错误处理）
+router.post('/upload', uploadFile, (error, req, res, next) => {
+  // 处理 multer 错误
+  if (error) {
+    console.error('文件上传错误:', error.message);
+    return res.status(400).json({
+      success: false,
+      message: error.message || '文件上传失败'
+    });
+  }
+  next();
+});
 
 // 文件列表
 router.get('/', getFiles);

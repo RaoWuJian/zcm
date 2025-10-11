@@ -1007,7 +1007,7 @@ const loadRecordTypes = async () => {
       recordTypes.value = response.data || []
     }
   } catch (error) {
-    console.error('加载记录类型失败:', error)
+    // 加载失败，使用空数组
   }
 }
 
@@ -1025,7 +1025,7 @@ const handleCategoryChange = async (categoryId, clearSubCategory = true) => {
         subCategories.value = response.data || []
       }
     } catch (error) {
-      console.error('加载小类失败:', error)
+      // 加载失败，使用空数组
     }
   }
 
@@ -1049,7 +1049,7 @@ const handleSearchCategoryChange = async (categoryId) => {
         searchSubCategories.value = response.data || []
       }
     } catch (error) {
-      console.error('加载搜索小类失败:', error)
+      // 加载失败，使用空数组
     }
   }
 }
@@ -1400,7 +1400,6 @@ const searchOperators = async (query) => {
       operatorOptions.value = []
     }
   } catch (error) {
-    console.error('搜索操作人失败:', error)
     operatorOptions.value = []
   } finally {
     operatorLoading.value = false
@@ -1622,7 +1621,6 @@ const exportSelectedSummaryData = () => {
 
     ElMessage.success('多选汇总数据导出成功')
   } catch (error) {
-    console.error('导出失败:', error)
     ElMessage.error('导出失败')
   }
 }
@@ -1644,8 +1642,9 @@ const handleAdd = () => {
 // 编辑
 const handleEdit = async (row) => {
   dialogTitle.value = '编辑收支记录'
-  Object.assign(form, row)
 
+  Object.assign(form, row)
+  
   // 确保图片数据正确处理 - 编辑时图片都是已保存的
   if (row.images && Array.isArray(row.images)) {
     form.images = row.images.map(img => {
@@ -1664,7 +1663,8 @@ const handleEdit = async (row) => {
   } else {
     form.images = []
   }
-
+  form.teamId = row.teamId._id;
+  form.companyAccountId = row.companyAccountId._id;
   // 处理记录类型数据
   if (row.recordType) {
     form.categoryId = row.recordType.categoryId || null
@@ -1683,7 +1683,7 @@ const handleEdit = async (row) => {
   }
 
   // 确保companyAccountId字段正确设置
-  form.companyAccountId = row.companyAccountId || null
+  // form.companyAccountId = row.companyAccountId || null
 
   dialogVisible.value = true
 }
